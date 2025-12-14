@@ -1,31 +1,8 @@
 // ===========================================
 // Supabase Client Configuration
 // ===========================================
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { User, Message, Reminder } from '@/types';
-
-// Database type definitions for Supabase
-export interface Database {
-  public: {
-    Tables: {
-      users: {
-        Row: User;
-        Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<User, 'id' | 'created_at' | 'updated_at'>>;
-      };
-      messages: {
-        Row: Message;
-        Insert: Omit<Message, 'id' | 'created_at'>;
-        Update: Partial<Omit<Message, 'id' | 'created_at'>>;
-      };
-      reminders: {
-        Row: Reminder;
-        Insert: Omit<Reminder, 'id' | 'created_at'>;
-        Update: Partial<Omit<Reminder, 'id' | 'created_at'>>;
-      };
-    };
-  };
-}
 
 // Validate environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -41,20 +18,27 @@ if (!supabaseAnonKey) {
 }
 
 // Public client (for client-side usage)
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+// Admin client singleton
+let adminClient: SupabaseClient | null = null;
 
 // Admin client (for server-side usage with elevated privileges)
-export function getAdminClient() {
+export function getAdminClient(): SupabaseClient {
   if (!supabaseServiceRoleKey) {
     throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
   }
   
-  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  if (!adminClient) {
+    adminClient = createClient(supabaseUrl!, supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  
+  return adminClient;
 }
 
 // ===========================================
@@ -71,7 +55,7 @@ export async function findOrCreateUser(phoneNumber: string): Promise<User | null
     .single();
   
   if (existingUser && !findError) {
-    return existingUser;
+    return existingUser as User;
   }
   
   // Create new user
@@ -89,7 +73,7 @@ export async function findOrCreateUser(phoneNumber: string): Promise<User | null
     return null;
   }
   
-  return newUser;
+  return newUser as User;
 }
 
 // ===========================================
@@ -121,7 +105,7 @@ export async function logMessage(
     return null;
   }
   
-  return data;
+  return data as Message;
 }
 
 export async function getMessageHistory(
@@ -143,7 +127,7 @@ export async function getMessageHistory(
   }
   
   // Return in chronological order (oldest first)
-  return data?.reverse() ?? [];
+  return (data?.reverse() ?? []) as Message[];
 }
 
 // ===========================================
@@ -172,7 +156,7 @@ export async function createReminder(
     return null;
   }
   
-  return data;
+  return data as Reminder;
 }
 
 export async function getPendingReminders(): Promise<(Reminder & { users: User })[]> {
@@ -210,3 +194,4 @@ export async function updateReminderStatus(
   
   return true;
 }
+
