@@ -4,10 +4,17 @@
 import OpenAI from 'openai';
 import type { ChatMessage } from '@/types';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI client lazily to prevent build-time errors
+let openaiInstance: OpenAI | null = null;
+
+function getOpenAI() {
+  if (!openaiInstance) {
+    openaiInstance = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openaiInstance;
+}
 
 // System prompt for the Family Butler
 const SYSTEM_PROMPT = `You are "Family Butler" - a helpful, friendly AI assistant that lives on WhatsApp to help Austrian families manage their daily lives.
@@ -52,7 +59,7 @@ export async function generateAIResponse(
       { role: 'user', content: newMessage },
     ];
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages,
       max_tokens: 1000,
@@ -85,7 +92,7 @@ export async function analyzeImage(
     const prompt = userPrompt || 
       'Analyze this document/image and extract the key information. Focus on: dates, deadlines, amounts, and any required actions. Summarize in a clear, actionable format.';
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
@@ -121,7 +128,7 @@ export async function parseReminderIntent(
   message: string
 ): Promise<{ task: string; datetime: Date } | null> {
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
