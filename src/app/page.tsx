@@ -237,9 +237,8 @@ export default function LandingPage() {
             <span className="font-semibold text-gray-900">FamilyButler</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-600">
-            <a href="#" className="hover:text-emerald-600 transition-colors">Impressum</a>
-            <a href="#" className="hover:text-emerald-600 transition-colors">Datenschutz</a>
-            <a href="#" className="hover:text-emerald-600 transition-colors">AGB</a>
+            <a href="/privacy" className="hover:text-emerald-600 transition-colors">Datenschutz</a>
+            <a href="/terms" className="hover:text-emerald-600 transition-colors">AGB</a>
           </div>
           <p className="text-sm text-gray-500">
             © {new Date().getFullYear()} FamilyButler. Made in Austria 🇦🇹
