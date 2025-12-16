@@ -8,9 +8,12 @@ export interface User {
   phone_number: string;
   subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';
   stripe_customer_id?: string;
+  firebase_uid?: string;
+  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
 }
+
 
 export interface Message {
   id: string;

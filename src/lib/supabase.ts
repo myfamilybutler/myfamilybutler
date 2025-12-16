@@ -195,3 +195,106 @@ export async function updateReminderStatus(
   return true;
 }
 
+// ===========================================
+// Firebase Auth User Operations
+// ===========================================
+export async function findOrCreateUserByFirebaseUid(
+  firebaseUid: string,
+  phoneNumber: string
+): Promise<User | null> {
+  const admin = getAdminClient();
+  
+  // Try to find existing user by firebase_uid
+  const { data: existingUser, error: findError } = await admin
+    .from('users')
+    .select('*')
+    .eq('firebase_uid', firebaseUid)
+    .single();
+  
+  if (existingUser && !findError) {
+    return existingUser as User;
+  }
+  
+  // Check if user exists by phone number (migration case)
+  const { data: phoneUser } = await admin
+    .from('users')
+    .select('*')
+    .eq('phone_number', phoneNumber)
+    .single();
+  
+  if (phoneUser) {
+    // Update existing user with firebase_uid
+    const { data: updatedUser, error: updateError } = await admin
+      .from('users')
+      .update({ firebase_uid: firebaseUid })
+      .eq('id', phoneUser.id)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error('Error updating user with firebase_uid:', updateError);
+      return phoneUser as User;
+    }
+    
+    return updatedUser as User;
+  }
+  
+  // Create new user
+  const { data: newUser, error: createError } = await admin
+    .from('users')
+    .insert({ 
+      phone_number: phoneNumber,
+      firebase_uid: firebaseUid,
+      subscription_status: 'free',
+      onboarding_completed: false,
+    })
+    .select()
+    .single();
+  
+  if (createError) {
+    console.error('Error creating user:', createError);
+    return null;
+  }
+  
+  return newUser as User;
+}
+
+export async function updateOnboardingCompleted(
+  firebaseUid: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+  
+  const { error } = await admin
+    .from('users')
+    .update({ onboarding_completed: true })
+    .eq('firebase_uid', firebaseUid);
+  
+  if (error) {
+    console.error('Error updating onboarding status:', error);
+    return false;
+  }
+  
+  return true;
+}
+
+export async function checkOnboardingStatus(
+  firebaseUid: string
+): Promise<{ completed: boolean; userId: string | null }> {
+  const admin = getAdminClient();
+  
+  const { data, error } = await admin
+    .from('users')
+    .select('id, onboarding_completed')
+    .eq('firebase_uid', firebaseUid)
+    .single();
+  
+  if (error || !data) {
+    return { completed: false, userId: null };
+  }
+  
+  return { 
+    completed: data.onboarding_completed ?? false, 
+    userId: data.id 
+  };
+}
+
