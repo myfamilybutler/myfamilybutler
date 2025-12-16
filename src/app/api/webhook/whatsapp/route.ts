@@ -120,17 +120,24 @@ function extractMessageContent(body: WaSenderWebhookBody): {
  * Process webhook messages asynchronously
  */
 async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
+  console.log('=== DEBUG: processWebhookAsync START ===');
+  console.log('DEBUG: Full webhook body:', JSON.stringify(body, null, 2));
+  
   const data = body.data;
   const messageKey = data.messages?.key || data.key;
 
   if (!messageKey) {
-    console.warn('No message key found in webhook payload');
+    console.warn('DEBUG: No message key found in webhook payload');
+    console.log('DEBUG: data.messages:', data.messages);
+    console.log('DEBUG: data.key:', data.key);
     return;
   }
 
+  console.log('DEBUG: messageKey found:', messageKey);
+
   // Skip messages from ourselves
   if (messageKey.fromMe) {
-    console.log('Ignoring message from self');
+    console.log('DEBUG: Ignoring message from self');
     return;
   }
 
@@ -138,36 +145,41 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
   const phoneNumber = extractPhoneNumber(messageKey.remoteJid);
   const messageId = messageKey.id;
 
-  console.log(`Processing message from ${phoneNumber}:`, messageId);
+  console.log(`DEBUG: Processing message from ${phoneNumber}, ID: ${messageId}`);
 
   // Find or create user
+  console.log('DEBUG: Finding/creating user...');
   const user = await findOrCreateUser(phoneNumber);
   if (!user) {
-    console.error('Failed to find/create user for:', phoneNumber);
+    console.error('DEBUG: Failed to find/create user for:', phoneNumber);
     await sendWhatsAppMessage(
       phoneNumber,
       'Sorry, there was an error. Please try again later.'
     );
     return;
   }
+  console.log('DEBUG: User found/created:', user.id);
 
   // Extract message content
   const { text: userMessage, type: messageType } = extractMessageContent(body);
+  console.log(`DEBUG: Extracted message (${messageType}):`, userMessage);
 
   if (!userMessage) {
-    console.warn('Empty message content');
+    console.warn('DEBUG: Empty message content - aborting');
     return;
   }
 
-  console.log(`User message (${messageType}):`, userMessage);
-
   // Log user message
+  console.log('DEBUG: Logging user message to database...');
   await logMessage(user.id, 'user', userMessage, messageType, messageId);
 
   // Check for reminder intent
+  console.log('DEBUG: Checking for reminder intent...');
   const reminderIntent = await parseReminderIntent(userMessage);
+  console.log('DEBUG: Reminder intent result:', reminderIntent);
+  
   if (reminderIntent) {
-    // Create the reminder
+    console.log('DEBUG: Creating reminder...');
     const reminder = await createReminder(
       user.id,
       reminderIntent.task,
@@ -185,29 +197,40 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
 
       const confirmationMessage = `✅ Erinnerung erstellt!\n\n📋 *${reminderIntent.task}*\n📅 ${formattedDate}`;
 
+      console.log('DEBUG: Sending reminder confirmation...');
       await sendWhatsAppMessage(phoneNumber, confirmationMessage);
       await logMessage(user.id, 'assistant', confirmationMessage, 'text');
+      console.log('=== DEBUG: processWebhookAsync END (reminder created) ===');
       return;
     }
   }
 
   // Get message history for context
+  console.log('DEBUG: Getting message history...');
   const history = await getMessageHistory(user.id, 10);
+  console.log('DEBUG: History count:', history.length);
+  
   const chatHistory: ChatMessage[] = history.map((msg) => ({
     role: msg.role as 'user' | 'assistant',
     content: msg.content,
   }));
 
   // Generate AI response
+  console.log('DEBUG: Generating AI response...');
   const aiResponse = await generateAIResponse(chatHistory, userMessage);
+  console.log('DEBUG: AI response generated:', aiResponse.substring(0, 100) + '...');
 
   // Send response back via WhatsApp
+  console.log('DEBUG: Sending WhatsApp message to:', phoneNumber);
   const sendResult = await sendWhatsAppMessage(phoneNumber, aiResponse);
+  console.log('DEBUG: Send result:', sendResult);
 
   if (sendResult.success) {
     // Log assistant message
     await logMessage(user.id, 'assistant', aiResponse, 'text', sendResult.messageId);
+    console.log('=== DEBUG: processWebhookAsync END (success) ===');
   } else {
-    console.error('Failed to send WhatsApp message:', sendResult.error);
+    console.error('DEBUG: Failed to send WhatsApp message:', sendResult.error);
+    console.log('=== DEBUG: processWebhookAsync END (send failed) ===');
   }
 }
