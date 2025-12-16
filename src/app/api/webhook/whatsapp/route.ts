@@ -49,11 +49,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 /**
- * Extract phone number from WaSenderAPI remoteJid
- * Format: "1234567890@s.whatsapp.net" -> "1234567890"
+ * Extract phone number from WaSenderAPI message key
+ * Handles both standard format and LID (Linked ID) addressing mode
+ * LID format: uses cleanedSenderPn or senderPn for actual phone number
+ * Standard format: "1234567890@s.whatsapp.net" -> "1234567890"
  */
-function extractPhoneNumber(remoteJid: string): string {
-  return remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+function extractPhoneNumber(
+  messageKey: {
+    remoteJid: string;
+    cleanedSenderPn?: string;
+    senderPn?: string;
+    addressingMode?: string;
+  }
+): string {
+  // Priority 1: Use cleanedSenderPn if available (already cleaned)
+  if (messageKey.cleanedSenderPn) {
+    return messageKey.cleanedSenderPn;
+  }
+
+  // Priority 2: Use senderPn and clean it
+  if (messageKey.senderPn) {
+    return messageKey.senderPn.replace('@s.whatsapp.net', '').replace('@g.us', '');
+  }
+
+  // Priority 3: Fallback to remoteJid (for non-LID messages)
+  return messageKey.remoteJid
+    .replace('@s.whatsapp.net', '')
+    .replace('@g.us', '')
+    .replace('@lid', '');
 }
 
 /**
@@ -141,8 +164,8 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
     return;
   }
 
-  // Extract phone number
-  const phoneNumber = extractPhoneNumber(messageKey.remoteJid);
+  // Extract phone number (handles LID addressing mode)
+  const phoneNumber = extractPhoneNumber(messageKey);
   const messageId = messageKey.id;
 
   console.log(`DEBUG: Processing message from ${phoneNumber}, ID: ${messageId}`);
