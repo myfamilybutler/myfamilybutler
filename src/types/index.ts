@@ -90,6 +90,59 @@ export interface WhatsAppStatus {
   recipient_id: string;
 }
 
+// ===========================================
+// WaSenderAPI Webhook Types
+// ===========================================
+
+export interface WaSenderWebhookBody {
+  event: 'messages.received' | 'messages.upsert' | 'message.sent' | 'message-receipt.update' | 'session.status';
+  sessionId: string;
+  data: WaSenderWebhookData;
+}
+
+export interface WaSenderWebhookData {
+  messages?: WaSenderMessage;
+  key?: WaSenderMessageKey;
+  messageBody?: string;
+}
+
+export interface WaSenderMessage {
+  key: WaSenderMessageKey;
+  message?: {
+    conversation?: string;
+    extendedTextMessage?: {
+      text: string;
+    };
+    imageMessage?: {
+      caption?: string;
+      mimetype?: string;
+      url?: string;
+    };
+    audioMessage?: {
+      mimetype?: string;
+      url?: string;
+    };
+    documentMessage?: {
+      fileName?: string;
+      mimetype?: string;
+      url?: string;
+    };
+    videoMessage?: {
+      caption?: string;
+      mimetype?: string;
+      url?: string;
+    };
+  };
+  messageTimestamp?: number | string;
+  pushName?: string;
+}
+
+export interface WaSenderMessageKey {
+  remoteJid: string;  // Format: "1234567890@s.whatsapp.net"
+  fromMe: boolean;
+  id: string;
+}
+
 // OpenAI Types
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';

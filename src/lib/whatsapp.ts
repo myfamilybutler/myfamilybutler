@@ -1,225 +1,221 @@
 // ===========================================
-// WhatsApp Business Cloud API Integration
+// WaSenderAPI Integration
 // ===========================================
+// Documentation: https://wasenderapi.com
+// This replaces the Meta WhatsApp Business Cloud API
 
-const WHATSAPP_API_URL = 'https://graph.facebook.com/v18.0';
+const WASENDER_API_URL = process.env.WASENDER_API_URL || 'https://www.wasenderapi.com/api';
 
 /**
- * Send a text message via WhatsApp
+ * Send a text message via WaSenderAPI
  */
 export async function sendWhatsAppMessage(
   to: string,
   text: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const phoneId = process.env.WHATSAPP_PHONE_ID;
-  const token = process.env.WHATSAPP_API_TOKEN;
+  const apiKey = process.env.WASENDER_API_KEY;
 
-  if (!phoneId || !token) {
-    console.error('Missing WhatsApp configuration');
-    return { success: false, error: 'Missing WhatsApp configuration' };
+  if (!apiKey) {
+    console.error('Missing WaSenderAPI configuration');
+    return { success: false, error: 'Missing WaSenderAPI configuration' };
   }
+
+  // Normalize phone number (remove + and ensure proper format)
+  const normalizedTo = to.replace(/\D/g, '');
 
   try {
-    const response = await fetch(
-      `${WHATSAPP_API_URL}/${phoneId}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to,
-          type: 'text',
-          text: {
-            preview_url: false,
-            body: text,
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('WhatsApp API error:', errorData);
-      return { 
-        success: false, 
-        error: errorData?.error?.message || 'Failed to send message' 
-      };
-    }
-
-    const data = await response.json();
-    return { 
-      success: true, 
-      messageId: data?.messages?.[0]?.id 
-    };
-  } catch (error) {
-    console.error('WhatsApp send error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
-  }
-}
-
-/**
- * Download media from WhatsApp (for images, audio, etc.)
- */
-export async function downloadWhatsAppMedia(
-  mediaId: string
-): Promise<{ success: boolean; url?: string; error?: string }> {
-  const token = process.env.WHATSAPP_API_TOKEN;
-
-  if (!token) {
-    return { success: false, error: 'Missing WhatsApp token' };
-  }
-
-  try {
-    // First, get the media URL
-    const urlResponse = await fetch(
-      `${WHATSAPP_API_URL}/${mediaId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!urlResponse.ok) {
-      const errorData = await urlResponse.json();
-      return { 
-        success: false, 
-        error: errorData?.error?.message || 'Failed to get media URL' 
-      };
-    }
-
-    const urlData = await urlResponse.json();
-    const mediaUrl = urlData.url;
-
-    // Download the actual media
-    const mediaResponse = await fetch(mediaUrl, {
+    const response = await fetch(`${WASENDER_API_URL}/send-message`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        to: normalizedTo,
+        text: text,
+      }),
     });
 
-    if (!mediaResponse.ok) {
-      return { success: false, error: 'Failed to download media' };
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('WaSenderAPI error:', data);
+      return {
+        success: false,
+        error: data?.message || data?.error || 'Failed to send message',
+      };
     }
 
-    // For now, return the authenticated URL
-    // In production, you might want to upload to your own storage
-    return { success: true, url: mediaUrl };
+    return {
+      success: true,
+      messageId: data?.messageId || data?.key?.id,
+    };
   } catch (error) {
-    console.error('WhatsApp media download error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    console.error('WaSenderAPI send error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
 
 /**
- * Mark a message as read
+ * Send an image via WaSenderAPI
+ */
+export async function sendWhatsAppImage(
+  to: string,
+  imageUrl: string,
+  caption?: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const apiKey = process.env.WASENDER_API_KEY;
+
+  if (!apiKey) {
+    return { success: false, error: 'Missing WaSenderAPI configuration' };
+  }
+
+  const normalizedTo = to.replace(/\D/g, '');
+
+  try {
+    const response = await fetch(`${WASENDER_API_URL}/send-image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: normalizedTo,
+        image: imageUrl,
+        caption: caption || '',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('WaSenderAPI image error:', data);
+      return {
+        success: false,
+        error: data?.message || 'Failed to send image',
+      };
+    }
+
+    return {
+      success: true,
+      messageId: data?.messageId || data?.key?.id,
+    };
+  } catch (error) {
+    console.error('WaSenderAPI image send error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Send a document via WaSenderAPI
+ */
+export async function sendWhatsAppDocument(
+  to: string,
+  documentUrl: string,
+  filename?: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const apiKey = process.env.WASENDER_API_KEY;
+
+  if (!apiKey) {
+    return { success: false, error: 'Missing WaSenderAPI configuration' };
+  }
+
+  const normalizedTo = to.replace(/\D/g, '');
+
+  try {
+    const response = await fetch(`${WASENDER_API_URL}/send-document`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: normalizedTo,
+        document: documentUrl,
+        filename: filename || 'document',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data?.message || 'Failed to send document',
+      };
+    }
+
+    return {
+      success: true,
+      messageId: data?.messageId || data?.key?.id,
+    };
+  } catch (error) {
+    console.error('WaSenderAPI document send error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Mark a message as read (WaSenderAPI doesn't require this, but keeping for API compatibility)
  */
 export async function markMessageAsRead(
   messageId: string
 ): Promise<boolean> {
-  const phoneId = process.env.WHATSAPP_PHONE_ID;
-  const token = process.env.WHATSAPP_API_TOKEN;
-
-  if (!phoneId || !token) {
-    return false;
-  }
-
-  try {
-    const response = await fetch(
-      `${WHATSAPP_API_URL}/${phoneId}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          status: 'read',
-          message_id: messageId,
-        }),
-      }
-    );
-
-    return response.ok;
-  } catch (error) {
-    console.error('Error marking message as read:', error);
-    return false;
-  }
+  // WaSenderAPI automatically marks messages as read when you respond
+  // This function is kept for API compatibility with existing code
+  void messageId; // Parameter kept for API compatibility
+  return true;
 }
 
 /**
- * Send a message template (for notifications, reminders)
+ * Get session status from WaSenderAPI
  */
-export async function sendWhatsAppTemplate(
-  to: string,
-  templateName: string,
-  languageCode: string = 'de',
-  components?: Array<{
-    type: 'header' | 'body' | 'button';
-    parameters: Array<{ type: 'text'; text: string }>;
-  }>
-): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const phoneId = process.env.WHATSAPP_PHONE_ID;
-  const token = process.env.WHATSAPP_API_TOKEN;
+export async function getSessionStatus(): Promise<{
+  connected: boolean;
+  phone?: string;
+  error?: string;
+}> {
+  const apiKey = process.env.WASENDER_API_KEY;
 
-  if (!phoneId || !token) {
-    return { success: false, error: 'Missing WhatsApp configuration' };
+  if (!apiKey) {
+    return { connected: false, error: 'Missing WaSenderAPI configuration' };
   }
 
   try {
-    const response = await fetch(
-      `${WHATSAPP_API_URL}/${phoneId}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to,
-          type: 'template',
-          template: {
-            name: templateName,
-            language: {
-              code: languageCode,
-            },
-            components,
-          },
-        }),
-      }
-    );
+    const response = await fetch(`${WASENDER_API_URL}/session/status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    const data = await response.json();
 
     if (!response.ok) {
-      const errorData = await response.json();
-      return { 
-        success: false, 
-        error: errorData?.error?.message || 'Failed to send template' 
+      return {
+        connected: false,
+        error: data?.message || 'Failed to get session status',
       };
     }
 
-    const data = await response.json();
-    return { 
-      success: true, 
-      messageId: data?.messages?.[0]?.id 
+    return {
+      connected: data?.status === 'connected' || data?.connected === true,
+      phone: data?.phone || data?.me?.user,
     };
   } catch (error) {
-    console.error('WhatsApp template send error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    console.error('WaSenderAPI session status error:', error);
+    return {
+      connected: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }

@@ -36,23 +36,27 @@ export async function testSendMessage(phoneNumber: string) {
 }
 
 /**
- * Verify WhatsApp API credentials
+ * Verify WaSenderAPI credentials
  */
 export function verifyWhatsAppConfig() {
   const config = {
-    hasToken: !!process.env.WHATSAPP_API_TOKEN,
-    hasPhoneId: !!process.env.WHATSAPP_PHONE_ID,
-    hasVerifyToken: !!process.env.WHATSAPP_VERIFY_TOKEN,
-    phoneId: process.env.WHATSAPP_PHONE_ID,
+    provider: 'WaSenderAPI',
+    hasApiKey: !!process.env.WASENDER_API_KEY,
+    hasApiUrl: !!process.env.WASENDER_API_URL,
+    apiUrl: process.env.WASENDER_API_URL || 'https://www.wasenderapi.com/api (default)',
+    // Legacy Meta API (for reference)
+    legacyMeta: {
+      hasToken: !!process.env.WHATSAPP_API_TOKEN,
+      hasPhoneId: !!process.env.WHATSAPP_PHONE_ID,
+    },
   };
   
-  console.log('🔍 WhatsApp Configuration Check:');
-  console.log('  API Token:', config.hasToken ? '✅ Set' : '❌ Missing');
-  console.log('  Phone ID:', config.hasPhoneId ? `✅ ${config.phoneId}` : '❌ Missing');
-  console.log('  Verify Token:', config.hasVerifyToken ? '✅ Set' : '❌ Missing');
+  console.log('🔍 WaSenderAPI Configuration Check:');
+  console.log('  API Key:', config.hasApiKey ? '✅ Set' : '❌ Missing');
+  console.log('  API URL:', config.apiUrl);
   
-  const isValid = config.hasToken && config.hasPhoneId && config.hasVerifyToken;
-  console.log('\n', isValid ? '✅ All credentials configured!' : '❌ Missing credentials');
+  const isValid = config.hasApiKey;
+  console.log('\n', isValid ? '✅ WaSenderAPI configured!' : '❌ Missing API key');
   
   return config;
 }
