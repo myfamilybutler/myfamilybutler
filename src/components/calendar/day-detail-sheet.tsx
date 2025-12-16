@@ -1,38 +1,23 @@
 'use client';
 
 import { format } from 'date-fns';
-import { Clock } from 'lucide-react';
+import { Clock, MapPin, User } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 interface CalendarEvent {
   id: string;
-  date: Date;
   title: string;
-  time: string;
-  category: 'school' | 'medical' | 'activity' | 'reminder';
-  description?: string;
+  event_time?: string;
+  is_all_day: boolean;
+  family_member?: string;
+  location?: string;
 }
-
-const categoryColors: Record<CalendarEvent['category'], string> = {
-  school: 'bg-blue-100 text-blue-700',
-  medical: 'bg-red-100 text-red-700',
-  activity: 'bg-purple-100 text-purple-700',
-  reminder: 'bg-amber-100 text-amber-700',
-};
-
-const categoryLabels: Record<CalendarEvent['category'], string> = {
-  school: 'School',
-  medical: 'Medical',
-  activity: 'Activity',
-  reminder: 'Reminder',
-};
 
 interface DayDetailSheetProps {
   date: Date | null;
@@ -48,11 +33,9 @@ export function DayDetailSheet({ date, events, open, onOpenChange }: DayDetailSh
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md">
         <SheetHeader className="border-b border-slate-200 pb-4">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-xl font-semibold text-gray-900">
-              {format(date, 'EEEE, MMMM d')}
-            </SheetTitle>
-          </div>
+          <SheetTitle className="text-xl font-semibold text-gray-900">
+            {format(date, 'EEEE, MMMM d')}
+          </SheetTitle>
           <p className="text-sm text-gray-500">{format(date, 'yyyy')}</p>
         </SheetHeader>
 
@@ -64,7 +47,7 @@ export function DayDetailSheet({ date, events, open, onOpenChange }: DayDetailSh
               </div>
               <p className="text-gray-500 font-medium">No events scheduled</p>
               <p className="text-sm text-gray-400 mt-1">
-                This day is free! Enjoy the break.
+                This day is free!
               </p>
               <Button className="mt-4" variant="outline">
                 Add Event
@@ -72,26 +55,34 @@ export function DayDetailSheet({ date, events, open, onOpenChange }: DayDetailSh
             </div>
           ) : (
             <>
-              <p className="text-sm text-gray-500">{events.length} event{events.length > 1 ? 's' : ''} scheduled</p>
+              <p className="text-sm text-gray-500">{events.length} event{events.length > 1 ? 's' : ''}</p>
               {events.map((event) => (
                 <div
                   key={event.id}
                   className="p-4 rounded-xl border border-slate-200 bg-white hover:shadow-sm transition-shadow"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <h3 className="font-semibold text-gray-900">{event.title}</h3>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Clock className="w-4 h-4" />
-                        <span>{event.time}</span>
-                      </div>
-                    </div>
-                    <Badge className={categoryColors[event.category]} variant="secondary">
-                      {categoryLabels[event.category]}
-                    </Badge>
+                  <h3 className="font-semibold text-gray-900">{event.title}</h3>
+                  
+                  {/* Time */}
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+                    <Clock className="w-4 h-4" />
+                    <span>{event.is_all_day ? 'All day' : event.event_time}</span>
                   </div>
-                  {event.description && (
-                    <p className="mt-3 text-sm text-gray-600">{event.description}</p>
+                  
+                  {/* Family member */}
+                  {event.family_member && (
+                    <div className="flex items-center gap-2 text-sm text-emerald-600 mt-1">
+                      <User className="w-4 h-4" />
+                      <span>{event.family_member}</span>
+                    </div>
+                  )}
+                  
+                  {/* Location */}
+                  {event.location && (
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+                      <MapPin className="w-4 h-4" />
+                      <span>{event.location}</span>
+                    </div>
                   )}
                 </div>
               ))}

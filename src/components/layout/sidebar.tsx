@@ -6,15 +6,15 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
-  Calendar,
-  Users,
   Settings,
   Menu,
   X,
   MessageCircle,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface NavItem {
   label: string;
@@ -24,14 +24,13 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { label: 'Calendar', href: '/dashboard/calendar', icon: <Calendar className="w-5 h-5" /> },
-  { label: 'Family', href: '/dashboard/family', icon: <Users className="w-5 h-5" /> },
   { label: 'Settings', href: '/dashboard/settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { signOut } = useAuthStore();
 
   return (
     <>
@@ -118,17 +117,16 @@ export function Sidebar() {
           </ul>
         </nav>
 
-        {/* Footer */}
+        {/* Footer - Sign Out */}
         <div className="px-4 py-4 border-t border-slate-200">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-emerald-700">JD</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">John Doe</p>
-              <p className="text-xs text-gray-500 truncate">Parent</p>
-            </div>
-          </div>
+          <Button
+            variant="ghost"
+            onClick={() => signOut()}
+            className="w-full justify-start gap-3 text-gray-600 hover:text-gray-900"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
+          </Button>
         </div>
       </motion.aside>
 

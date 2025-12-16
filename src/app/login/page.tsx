@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaInitialized = useRef(false);
 
@@ -34,7 +35,7 @@ export default function LoginPage() {
     }
   }, [user, authLoading, router]);
 
-  // Setup reCAPTCHA verifier
+  // Setup reCAPTCHA verifier - use visible for debugging
   const setupRecaptcha = useCallback(() => {
     // Clear any existing verifier first
     if (window.recaptchaVerifier) {
@@ -44,6 +45,7 @@ export default function LoginPage() {
         // Ignore clear errors
       }
       window.recaptchaVerifier = undefined;
+      setRecaptchaReady(false);
     }
 
     // Create a new container element to avoid stale element issues
@@ -59,19 +61,32 @@ export default function LoginPage() {
     container.appendChild(recaptchaDiv);
 
     try {
+      // Use device language for better compatibility
+      auth.useDeviceLanguage();
+      
+      // Use 'normal' (visible) reCAPTCHA for debugging - change to 'invisible' later
       const verifier = new RecaptchaVerifier(auth, recaptchaDiv, {
-        size: 'invisible',
+        size: 'normal', // Changed from 'invisible' for debugging
         callback: () => {
-          // reCAPTCHA solved
+          // reCAPTCHA solved - now we can send OTP
+          console.log('reCAPTCHA verified successfully');
+          setRecaptchaReady(true);
         },
         'expired-callback': () => {
           setError('reCAPTCHA expired. Please try again.');
+          setRecaptchaReady(false);
           recaptchaInitialized.current = false;
         },
       });
       
       window.recaptchaVerifier = verifier;
       recaptchaInitialized.current = true;
+      
+      // Render the reCAPTCHA widget immediately
+      verifier.render().then((widgetId) => {
+        console.log('reCAPTCHA widget rendered with ID:', widgetId);
+      });
+      
       return verifier;
     } catch (err) {
       console.error('Error setting up reCAPTCHA:', err);
@@ -79,9 +94,15 @@ export default function LoginPage() {
     }
   }, []);
 
-  // Cleanup on unmount
+  // Setup reCAPTCHA on mount
   useEffect(() => {
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      setupRecaptcha();
+    }, 500);
+
     return () => {
+      clearTimeout(timer);
       if (window.recaptchaVerifier) {
         try {
           window.recaptchaVerifier.clear();
@@ -91,7 +112,7 @@ export default function LoginPage() {
         window.recaptchaVerifier = undefined;
       }
     };
-  }, []);
+  }, [setupRecaptcha]);
 
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digit characters except +
@@ -109,6 +130,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Check if reCAPTCHA is solved
+      if (!recaptchaReady) {
+        throw new Error('Please complete the reCAPTCHA verification first');
+      }
+
       // Validate phone number
       let formattedPhone = phoneNumber;
       if (!formattedPhone.startsWith('+')) {
@@ -119,10 +145,10 @@ export default function LoginPage() {
         throw new Error('Please enter a valid phone number');
       }
 
-      // Always setup fresh reCAPTCHA before sending
-      const verifier = setupRecaptcha();
+      // Use the existing verified reCAPTCHA
+      const verifier = window.recaptchaVerifier;
       if (!verifier) {
-        throw new Error('Failed to initialize reCAPTCHA. Please refresh the page.');
+        throw new Error('reCAPTCHA not initialized. Please refresh the page.');
       }
 
       const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, verifier);

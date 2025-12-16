@@ -2,18 +2,45 @@
 // MyFamilyButler - Global TypeScript Interfaces
 // ===========================================
 
+// ===========================================
 // Database Types
+// ===========================================
+
+export interface Household {
+  id: string;
+  name?: string;
+  created_at: string;
+}
+
 export interface User {
   id: string;
   phone_number: string;
-  subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';
-  stripe_customer_id?: string;
+  household_id?: string;
+  display_name?: string;
+  is_admin: boolean;
   firebase_uid?: string;
   onboarding_completed: boolean;
+  subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';
+  stripe_customer_id?: string;
   created_at: string;
   updated_at: string;
 }
 
+export interface FamilyMember {
+  id: string;
+  household_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface HouseholdInvite {
+  id: string;
+  household_id: string;
+  phone_number: string;
+  invited_by?: string;
+  status: 'pending' | 'accepted' | 'expired';
+  created_at: string;
+}
 
 export interface Message {
   id: string;
@@ -31,6 +58,21 @@ export interface Reminder {
   message: string;
   remind_at: string;
   status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  created_at: string;
+}
+
+export interface Event {
+  id: string;
+  household_id: string;
+  created_by?: string;
+  title: string;
+  event_date: string;
+  event_time?: string;
+  is_all_day: boolean;
+  family_member?: string;
+  location?: string;
+  description?: string;
+  source_message_id?: string;
   created_at: string;
 }
 

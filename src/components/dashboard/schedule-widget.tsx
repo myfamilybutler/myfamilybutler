@@ -1,38 +1,25 @@
 'use client';
 
 import { format } from 'date-fns';
-import { Clock, MapPin } from 'lucide-react';
+import { Clock, MapPin, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface ScheduleEvent {
   id: string;
   title: string;
-  time: string;
+  event_date: string;
+  event_time?: string;
+  is_all_day: boolean;
+  family_member?: string;
   location?: string;
-  category: 'school' | 'medical' | 'activity' | 'reminder';
 }
 
-const categoryColors: Record<ScheduleEvent['category'], string> = {
-  school: 'bg-blue-100 text-blue-700',
-  medical: 'bg-red-100 text-red-700',
-  activity: 'bg-purple-100 text-purple-700',
-  reminder: 'bg-amber-100 text-amber-700',
-};
-
-const categoryLabels: Record<ScheduleEvent['category'], string> = {
-  school: 'School',
-  medical: 'Medical',
-  activity: 'Activity',
-  reminder: 'Reminder',
-};
-
-// Sample data - would come from API in real app
+// Sample data - would come from Supabase in real app
 const todayEvents: ScheduleEvent[] = [
-  { id: '1', title: 'School Drop-off', time: '08:00', location: 'Lincoln Elementary', category: 'school' },
-  { id: '2', title: 'Dentist Appointment - Emma', time: '10:30', location: 'Dr. Smith Clinic', category: 'medical' },
-  { id: '3', title: 'Soccer Practice', time: '15:30', location: 'City Sports Field', category: 'activity' },
-  { id: '4', title: 'Pick up groceries', time: '17:00', category: 'reminder' },
+  { id: '1', title: 'School Drop-off', event_date: '2024-12-16', event_time: '08:00', is_all_day: false, family_member: 'Emma', location: 'Lincoln Elementary' },
+  { id: '2', title: 'Dentist Appointment', event_date: '2024-12-16', event_time: '10:30', is_all_day: false, family_member: 'Max', location: 'Dr. Smith' },
+  { id: '3', title: 'Soccer Practice', event_date: '2024-12-16', event_time: '15:30', is_all_day: false, family_member: 'Emma', location: 'City Field' },
+  { id: '4', title: 'School Trip', event_date: '2024-12-16', is_all_day: true, family_member: 'Max' },
 ];
 
 export function ScheduleWidget() {
@@ -43,41 +30,53 @@ export function ScheduleWidget() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold text-gray-900">
-            Upcoming Schedule
+            Today
           </CardTitle>
-          <Badge variant="secondary" className="font-normal">
+          <span className="text-sm text-gray-500">
             {format(today, 'EEEE, MMM d')}
-          </Badge>
+          </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2">
         {todayEvents.map((event) => (
           <div
             key={event.id}
-            className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/50 hover:bg-slate-100/50 transition-colors"
+            className="p-3 rounded-xl bg-slate-50/50 hover:bg-slate-100/50 transition-colors"
           >
-            <div className="flex-shrink-0 w-12 text-center">
-              <span className="text-sm font-semibold text-gray-900">{event.time}</span>
+            {/* Title and time */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-500 w-14 shrink-0">
+                {event.is_all_day ? 'All day' : event.event_time}
+              </span>
+              <span className="text-sm font-medium text-gray-900 truncate">
+                {event.title}
+              </span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{event.title}</p>
-              {event.location && (
-                <div className="flex items-center gap-1 mt-1">
-                  <MapPin className="w-3 h-3 text-gray-400" />
-                  <span className="text-xs text-gray-500 truncate">{event.location}</span>
-                </div>
-              )}
-            </div>
-            <Badge className={categoryColors[event.category]} variant="secondary">
-              {categoryLabels[event.category]}
-            </Badge>
+            
+            {/* Meta info: family member and location */}
+            {(event.family_member || event.location) && (
+              <div className="flex items-center gap-4 mt-1.5 ml-[68px]">
+                {event.family_member && (
+                  <div className="flex items-center gap-1 text-xs text-emerald-600">
+                    <User className="w-3 h-3" />
+                    <span>{event.family_member}</span>
+                  </div>
+                )}
+                {event.location && (
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <MapPin className="w-3 h-3" />
+                    <span className="truncate">{event.location}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
 
         {todayEvents.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Clock className="w-10 h-10 text-gray-300 mb-2" />
-            <p className="text-sm text-gray-500">No events scheduled for today</p>
+            <p className="text-sm text-gray-500">No events today</p>
           </div>
         )}
       </CardContent>

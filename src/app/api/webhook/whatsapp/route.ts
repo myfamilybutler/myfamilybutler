@@ -3,7 +3,14 @@
 // ===========================================
 import { NextRequest, NextResponse } from 'next/server';
 import type { WaSenderWebhookBody, ChatMessage } from '@/types';
-import { findOrCreateUser, logMessage, getMessageHistory } from '@/lib/supabase';
+import { 
+  findOrCreateUser, 
+  logMessage, 
+  getMessageHistory,
+  checkPendingInvite,
+  acceptInvite 
+} from '@/lib/supabase';
+import { getAdminClient } from '@/lib/supabase';
 import { generateAIResponse, parseReminderIntent } from '@/lib/openai';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { createReminder } from '@/lib/supabase';
@@ -216,6 +223,33 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
         'Sorry, there was an error. Please try again later.'
       );
       return;
+    }
+    
+    // Check for pending invite and auto-link to household
+    if (!user.household_id) {
+      const pendingInvite = await checkPendingInvite(phoneNumber);
+      if (pendingInvite) {
+        console.log(`[Webhook] Auto-linking user ${phoneNumber} to household via pending invite`);
+        await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
+        
+        // Update user object with household
+        const admin = getAdminClient();
+        const { data: updatedUser } = await admin
+          .from('users')
+          .select('household_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (updatedUser) {
+          user.household_id = updatedUser.household_id;
+        }
+        
+        // Welcome message
+        await sendWhatsAppMessage(
+          phoneNumber,
+          '🎉 Willkommen bei FamilyButler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!'
+        );
+      }
     }
 
     // Extract message content

@@ -9,7 +9,6 @@ import {
   endOfWeek,
   eachDayOfInterval,
   isSameMonth,
-  isSameDay,
   isToday,
   addMonths,
   subMonths,
@@ -23,28 +22,22 @@ import { DayDetailSheet } from './day-detail-sheet';
 
 interface CalendarEvent {
   id: string;
-  date: Date;
   title: string;
-  time: string;
-  category: 'school' | 'medical' | 'activity' | 'reminder';
-  description?: string;
+  event_date: string;
+  event_time?: string;
+  is_all_day: boolean;
+  family_member?: string;
+  location?: string;
 }
 
-const categoryColors: Record<CalendarEvent['category'], string> = {
-  school: 'bg-blue-500',
-  medical: 'bg-red-500',
-  activity: 'bg-purple-500',
-  reminder: 'bg-amber-500',
-};
-
-// Sample events - would come from API in real app
+// Sample events - would come from Supabase in real app
 const sampleEvents: CalendarEvent[] = [
-  { id: '1', date: new Date(), title: 'School Drop-off', time: '08:00', category: 'school', description: 'Drop Emma at Lincoln Elementary' },
-  { id: '2', date: new Date(), title: 'Dentist', time: '10:30', category: 'medical', description: "Emma's regular checkup at Dr. Smith" },
-  { id: '3', date: new Date(), title: 'Soccer', time: '15:30', category: 'activity', description: 'Soccer practice at City Sports Field' },
-  { id: '4', date: new Date(new Date().setDate(new Date().getDate() + 2)), title: 'Parent Meeting', time: '18:00', category: 'school', description: 'PTA meeting at school auditorium' },
-  { id: '5', date: new Date(new Date().setDate(new Date().getDate() + 5)), title: 'Swimming', time: '14:00', category: 'activity', description: 'Swimming lessons for Max' },
-  { id: '6', date: new Date(new Date().setDate(new Date().getDate() + 7)), title: 'Doctor Checkup', time: '09:00', category: 'medical', description: 'Annual checkup for John' },
+  { id: '1', title: 'School Drop-off', event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '08:00', is_all_day: false, family_member: 'Emma', location: 'Lincoln Elementary' },
+  { id: '2', title: 'Dentist', event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '10:30', is_all_day: false, family_member: 'Max', location: 'Dr. Smith' },
+  { id: '3', title: 'Soccer', event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '15:30', is_all_day: false, family_member: 'Emma' },
+  { id: '4', title: 'Parent Meeting', event_date: format(new Date(new Date().setDate(new Date().getDate() + 2)), 'yyyy-MM-dd'), event_time: '18:00', is_all_day: false },
+  { id: '5', title: 'Swimming', event_date: format(new Date(new Date().setDate(new Date().getDate() + 5)), 'yyyy-MM-dd'), event_time: '14:00', is_all_day: false, family_member: 'Max' },
+  { id: '6', title: 'School Trip', event_date: format(new Date(new Date().setDate(new Date().getDate() + 7)), 'yyyy-MM-dd'), is_all_day: true, family_member: 'Emma' },
 ];
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -61,7 +54,8 @@ export function CalendarWidget() {
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const getEventsForDay = (day: Date) => {
-    return sampleEvents.filter((event) => isSameDay(event.date, day));
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return sampleEvents.filter((event) => event.event_date === dayStr);
   };
 
   const handlePrevMonth = () => {
@@ -123,6 +117,7 @@ export function CalendarWidget() {
                 const dayEvents = getEventsForDay(day);
                 const isCurrentMonth = isSameMonth(day, currentMonth);
                 const isTodayDate = isToday(day);
+                const hasEvents = dayEvents.length > 0;
 
                 return (
                   <button
@@ -143,23 +138,10 @@ export function CalendarWidget() {
                       {format(day, 'd')}
                     </span>
                     
-                    {/* Event pills */}
-                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-                      {dayEvents.slice(0, 3).map((event) => (
-                        <span
-                          key={event.id}
-                          className={cn(
-                            'w-1.5 h-1.5 rounded-full',
-                            categoryColors[event.category]
-                          )}
-                        />
-                      ))}
-                      {dayEvents.length > 3 && (
-                        <span className="text-[8px] text-gray-400 ml-0.5">
-                          +{dayEvents.length - 3}
-                        </span>
-                      )}
-                    </div>
+                    {/* Simple dot for days with events */}
+                    {hasEvents && (
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    )}
                   </button>
                 );
               })}
@@ -172,7 +154,7 @@ export function CalendarWidget() {
         date={selectedDate}
         events={selectedDayEvents}
         open={selectedDate !== null}
-        onOpenChange={(open) => !open && setSelectedDate(null)}
+        onOpenChange={(open: boolean) => !open && setSelectedDate(null)}
       />
     </>
   );

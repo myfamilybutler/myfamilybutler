@@ -137,3 +137,87 @@ Current date/time for reference: ${new Date().toISOString()}`,
     return null;
   }
 }
+
+/**
+ * Parse a message to extract event information
+ * Returns parsed event info or null if no event detected
+ */
+export interface ParsedEvent {
+  title: string;
+  event_date: string;       // YYYY-MM-DD
+  event_time?: string;      // HH:MM or undefined for all-day
+  is_all_day: boolean;
+  family_member?: string;
+  location?: string;
+  description?: string;
+}
+
+export async function parseEventIntent(
+  message: string
+): Promise<ParsedEvent | null> {
+  try {
+    const completion = await getOpenAI().chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an event parser for a family calendar app. Analyze the user message and extract event information.
+
+If an event is detected, respond with ONLY valid JSON in this format:
+{
+  "isEvent": true,
+  "title": "short event title",
+  "event_date": "YYYY-MM-DD",
+  "event_time": "HH:MM" or null,
+  "is_all_day": true/false,
+  "family_member": "name" or null,
+  "location": "place" or null,
+  "description": "extra details" or null
+}
+
+If no event is detected, respond with ONLY:
+{"isEvent": false}
+
+Rules:
+- Set is_all_day to true if NO specific time is mentioned
+- event_time should be null for all-day events
+- Extract family member names like "Emma", "Max", "my son", "the kids"
+- Keep title short (under 50 chars)
+- Location can be address, venue, or person's name (like "Dr. Smith")
+- Assume Austrian timezone (Europe/Vienna)
+- "tomorrow" = next day, "Friday" = next Friday
+
+Current date for reference: ${new Date().toISOString().split('T')[0]}`,
+        },
+        { role: 'user', content: message },
+      ],
+      max_tokens: 300,
+      temperature: 0,
+    });
+
+    const responseContent = completion.choices[0]?.message?.content;
+    
+    if (!responseContent) {
+      return null;
+    }
+
+    const parsed = JSON.parse(responseContent);
+    
+    if (parsed.isEvent && parsed.title && parsed.event_date) {
+      return {
+        title: parsed.title,
+        event_date: parsed.event_date,
+        event_time: parsed.event_time || undefined,
+        is_all_day: parsed.is_all_day ?? !parsed.event_time,
+        family_member: parsed.family_member || undefined,
+        location: parsed.location || undefined,
+        description: parsed.description || undefined,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Event parsing error:', error);
+    return null;
+  }
+}
