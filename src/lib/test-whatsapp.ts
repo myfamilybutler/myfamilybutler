@@ -44,11 +44,6 @@ export function verifyWhatsAppConfig() {
     hasApiKey: !!process.env.WASENDER_API_KEY,
     hasApiUrl: !!process.env.WASENDER_API_URL,
     apiUrl: process.env.WASENDER_API_URL || 'https://www.wasenderapi.com/api (default)',
-    // Legacy Meta API (for reference)
-    legacyMeta: {
-      hasToken: !!process.env.WHATSAPP_API_TOKEN,
-      hasPhoneId: !!process.env.WHATSAPP_PHONE_ID,
-    },
   };
   
   console.log('🔍 WaSenderAPI Configuration Check:');

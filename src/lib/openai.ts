@@ -82,45 +82,6 @@ export async function generateAIResponse(
 }
 
 /**
- * Analyze an image and extract key information
- */
-export async function analyzeImage(
-  imageUrl: string,
-  userPrompt?: string
-): Promise<string> {
-  try {
-    const prompt = userPrompt || 
-      'Analyze this document/image and extract the key information. Focus on: dates, deadlines, amounts, and any required actions. Summarize in a clear, actionable format.';
-
-    const completion = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: imageUrl } },
-          ],
-        },
-      ],
-      max_tokens: 1000,
-    });
-
-    const responseContent = completion.choices[0]?.message?.content;
-    
-    if (!responseContent) {
-      throw new Error('No response content from OpenAI');
-    }
-
-    return responseContent;
-  } catch (error) {
-    console.error('OpenAI Vision API error:', error);
-    return 'Ich konnte das Bild leider nicht analysieren. Könnten Sie bitte die wichtigsten Details manuell eingeben? 📝';
-  }
-}
-
-/**
  * Parse a message to check if it contains a reminder request
  * Returns parsed reminder info or null if not a reminder
  */
