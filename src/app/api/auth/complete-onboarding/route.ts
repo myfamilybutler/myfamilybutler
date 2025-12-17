@@ -35,11 +35,70 @@ export async function POST(request: NextRequest) {
     }
     
     // Update phone number if provided during onboarding
+    // AND check if there's an existing phone-based user to merge
     if (phoneNumber) {
-      await admin
+      // Check if another user exists with this phone number
+      const { data: existingPhoneUser } = await admin
         .from('users')
-        .update({ phone_number: phoneNumber })
-        .eq('id', user.id);
+        .select('id, household_id, telegram_chat_id')
+        .eq('phone_number', phoneNumber)
+        .neq('id', user.id)
+        .single();
+      
+      if (existingPhoneUser) {
+        console.log(`[Onboarding] Merging phone-based user ${existingPhoneUser.id} into ${user.id}`);
+        
+        // Transfer events from old user to new user
+        await admin
+          .from('events')
+          .update({ created_by: user.id })
+          .eq('created_by', existingPhoneUser.id);
+        
+        // Transfer messages from old user to new user
+        await admin
+          .from('messages')
+          .update({ user_id: user.id })
+          .eq('user_id', existingPhoneUser.id);
+        
+        // Transfer reminders from old user to new user
+        await admin
+          .from('reminders')
+          .update({ user_id: user.id })
+          .eq('user_id', existingPhoneUser.id);
+        
+        // If user had a family and we don't, take their family
+        let userFamilyId = user.household_id;
+        if (!userFamilyId && existingPhoneUser.household_id) {
+          userFamilyId = existingPhoneUser.household_id;
+        }
+        
+        // Update current user with phone and telegram info from old user
+        await admin
+          .from('users')
+          .update({ 
+            phone_number: phoneNumber,
+            telegram_chat_id: existingPhoneUser.telegram_chat_id,
+            household_id: userFamilyId || undefined,
+          })
+          .eq('id', user.id);
+        
+        // Delete the old phone-based user (now orphaned)
+        await admin
+          .from('users')
+          .delete()
+          .eq('id', existingPhoneUser.id);
+        
+        console.log(`[Onboarding] Successfully merged users`);
+        
+        // Update user.household_id for next steps
+        user.household_id = userFamilyId;
+      } else {
+        // No existing phone user, just update phone number
+        await admin
+          .from('users')
+          .update({ phone_number: phoneNumber })
+          .eq('id', user.id);
+      }
     }
     
     // Check if user already has a family
