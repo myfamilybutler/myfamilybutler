@@ -20,6 +20,7 @@ export interface User {
   display_name?: string;
   is_admin: boolean;
   supabase_user_id?: string;
+  telegram_chat_id?: string;
   onboarding_completed: boolean;
   subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';
   stripe_customer_id?: string;
@@ -50,6 +51,7 @@ export interface Message {
   content: string;
   type: 'text' | 'image' | 'voice';
   whatsapp_message_id?: string;
+  channel?: 'whatsapp' | 'telegram';
   created_at: string;
 }
 
@@ -131,6 +133,84 @@ export interface MetaStatus {
   timestamp: string;
   recipient_id: string;
 }
+
+// ===========================================
+// Telegram Bot API Types
+// ===========================================
+
+export interface TelegramUpdate {
+  update_id: number;
+  message?: TelegramMessage;
+  edited_message?: TelegramMessage;
+}
+
+export interface TelegramMessage {
+  message_id: number;
+  from?: TelegramUser;
+  chat: TelegramChat;
+  date: number;
+  text?: string;
+  photo?: TelegramPhotoSize[];
+  voice?: TelegramVoice;
+  document?: TelegramDocument;
+  caption?: string;
+  contact?: TelegramContact;
+}
+
+export interface TelegramUser {
+  id: number;
+  is_bot: boolean;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  language_code?: string;
+}
+
+export interface TelegramChat {
+  id: number;
+  type: 'private' | 'group' | 'supergroup' | 'channel';
+  title?: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+export interface TelegramPhotoSize {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
+}
+
+export interface TelegramVoice {
+  file_id: string;
+  file_unique_id: string;
+  duration: number;
+  mime_type?: string;
+  file_size?: number;
+}
+
+export interface TelegramDocument {
+  file_id: string;
+  file_unique_id: string;
+  file_name?: string;
+  mime_type?: string;
+  file_size?: number;
+}
+
+export interface TelegramContact {
+  phone_number: string;
+  first_name: string;
+  last_name?: string;
+  user_id?: number;
+}
+
+// ===========================================
+// Message Channel Type
+// ===========================================
+
+export type MessageChannel = 'whatsapp' | 'telegram';
 
 // OpenAI Types
 export interface ChatMessage {

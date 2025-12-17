@@ -101,7 +101,8 @@ export async function logMessage(
   role: 'user' | 'assistant' | 'system',
   content: string,
   type: 'text' | 'image' | 'voice' = 'text',
-  whatsappMessageId?: string
+  messageId?: string,
+  channel: 'whatsapp' | 'telegram' = 'whatsapp'
 ): Promise<Message | null> {
   const admin = getAdminClient();
   
@@ -112,7 +113,8 @@ export async function logMessage(
       role,
       content,
       type,
-      whatsapp_message_id: whatsappMessageId,
+      whatsapp_message_id: messageId,
+      channel,
     })
     .select()
     .single();
