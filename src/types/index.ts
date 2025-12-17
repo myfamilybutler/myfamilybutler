@@ -6,7 +6,7 @@
 // Database Types
 // ===========================================
 
-export interface Household {
+export interface Family {
   id: string;
   name?: string;
   created_at: string;
@@ -33,7 +33,7 @@ export interface FamilyMember {
   created_at: string;
 }
 
-export interface HouseholdInvite {
+export interface FamilyInvite {
   id: string;
   household_id: string;
   phone_number: string;
@@ -68,6 +68,7 @@ export interface Event {
   title: string;
   event_date: string;
   event_time?: string;
+  end_time?: string;
   is_all_day: boolean;
   family_member?: string;
   location?: string;

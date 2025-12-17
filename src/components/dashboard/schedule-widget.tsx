@@ -3,27 +3,15 @@
 import { format } from 'date-fns';
 import { Clock, MapPin, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { CalendarEvent } from '@/components/calendar/calendar-widget';
 
-interface ScheduleEvent {
-  id: string;
-  title: string;
-  event_date: string;
-  event_time?: string;
-  is_all_day: boolean;
-  family_member?: string;
-  location?: string;
+export interface ScheduleWidgetProps {
+  events: CalendarEvent[];
 }
 
-// Sample data - would come from Supabase in real app
-const todayEvents: ScheduleEvent[] = [
-  { id: '1', title: 'School Drop-off', event_date: '2024-12-16', event_time: '08:00', is_all_day: false, family_member: 'Emma', location: 'Lincoln Elementary' },
-  { id: '2', title: 'Dentist Appointment', event_date: '2024-12-16', event_time: '10:30', is_all_day: false, family_member: 'Max', location: 'Dr. Smith' },
-  { id: '3', title: 'Soccer Practice', event_date: '2024-12-16', event_time: '15:30', is_all_day: false, family_member: 'Emma', location: 'City Field' },
-  { id: '4', title: 'School Trip', event_date: '2024-12-16', is_all_day: true, family_member: 'Max' },
-];
-
-export function ScheduleWidget() {
+export function ScheduleWidget({ events }: ScheduleWidgetProps) {
   const today = new Date();
+  const todayEvents = events; // Events are filtered by parent
 
   return (
     <Card className="h-full border-slate-200 shadow-sm">
@@ -45,8 +33,8 @@ export function ScheduleWidget() {
           >
             {/* Title and time */}
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-500 w-14 shrink-0">
-                {event.is_all_day ? 'All day' : event.event_time}
+              <span className="text-sm font-medium text-gray-500 shrink-0">
+                {event.is_all_day ? 'All day' : (event.end_time ? `${event.event_time} - ${event.end_time}` : event.event_time)}
               </span>
               <span className="text-sm font-medium text-gray-900 truncate">
                 {event.title}

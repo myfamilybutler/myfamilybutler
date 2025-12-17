@@ -2,7 +2,7 @@
 // Supabase Client Configuration
 // ===========================================
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { User, Message, Reminder } from '@/types';
+import type { User, Message, Reminder, Event } from '@/types';
 
 // Validate environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,13 +48,30 @@ export async function findOrCreateUser(phoneNumber: string): Promise<User | null
   const admin = getAdminClient();
   
   // Try to find existing user
-  const { data: existingUser, error: findError } = await admin
+  let { data: existingUser } = await admin
     .from('users')
     .select('*')
     .eq('phone_number', phoneNumber)
     .single();
   
-  if (existingUser && !findError) {
+  // If not found, try alternative format (with/without +)
+  if (!existingUser) {
+    const altPhone = phoneNumber.startsWith('+') 
+      ? phoneNumber.substring(1) 
+      : `+${phoneNumber}`;
+      
+    const { data: altUser } = await admin
+      .from('users')
+      .select('*')
+      .eq('phone_number', altPhone)
+      .single();
+      
+    if (altUser) {
+      existingUser = altUser;
+    }
+  }
+
+  if (existingUser) {
     return existingUser as User;
   }
   
@@ -196,6 +213,84 @@ export async function updateReminderStatus(
 }
 
 // ===========================================
+// Event Operations
+// ===========================================
+
+export async function createEvent(
+  householdId: string,
+  createdBy: string,
+  eventData: {
+    title: string;
+    event_date: string;
+    event_time?: string;
+    end_time?: string;
+    is_all_day: boolean;
+    family_member?: string;
+    location?: string;
+    description?: string;
+    source_message_id?: string;
+  }
+): Promise<Event | null> {
+  const admin = getAdminClient();
+  
+  const { data, error } = await admin
+    .from('events')
+    .insert({
+      household_id: householdId,
+      created_by: createdBy,
+      title: eventData.title,
+      event_date: eventData.event_date,
+      event_time: eventData.event_time || null,
+      end_time: eventData.end_time || null,
+      is_all_day: eventData.is_all_day,
+      family_member: eventData.family_member || null,
+      location: eventData.location || null,
+      description: eventData.description || null,
+      source_message_id: eventData.source_message_id || null,
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error creating event:', error);
+    return null;
+  }
+  
+  return data as Event;
+}
+
+export async function getEventsForHousehold(
+  householdId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<Event[]> {
+  const admin = getAdminClient();
+  
+  let query = admin
+    .from('events')
+    .select('*')
+    .eq('household_id', householdId)
+    .order('event_date', { ascending: true });
+  
+  if (startDate) {
+    query = query.gte('event_date', startDate);
+  }
+  
+  if (endDate) {
+    query = query.lte('event_date', endDate);
+  }
+  
+  const { data, error } = await query;
+  
+  if (error) {
+    console.error('Error fetching events:', error);
+    return [];
+  }
+  
+  return (data ?? []) as Event[];
+}
+
+// ===========================================
 // Firebase Auth User Operations
 // ===========================================
 export async function findOrCreateUserByFirebaseUid(
@@ -300,33 +395,33 @@ export async function checkOnboardingStatus(
 }
 
 // ===========================================
-// Household Operations
+// Family Operations
 // ===========================================
 
 /**
- * Create a new household and set user as admin
+ * Create a new family and set user as admin
  */
-export async function createHouseholdForUser(
+export async function createFamilyForUser(
   userId: string,
   displayName?: string
 ): Promise<string | null> {
   const admin = getAdminClient();
   
-  // Create household with auto-generated name
-  const householdName = displayName ? `${displayName}'s Family` : null;
+  // Create family with auto-generated name
+  const familyName = displayName ? `${displayName}'s Family` : null;
   
   const { data: household, error: createError } = await admin
     .from('households')
-    .insert({ name: householdName })
+    .insert({ name: familyName })
     .select()
     .single();
   
   if (createError || !household) {
-    console.error('Error creating household:', createError);
+    console.error('Error creating family:', createError);
     return null;
   }
   
-  // Update user to be admin of this household
+  // Update user to be admin of this family
   const { error: updateError } = await admin
     .from('users')
     .update({ 
@@ -337,7 +432,7 @@ export async function createHouseholdForUser(
     .eq('id', userId);
   
   if (updateError) {
-    console.error('Error linking user to household:', updateError);
+    console.error('Error linking user to family:', updateError);
     return null;
   }
   
@@ -367,12 +462,12 @@ export async function checkPendingInvite(
 }
 
 /**
- * Accept an invite and join household
+ * Accept an invite and join family
  */
 export async function acceptInvite(
   userId: string,
   inviteId: string,
-  householdId: string
+  familyId: string
 ): Promise<boolean> {
   const admin = getAdminClient();
   
@@ -387,14 +482,14 @@ export async function acceptInvite(
     return false;
   }
   
-  // Link user to household
+  // Link user to family
   const { error: userError } = await admin
     .from('users')
-    .update({ household_id: householdId, is_admin: false })
+    .update({ household_id: familyId, is_admin: false })
     .eq('id', userId);
   
   if (userError) {
-    console.error('Error linking user to household:', userError);
+    console.error('Error linking user to family:', userError);
     return false;
   }
   
@@ -404,8 +499,8 @@ export async function acceptInvite(
 /**
  * Create an invite for a phone number
  */
-export async function createHouseholdInvite(
-  householdId: string,
+export async function createFamilyInvite(
+  familyId: string,
   phoneNumber: string,
   invitedBy: string
 ): Promise<boolean> {
@@ -419,7 +514,7 @@ export async function createHouseholdInvite(
     .single();
   
   if (existingUser?.household_id) {
-    console.error('User already belongs to a household');
+    console.error('User already belongs to a family');
     return false;
   }
   
@@ -427,7 +522,7 @@ export async function createHouseholdInvite(
   const { data: existingInvite } = await admin
     .from('household_invites')
     .select('id')
-    .eq('household_id', householdId)
+    .eq('household_id', familyId)
     .eq('phone_number', phoneNumber)
     .eq('status', 'pending')
     .single();
@@ -440,7 +535,7 @@ export async function createHouseholdInvite(
   const { error } = await admin
     .from('household_invites')
     .insert({
-      household_id: householdId,
+      household_id: familyId,
       phone_number: phoneNumber,
       invited_by: invitedBy,
       status: 'pending'
@@ -458,7 +553,7 @@ export async function createHouseholdInvite(
  * Add a family member (non-WhatsApp person)
  */
 export async function addFamilyMember(
-  householdId: string,
+  familyId: string,
   name: string
 ): Promise<boolean> {
   const admin = getAdminClient();
@@ -466,7 +561,7 @@ export async function addFamilyMember(
   const { error } = await admin
     .from('family_members')
     .insert({
-      household_id: householdId,
+      household_id: familyId,
       name
     });
   
@@ -479,28 +574,28 @@ export async function addFamilyMember(
 }
 
 /**
- * Get all members of a household (both users and family members)
+ * Get all members of a family (both users and family members)
  */
-export async function getHouseholdMembers(
-  householdId: string
+export async function getFamilyMembers(
+  familyId: string
 ): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; is_admin: boolean }>; familyMembers: Array<{ id: string; name: string }> }> {
   const admin = getAdminClient();
   
-  // Get users in household
+  // Get users in family
   const { data: users, error: usersError } = await admin
     .from('users')
     .select('id, display_name, phone_number, is_admin')
-    .eq('household_id', householdId);
+    .eq('household_id', familyId);
   
   if (usersError) {
-    console.error('Error fetching household users:', usersError);
+    console.error('Error fetching family users:', usersError);
   }
   
   // Get family members
   const { data: familyMembers, error: membersError } = await admin
     .from('family_members')
     .select('id, name')
-    .eq('household_id', householdId);
+    .eq('household_id', familyId);
   
   if (membersError) {
     console.error('Error fetching family members:', membersError);
@@ -513,17 +608,17 @@ export async function getHouseholdMembers(
 }
 
 /**
- * Get pending invites for a household
+ * Get pending invites for a family
  */
 export async function getPendingInvites(
-  householdId: string
+  familyId: string
 ): Promise<Array<{ id: string; phone_number: string; created_at: string }>> {
   const admin = getAdminClient();
   
   const { data, error } = await admin
     .from('household_invites')
     .select('id, phone_number, created_at')
-    .eq('household_id', householdId)
+    .eq('household_id', familyId)
     .eq('status', 'pending');
   
   if (error) {

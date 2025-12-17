@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
   updateOnboardingCompleted, 
-  createHouseholdForUser,
+  createFamilyForUser,
   checkPendingInvite,
   acceptInvite 
 } from '@/lib/supabase';
@@ -34,21 +34,21 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check if user already has a household
+    // Check if user already has a family
     if (!user.household_id) {
       // Check for pending invite first
       const pendingInvite = await checkPendingInvite(user.phone_number);
       
       if (pendingInvite) {
-        // Accept the invite and join that household
+        // Accept the invite and join that family
         await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
       } else {
-        // Create new household for this user
-        const householdId = await createHouseholdForUser(user.id, displayName);
+        // Create new family for this user
+        const familyId = await createFamilyForUser(user.id, displayName);
         
-        if (!householdId) {
+        if (!familyId) {
           return NextResponse.json(
-            { error: 'Failed to create household' },
+            { error: 'Failed to create family' },
             { status: 500 }
           );
         }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
             if (member.name) {
               await admin
                 .from('family_members')
-                .insert({ household_id: householdId, name: member.name });
+                .insert({ household_id: familyId, name: member.name });
             }
           }
         }

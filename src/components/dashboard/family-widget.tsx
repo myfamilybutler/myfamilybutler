@@ -1,21 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, UserPlus, Clock, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/stores/auth-store';
+import { AddMemberDialog } from './add-member-dialog';
 
-interface HouseholdMember {
+interface FamilyUser {
   id: string;
   display_name?: string;
   phone_number: string;
@@ -34,106 +26,44 @@ interface PendingInvite {
 
 export function FamilyWidget() {
   const { user } = useAuthStore();
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [members, setMembers] = useState<FamilyUser[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   
   // Dialog states
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [memberName, setMemberName] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [defaultTab, setDefaultTab] = useState<'invite' | 'add'>('invite');
   
-  // Fetch household data
-  useEffect(() => {
-    async function fetchHousehold() {
-      if (!user?.uid) return;
-      
-      try {
-        const res = await fetch(`/api/household?firebaseUid=${user.uid}`);
-        const data = await res.json();
-        
-        if (data.success) {
-          setMembers(data.data.users || []);
-          setFamilyMembers(data.data.familyMembers || []);
-          setPendingInvites(data.data.pendingInvites || []);
-          setIsAdmin(data.data.isAdmin || false);
-        }
-      } catch (error) {
-        console.error('Error fetching household:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
+  // Fetch family data
+  const fetchFamily = useCallback(async () => {
+    if (!user?.uid) return;
     
-    fetchHousehold();
+    try {
+      const res = await fetch(`/api/family?firebaseUid=${user.uid}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setMembers(data.data.users || []);
+        setFamilyMembers(data.data.familyMembers || []);
+        setPendingInvites(data.data.pendingInvites || []);
+        setIsAdmin(data.data.isAdmin || false);
+      }
+    } catch (error) {
+      console.error('Error fetching family:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.uid]);
+
+  useEffect(() => {
+    fetchFamily();
+  }, [fetchFamily]);
   
-  // Invite WhatsApp user
-  const handleInvite = async () => {
-    if (!user?.uid || !phoneNumber.trim()) return;
-    
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/household', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firebaseUid: user.uid,
-          action: 'invite',
-          phoneNumber: phoneNumber.trim()
-        })
-      });
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        setPendingInvites(prev => [...prev, { id: Date.now().toString(), phone_number: phoneNumber.trim() }]);
-        setPhoneNumber('');
-        setInviteDialogOpen(false);
-      } else {
-        alert(data.error || 'Failed to invite');
-      }
-    } catch (error) {
-      console.error('Invite error:', error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  
-  // Add family member (non-WhatsApp)
-  const handleAddMember = async () => {
-    if (!user?.uid || !memberName.trim()) return;
-    
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/household', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firebaseUid: user.uid,
-          action: 'add',
-          name: memberName.trim()
-        })
-      });
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        setFamilyMembers(prev => [...prev, { id: Date.now().toString(), name: memberName.trim() }]);
-        setMemberName('');
-        setAddDialogOpen(false);
-      } else {
-        alert(data.error || 'Failed to add member');
-      }
-    } catch (error) {
-      console.error('Add member error:', error);
-    } finally {
-      setSubmitting(false);
-    }
+  const handleOpenDialog = (tab: 'invite' | 'add') => {
+    setDefaultTab(tab);
+    setDialogOpen(true);
   };
   
   if (loading) {
@@ -218,7 +148,7 @@ export function FamilyWidget() {
           {members.length === 0 && familyMembers.length === 0 && (
             <p className="text-sm text-gray-400 py-2">No family members yet</p>
           )}
-          
+
           {/* Action buttons (admin only) */}
           {isAdmin && (
             <div className="flex gap-2 pt-2">
@@ -226,7 +156,7 @@ export function FamilyWidget() {
                 variant="outline"
                 size="sm"
                 className="flex-1 gap-1"
-                onClick={() => setInviteDialogOpen(true)}
+                onClick={() => handleOpenDialog('invite')}
               >
                 <UserPlus className="w-4 h-4" />
                 Invite
@@ -235,7 +165,7 @@ export function FamilyWidget() {
                 variant="ghost"
                 size="sm"
                 className="flex-1 gap-1"
-                onClick={() => setAddDialogOpen(true)}
+                onClick={() => handleOpenDialog('add')}
               >
                 <Plus className="w-4 h-4" />
                 Add
@@ -244,58 +174,12 @@ export function FamilyWidget() {
           )}
         </CardContent>
       </Card>
-      
-      {/* Invite Dialog */}
-      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invite Family Member</DialogTitle>
-            <DialogDescription>
-              Enter their phone number. They&apos;ll join when they message the FamilyButler WhatsApp.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                placeholder="+43 660 1234567"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleInvite} disabled={submitting} className="w-full">
-              {submitting ? 'Inviting...' : 'Send Invite'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Add Member Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Family Member</DialogTitle>
-            <DialogDescription>
-              Add someone who doesn&apos;t have WhatsApp. They&apos;ll appear in your calendar for event tagging.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                placeholder="e.g. Max"
-                value={memberName}
-                onChange={(e) => setMemberName(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleAddMember} disabled={submitting} className="w-full">
-              {submitting ? 'Adding...' : 'Add Member'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+         <AddMemberDialog 
+           open={dialogOpen} 
+           onOpenChange={setDialogOpen}
+           defaultTab={defaultTab}
+           onSuccess={fetchFamily}
+         />
     </>
   );
 }

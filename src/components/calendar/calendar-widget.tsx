@@ -20,29 +20,26 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DayDetailSheet } from './day-detail-sheet';
 
-interface CalendarEvent {
+export interface CalendarEvent {
   id: string;
   title: string;
   event_date: string;
   event_time?: string;
+  end_time?: string;
   is_all_day: boolean;
   family_member?: string;
   location?: string;
 }
 
-// Sample events - would come from Supabase in real app
-const sampleEvents: CalendarEvent[] = [
-  { id: '1', title: 'School Drop-off', event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '08:00', is_all_day: false, family_member: 'Emma', location: 'Lincoln Elementary' },
-  { id: '2', title: 'Dentist', event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '10:30', is_all_day: false, family_member: 'Max', location: 'Dr. Smith' },
-  { id: '3', title: 'Soccer', event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '15:30', is_all_day: false, family_member: 'Emma' },
-  { id: '4', title: 'Parent Meeting', event_date: format(new Date(new Date().setDate(new Date().getDate() + 2)), 'yyyy-MM-dd'), event_time: '18:00', is_all_day: false },
-  { id: '5', title: 'Swimming', event_date: format(new Date(new Date().setDate(new Date().getDate() + 5)), 'yyyy-MM-dd'), event_time: '14:00', is_all_day: false, family_member: 'Max' },
-  { id: '6', title: 'School Trip', event_date: format(new Date(new Date().setDate(new Date().getDate() + 7)), 'yyyy-MM-dd'), is_all_day: true, family_member: 'Emma' },
-];
+// Sample events removed - now passed via props
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function CalendarWidget() {
+export interface CalendarWidgetProps {
+  events: CalendarEvent[];
+}
+
+export function CalendarWidget({ events }: CalendarWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [direction, setDirection] = useState(0);
@@ -55,7 +52,7 @@ export function CalendarWidget() {
 
   const getEventsForDay = (day: Date) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return sampleEvents.filter((event) => event.event_date === dayStr);
+    return events.filter((event) => event.event_date === dayStr);
   };
 
   const handlePrevMonth = () => {

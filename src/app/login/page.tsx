@@ -24,7 +24,7 @@ export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [recaptchaReady, setRecaptchaReady] = useState(false);
+  // const [recaptchaReady, setRecaptchaReady] = useState(false); // Unused in invisible mode
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaInitialized = useRef(false);
 
@@ -45,7 +45,7 @@ export default function LoginPage() {
         // Ignore clear errors
       }
       window.recaptchaVerifier = undefined;
-      setRecaptchaReady(false);
+      // setRecaptchaReady(false);
     }
 
     // Create a new container element to avoid stale element issues
@@ -66,15 +66,15 @@ export default function LoginPage() {
       
       // Use 'normal' (visible) reCAPTCHA for debugging - change to 'invisible' later
       const verifier = new RecaptchaVerifier(auth, recaptchaDiv, {
-        size: 'normal', // Changed from 'invisible' for debugging
+        size: 'invisible',
         callback: () => {
           // reCAPTCHA solved - now we can send OTP
           console.log('reCAPTCHA verified successfully');
-          setRecaptchaReady(true);
+          // setRecaptchaReady(true);
         },
         'expired-callback': () => {
           setError('reCAPTCHA expired. Please try again.');
-          setRecaptchaReady(false);
+          // setRecaptchaReady(false);
           recaptchaInitialized.current = false;
         },
       });
@@ -130,14 +130,16 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Check if reCAPTCHA is solved
-      if (!recaptchaReady) {
-        throw new Error('Please complete the reCAPTCHA verification first');
-      }
+      // Check if reCAPTCHA is solved (skipped for invisible reCAPTCHA)
+      // if (!recaptchaReady) {
+      //   throw new Error('Please complete the reCAPTCHA verification first');
+      // }
 
       // Validate phone number
       let formattedPhone = phoneNumber;
       if (!formattedPhone.startsWith('+')) {
+        // Remove loop references and cleanup
+        formattedPhone = formattedPhone.replace(/^0+/, '');
         formattedPhone = '+43' + formattedPhone; // Default to Austria
       }
 

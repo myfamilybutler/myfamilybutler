@@ -87,6 +87,10 @@ export default function VerifyPage() {
       }
 
       await confirmationResult.confirm(code);
+      
+      // Set server-side session cookie via API
+      await fetch('/api/auth/session', { method: 'POST' });
+      
       setSuccess(true);
 
       // Clear session storage

@@ -14,6 +14,7 @@ interface CalendarEvent {
   id: string;
   title: string;
   event_time?: string;
+  end_time?: string;
   is_all_day: boolean;
   family_member?: string;
   location?: string;
@@ -66,7 +67,7 @@ export function DayDetailSheet({ date, events, open, onOpenChange }: DayDetailSh
                   {/* Time */}
                   <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
                     <Clock className="w-4 h-4" />
-                    <span>{event.is_all_day ? 'All day' : event.event_time}</span>
+                    <span>{event.is_all_day ? 'All day' : (event.end_time ? `${event.event_time} - ${event.end_time}` : event.event_time)}</span>
                   </div>
                   
                   {/* Family member */}

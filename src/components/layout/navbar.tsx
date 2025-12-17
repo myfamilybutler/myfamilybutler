@@ -1,0 +1,84 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  LayoutDashboard,
+  Settings,
+  LogOut,
+  MessageCircle,
+  ChevronDown,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useAuthStore } from '@/stores/auth-store';
+
+export function Navbar() {
+  const router = useRouter();
+  const { user, signOut } = useAuthStore();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+  };
+
+  // Format phone number for display
+  const displayIdentifier = user?.phoneNumber || user?.displayName || 'Account';
+
+  return (
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-semibold text-gray-900">FamilyButler</span>
+          </Link>
+
+          {/* User Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="flex items-center gap-2 text-gray-700 hover:text-gray-900 hover:bg-slate-100"
+              >
+                <span className="text-sm font-medium">{displayIdentifier}</span>
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer">
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings" className="flex items-center gap-2 cursor-pointer">
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </header>
+  );
+}

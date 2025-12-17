@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
-  createHouseholdInvite, 
+  createFamilyInvite, 
   addFamilyMember, 
-  getHouseholdMembers,
+  getFamilyMembers,
   getPendingInvites 
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
 
 /**
- * GET - Get household members and pending invites
+ * GET - Get family members and pending invites
  */
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     
     const admin = getAdminClient();
     
-    // Get user and their household
+    // Get user and their family
     const { data: user, error } = await admin
       .from('users')
       .select('household_id, is_admin')
@@ -29,16 +29,16 @@ export async function GET(request: NextRequest) {
       .single();
     
     if (error || !user?.household_id) {
-      return NextResponse.json({ error: 'User or household not found' }, { status: 404 });
+      return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
-    const members = await getHouseholdMembers(user.household_id);
+    const members = await getFamilyMembers(user.household_id);
     const pendingInvites = await getPendingInvites(user.household_id);
     
     return NextResponse.json({
       success: true,
       data: {
-        householdId: user.household_id,
+        familyId: user.household_id,
         isAdmin: user.is_admin,
         users: members.users,
         familyMembers: members.familyMembers,
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Get household error:', error);
+    console.error('Get family error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       .single();
     
     if (error || !user?.household_id) {
-      return NextResponse.json({ error: 'User or household not found' }, { status: 404 });
+      return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
     if (!user.is_admin) {
@@ -81,11 +81,11 @@ export async function POST(request: NextRequest) {
     
     if (action === 'invite' && phoneNumber) {
       // Create invite for WhatsApp user
-      const success = await createHouseholdInvite(user.household_id, phoneNumber, user.id);
+      const success = await createFamilyInvite(user.household_id, phoneNumber, user.id);
       
       if (!success) {
         return NextResponse.json({ 
-          error: 'Failed to create invite. User may already be in another household.' 
+          error: 'Failed to create invite. User may already be in another family.' 
         }, { status: 400 });
       }
       
@@ -108,13 +108,13 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Household action error:', error);
+    console.error('Family action error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 /**
- * DELETE - Leave or delete household
+ * DELETE - Leave or delete family
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -134,38 +134,38 @@ export async function DELETE(request: NextRequest) {
       .single();
     
     if (error || !user?.household_id) {
-      return NextResponse.json({ error: 'User or household not found' }, { status: 404 });
+      return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
     if (action === 'leave' && !user.is_admin) {
-      // Non-admin leaving household
+      // Non-admin leaving family
       const { error: updateError } = await admin
         .from('users')
         .update({ household_id: null, is_admin: false })
         .eq('id', user.id);
       
       if (updateError) {
-        return NextResponse.json({ error: 'Failed to leave household' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to leave family' }, { status: 500 });
       }
       
       return NextResponse.json({ success: true });
     }
     
-    if (action === 'deleteHousehold' && user.is_admin) {
-      // Admin deleting household - unset all members first
+    if (action === 'deleteFamily' && user.is_admin) {
+      // Admin deleting family - unset all members first
       await admin
         .from('users')
         .update({ household_id: null, is_admin: false })
         .eq('household_id', user.household_id);
       
-      // Delete household (cascades to events, family_members, invites)
+      // Delete family (cascades to events, family_members, invites)
       const { error: deleteError } = await admin
         .from('households')
         .delete()
         .eq('id', user.household_id);
       
       if (deleteError) {
-        return NextResponse.json({ error: 'Failed to delete household' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to delete family' }, { status: 500 });
       }
       
       return NextResponse.json({ success: true });
@@ -173,7 +173,7 @@ export async function DELETE(request: NextRequest) {
     
     return NextResponse.json({ error: 'Invalid action or permission denied' }, { status: 400 });
   } catch (error) {
-    console.error('Household delete error:', error);
+    console.error('Family delete error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

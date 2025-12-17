@@ -11,9 +11,10 @@ import {
   acceptInvite 
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
-import { generateAIResponse, parseReminderIntent } from '@/lib/openai';
+import { generateAIResponse, parseReminderIntent, parseEventIntent } from '@/lib/openai';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
-import { createReminder } from '@/lib/supabase';
+import { createReminder, createEvent } from '@/lib/supabase';
+import { APP_CONFIG } from '@/lib/config';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -225,14 +226,14 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
       return;
     }
     
-    // Check for pending invite and auto-link to household
+    // Check for pending invite and auto-link to family
     if (!user.household_id) {
       const pendingInvite = await checkPendingInvite(phoneNumber);
       if (pendingInvite) {
-        console.log(`[Webhook] Auto-linking user ${phoneNumber} to household via pending invite`);
+        console.log(`[Webhook] Auto-linking user ${phoneNumber} to family via pending invite`);
         await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
         
-        // Update user object with household
+        // Update user object with family
         const admin = getAdminClient();
         const { data: updatedUser } = await admin
           .from('users')
@@ -287,6 +288,40 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
         await sendWhatsAppMessage(phoneNumber, confirmationMessage);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text');
         return;
+      }
+    }
+
+    // Check for event intent (only if user has a family)
+    const eventIntent = await parseEventIntent(userMessage); // Parse intent once
+    if (user.household_id) {
+      if (eventIntent) {
+        const event = await createEvent(
+          user.household_id,
+          user.id,
+          {
+            ...eventIntent,
+            source_message_id: messageId
+          }
+        );
+
+        if (event) {
+          const dateObj = new Date(event.event_date);
+          const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          });
+          
+          const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
+          const memberStr = event.family_member ? ` für ${event.family_member}` : '';
+          const locationStr = event.location ? `\n📍 ${event.location}` : '';
+          
+          const confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
+
+          await sendWhatsAppMessage(phoneNumber, confirmationMessage);
+          await logMessage(user.id, 'assistant', confirmationMessage, 'text');
+          return;
+        }
       }
     }
 

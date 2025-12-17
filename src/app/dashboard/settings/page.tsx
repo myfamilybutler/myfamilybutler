@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { 
   User, 
   Users, 
@@ -10,7 +12,9 @@ import {
   Download, 
   AlertTriangle,
   Crown,
-  UserMinus
+  UserMinus,
+  Plus,
+  Save,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,10 +29,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
 
-interface HouseholdMember {
+interface FamilyUser {
   id: string;
   display_name?: string;
   phone_number: string;
@@ -43,7 +48,7 @@ interface FamilyMember {
 export default function SettingsPage() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [members, setMembers] = useState<FamilyUser[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -51,48 +56,80 @@ export default function SettingsPage() {
   
   // Dialog states
   const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
-  const [deleteHouseholdDialog, setDeleteHouseholdDialog] = useState(false);
-  const [leaveHouseholdDialog, setLeaveHouseholdDialog] = useState(false);
+  const [deleteFamilyDialog, setDeleteFamilyDialog] = useState(false);
+  const [leaveFamilyDialog, setLeaveFamilyDialog] = useState(false);
+  const [addMemberDialog, setAddMemberDialog] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   
-  // Fetch data
-  useEffect(() => {
-    async function fetchData() {
-      if (!user?.uid) return;
-      
-      try {
-        const res = await fetch(`/api/household?firebaseUid=${user.uid}`);
-        const data = await res.json();
-        
-        if (data.success) {
-          setMembers(data.data.users || []);
-          setFamilyMembers(data.data.familyMembers || []);
-          setIsAdmin(data.data.isAdmin || false);
-          
-          // Find current user's display name
-          const currentUser = data.data.users?.find(
-            (u: HouseholdMember) => u.phone_number === user.phoneNumber
-          );
-          if (currentUser?.display_name) {
-            setDisplayName(currentUser.display_name);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
+  // Add Member states
+  // const [invitePhone, setInvitePhone] = useState('');
+  // const [memberName, setMemberName] = useState('');
+  
+  // Fetch data - extracted to useCallback so mutations can refetch
+  const fetchData = useCallback(async () => {
+    if (!user?.uid) return;
     
-    fetchData();
+    try {
+      const res = await fetch(`/api/family?firebaseUid=${user.uid}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setMembers(data.data.users || []);
+        setFamilyMembers(data.data.familyMembers || []);
+        setIsAdmin(data.data.isAdmin || false);
+        
+        // Find current user's display name
+        const currentUser = data.data.users?.find(
+          (u: FamilyUser) => u.phone_number === user.phoneNumber
+        );
+        if (currentUser?.display_name) {
+          setDisplayName(currentUser.display_name);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.uid, user?.phoneNumber]);
+  
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
   
   // Handle logout
   const handleLogout = async () => {
     await signOut();
     router.push('/login');
   };
+  
+  // Handle profile update
+  const handleUpdateProfile = async () => {
+    if (!user?.uid) return;
+    
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/account', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseUid: user.uid, displayName })
+      });
+      
+      if (res.ok) {
+        toast.success('Profile updated successfully');
+        fetchData(); // Refetch to update UI
+      } else {
+        toast.error('Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Update error:', error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  
+  // Handle add/invite member logic moved to AddMemberDialog
   
   // Handle data export (GDPR: Right to portability)
   const handleExportData = async () => {
@@ -112,7 +149,7 @@ export default function SettingsPage() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export error:', error);
-      alert('Failed to export data');
+      toast.error('Failed to export data');
     }
   };
   
@@ -132,7 +169,7 @@ export default function SettingsPage() {
         await signOut();
         router.push('/');
       } else {
-        alert('Failed to delete account');
+        toast.error('Failed to delete account');
       }
     } catch (error) {
       console.error('Delete error:', error);
@@ -141,37 +178,37 @@ export default function SettingsPage() {
     }
   };
   
-  // Handle household deletion (admin only)
-  const handleDeleteHousehold = async () => {
+  // Handle family deletion (admin only)
+  const handleDeleteFamily = async () => {
     if (!user?.uid || confirmText !== 'DELETE') return;
     
     setActionLoading(true);
     try {
-      const res = await fetch('/api/household', {
+      const res = await fetch('/api/family', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firebaseUid: user.uid, action: 'deleteHousehold' })
+        body: JSON.stringify({ firebaseUid: user.uid, action: 'deleteFamily' })
       });
       
       if (res.ok) {
         router.push('/onboarding');
       } else {
-        alert('Failed to delete household');
+        toast.error('Failed to delete family');
       }
     } catch (error) {
-      console.error('Delete household error:', error);
+      console.error('Delete family error:', error);
     } finally {
       setActionLoading(false);
     }
   };
   
-  // Handle leaving household (non-admin)
-  const handleLeaveHousehold = async () => {
+  // Handle leaving family (non-admin)
+  const handleLeaveFamily = async () => {
     if (!user?.uid) return;
     
     setActionLoading(true);
     try {
-      const res = await fetch('/api/household', {
+      const res = await fetch('/api/family', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firebaseUid: user.uid, action: 'leave' })
@@ -180,7 +217,7 @@ export default function SettingsPage() {
       if (res.ok) {
         router.push('/onboarding');
       } else {
-        alert('Failed to leave household');
+        toast.error('Failed to leave family');
       }
     } catch (error) {
       console.error('Leave error:', error);
@@ -192,10 +229,10 @@ export default function SettingsPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6 max-w-2xl mx-auto">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-500 mt-1">Manage your account and household</p>
+            <p className="text-gray-500 mt-1">Manage your account and family</p>
           </div>
           
           {/* Profile Section */}
@@ -207,14 +244,23 @@ export default function SettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="displayName">Display Name</Label>
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your name"
-                />
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <Label htmlFor="displayName">Display Name</Label>
+                  <Input
+                    id="displayName"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Your name"
+                  />
+                </div>
+                <Button 
+                  onClick={handleUpdateProfile} 
+                  disabled={actionLoading}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save
+                </Button>
               </div>
               <div className="text-sm text-gray-500">
                 Phone: {user?.phoneNumber}
@@ -222,16 +268,24 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
           
-          {/* Household Section */}
+          {/* Family Section */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Household Members
-              </CardTitle>
-              <CardDescription>
-                {isAdmin ? 'You are the admin of this household' : 'Household member'}
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Family Members
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  {isAdmin ? 'You are the admin of this family' : 'Family member'}
+                </CardDescription>
+              </div>
+              {isAdmin && (
+                <Button size="sm" onClick={() => setAddMemberDialog(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Member
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-3">
               {loading ? (
@@ -280,21 +334,10 @@ export default function SettingsPage() {
                 <Button
                   variant="outline"
                   className="w-full mt-4 text-orange-600 border-orange-200 hover:bg-orange-50"
-                  onClick={() => setLeaveHouseholdDialog(true)}
+                  onClick={() => setLeaveFamilyDialog(true)}
                 >
                   <UserMinus className="w-4 h-4 mr-2" />
-                  Leave Household
-                </Button>
-              )}
-              
-              {isAdmin && (
-                <Button
-                  variant="outline"
-                  className="w-full mt-4 text-red-600 border-red-200 hover:bg-red-50"
-                  onClick={() => setDeleteHouseholdDialog(true)}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Household
+                  Leave Family
                 </Button>
               )}
             </CardContent>
@@ -318,6 +361,17 @@ export default function SettingsPage() {
                 Export My Data
               </Button>
               
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50"
+                  onClick={() => setDeleteFamilyDialog(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Family
+                </Button>
+              )}
+              
               <Button
                 variant="outline"
                 className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50"
@@ -339,6 +393,13 @@ export default function SettingsPage() {
             Sign Out
           </Button>
         </div>
+        
+        {/* Add Member Dialog - Reusing Component */}
+        <AddMemberDialog 
+          open={addMemberDialog} 
+          onOpenChange={setAddMemberDialog}
+          onSuccess={fetchData}
+        />
         
         {/* Delete Account Dialog */}
         <Dialog open={deleteAccountDialog} onOpenChange={setDeleteAccountDialog}>
@@ -377,16 +438,17 @@ export default function SettingsPage() {
           </DialogContent>
         </Dialog>
         
-        {/* Delete Household Dialog */}
-        <Dialog open={deleteHouseholdDialog} onOpenChange={setDeleteHouseholdDialog}>
+
+        {/* Delete Family Dialog */}
+        <Dialog open={deleteFamilyDialog} onOpenChange={setDeleteFamilyDialog}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-red-600">
                 <AlertTriangle className="w-5 h-5" />
-                Delete Household
+                Delete Family
               </DialogTitle>
               <DialogDescription>
-                This will delete the household and remove all members. All events will be lost.
+                This will delete the family and remove all members. All events will be lost.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
@@ -400,39 +462,39 @@ export default function SettingsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteHouseholdDialog(false)}>
+              <Button variant="outline" onClick={() => setDeleteFamilyDialog(false)}>
                 Cancel
               </Button>
               <Button
                 variant="destructive"
-                onClick={handleDeleteHousehold}
+                onClick={handleDeleteFamily}
                 disabled={confirmText !== 'DELETE' || actionLoading}
               >
-                {actionLoading ? 'Deleting...' : 'Delete Household'}
+                {actionLoading ? 'Deleting...' : 'Delete Family'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
         
-        {/* Leave Household Dialog */}
-        <Dialog open={leaveHouseholdDialog} onOpenChange={setLeaveHouseholdDialog}>
+        {/* Leave Family Dialog */}
+        <Dialog open={leaveFamilyDialog} onOpenChange={setLeaveFamilyDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Leave Household</DialogTitle>
+              <DialogTitle>Leave Family</DialogTitle>
               <DialogDescription>
-                Are you sure you want to leave this household? You can be invited back later.
+                Are you sure you want to leave this family? You can be invited back later.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setLeaveHouseholdDialog(false)}>
+              <Button variant="outline" onClick={() => setLeaveFamilyDialog(false)}>
                 Cancel
               </Button>
               <Button
                 variant="destructive"
-                onClick={handleLeaveHousehold}
+                onClick={handleLeaveFamily}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Leaving...' : 'Leave Household'}
+                {actionLoading ? 'Leaving...' : 'Leave Family'}
               </Button>
             </DialogFooter>
           </DialogContent>
