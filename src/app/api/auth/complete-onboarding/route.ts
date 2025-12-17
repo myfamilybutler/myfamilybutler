@@ -9,22 +9,22 @@ import { getAdminClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { firebaseUid, displayName, familyMembers } = await request.json();
+    const { supabaseUserId, displayName, familyMembers, phoneNumber } = await request.json();
     
-    if (!firebaseUid) {
+    if (!supabaseUserId) {
       return NextResponse.json(
-        { error: 'Missing firebaseUid' },
+        { error: 'Missing supabaseUserId' },
         { status: 400 }
       );
     }
     
     const admin = getAdminClient();
     
-    // Get user by firebase_uid
+    // Get user by supabase_user_id
     const { data: user, error: userError } = await admin
       .from('users')
       .select('id, phone_number, household_id')
-      .eq('firebase_uid', firebaseUid)
+      .eq('supabase_user_id', supabaseUserId)
       .single();
     
     if (userError || !user) {
@@ -34,16 +34,47 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Update phone number if provided during onboarding
+    if (phoneNumber) {
+      await admin
+        .from('users')
+        .update({ phone_number: phoneNumber })
+        .eq('id', user.id);
+    }
+    
     // Check if user already has a family
     if (!user.household_id) {
-      // Check for pending invite first
-      const pendingInvite = await checkPendingInvite(user.phone_number);
-      
-      if (pendingInvite) {
-        // Accept the invite and join that family
-        await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
+      // Check for pending invite first (if phone number was provided)
+      if (phoneNumber) {
+        const pendingInvite = await checkPendingInvite(phoneNumber);
+        
+        if (pendingInvite) {
+          // Accept the invite and join that family
+          await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
+        } else {
+          // Create new family for this user
+          const familyId = await createFamilyForUser(user.id, displayName);
+          
+          if (!familyId) {
+            return NextResponse.json(
+              { error: 'Failed to create family' },
+              { status: 500 }
+            );
+          }
+          
+          // Add family members if provided
+          if (familyMembers && familyMembers.length > 0) {
+            for (const member of familyMembers) {
+              if (member.name) {
+                await admin
+                  .from('family_members')
+                  .insert({ household_id: familyId, name: member.name });
+              }
+            }
+          }
+        }
       } else {
-        // Create new family for this user
+        // No phone number, just create family
         const familyId = await createFamilyForUser(user.id, displayName);
         
         if (!familyId) {
@@ -67,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Mark onboarding as complete
-    const success = await updateOnboardingCompleted(firebaseUid);
+    const success = await updateOnboardingCompleted(supabaseUserId);
     
     if (!success) {
       return NextResponse.json(

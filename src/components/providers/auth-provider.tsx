@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
 interface AuthProviderProps {
@@ -12,40 +11,62 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const { setUser, setLoading, setOnboardingCompleted, setSupabaseUserId } = useAuthStore();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
+  const checkAuthStatus = useCallback(async (supabaseUserIdParam: string, email: string | undefined) => {
+    try {
+      const response = await fetch('/api/auth/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          supabaseUserId: supabaseUserIdParam,
+          email: email || '' 
+        }),
+      });
       
-      if (firebaseUser) {
-        // Check onboarding status from API
-        try {
-          const response = await fetch('/api/auth/status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              firebaseUid: firebaseUser.uid,
-              phoneNumber: firebaseUser.phoneNumber 
-            }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            setOnboardingCompleted(data.onboardingCompleted);
-            setSupabaseUserId(data.userId);
-          }
-        } catch (error) {
-          console.error('Error checking auth status:', error);
-        }
-      } else {
-        setOnboardingCompleted(false);
-        setSupabaseUserId(null);
+      if (response.ok) {
+        const data = await response.json();
+        setOnboardingCompleted(data.onboardingCompleted);
+        setSupabaseUserId(data.userId);
       }
-      
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+    } finally {
       setLoading(false);
+    }
+  }, [setOnboardingCompleted, setSupabaseUserId, setLoading]);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user ?? null;
+      setUser(user);
+      
+      if (user) {
+        // Check onboarding status from API
+        checkAuthStatus(user.id, user.email);
+      } else {
+        setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
-  }, [setUser, setLoading, setOnboardingCompleted, setSupabaseUserId]);
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const user = session?.user ?? null;
+        setUser(user);
+
+        if (user) {
+          await checkAuthStatus(user.id, user.email);
+        } else {
+          setOnboardingCompleted(false);
+          setSupabaseUserId(null);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [setUser, setLoading, setOnboardingCompleted, setSupabaseUserId, checkAuthStatus]);
 
   return <>{children}</>;
 }
+

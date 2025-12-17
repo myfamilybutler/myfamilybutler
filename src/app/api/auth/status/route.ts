@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findOrCreateUserByFirebaseUid } from '@/lib/supabase';
+import { findOrCreateUserBySupabaseId } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { firebaseUid, phoneNumber } = await request.json();
+    const { supabaseUserId, email } = await request.json();
     
-    if (!firebaseUid || !phoneNumber) {
+    if (!supabaseUserId || !email) {
       return NextResponse.json(
-        { error: 'Missing firebaseUid or phoneNumber' },
+        { error: 'Missing supabaseUserId or email' },
         { status: 400 }
       );
     }
     
     // Find or create user in Supabase
-    const user = await findOrCreateUserByFirebaseUid(firebaseUid, phoneNumber);
+    const user = await findOrCreateUserBySupabaseId(supabaseUserId, email);
     
     if (!user) {
       return NextResponse.json(

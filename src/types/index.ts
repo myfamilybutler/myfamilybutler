@@ -14,11 +14,12 @@ export interface Family {
 
 export interface User {
   id: string;
-  phone_number: string;
+  phone_number?: string;
+  email?: string;
   household_id?: string;
   display_name?: string;
   is_admin: boolean;
-  firebase_uid?: string;
+  supabase_user_id?: string;
   onboarding_completed: boolean;
   subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';
   stripe_customer_id?: string;
@@ -78,56 +79,57 @@ export interface Event {
 }
 
 // ===========================================
-// WaSenderAPI Webhook Types
+// Meta WhatsApp Cloud API Webhook Types
 // ===========================================
 
-export interface WaSenderWebhookBody {
-  event: 'messages.received' | 'messages.upsert' | 'message.sent' | 'message-receipt.update' | 'session.status';
-  sessionId: string;
-  data: WaSenderWebhookData;
+export interface MetaWebhookBody {
+  object: 'whatsapp_business_account';
+  entry: MetaWebhookEntry[];
 }
 
-export interface WaSenderWebhookData {
-  messages?: WaSenderMessage;
-  key?: WaSenderMessageKey;
-  messageBody?: string;
+export interface MetaWebhookEntry {
+  id: string; // WhatsApp Business Account ID
+  changes: MetaWebhookChange[];
 }
 
-export interface WaSenderMessage {
-  key: WaSenderMessageKey;
-  message?: {
-    conversation?: string;
-    extendedTextMessage?: {
-      text: string;
-    };
-    imageMessage?: {
-      caption?: string;
-      mimetype?: string;
-      url?: string;
-    };
-    audioMessage?: {
-      mimetype?: string;
-      url?: string;
-    };
-    documentMessage?: {
-      fileName?: string;
-      mimetype?: string;
-      url?: string;
-    };
-    videoMessage?: {
-      caption?: string;
-      mimetype?: string;
-      url?: string;
-    };
+export interface MetaWebhookChange {
+  value: MetaWebhookValue;
+  field: 'messages';
+}
+
+export interface MetaWebhookValue {
+  messaging_product: 'whatsapp';
+  metadata: {
+    display_phone_number: string;
+    phone_number_id: string;
   };
-  messageTimestamp?: number | string;
-  pushName?: string;
+  contacts?: MetaContact[];
+  messages?: MetaMessage[];
+  statuses?: MetaStatus[];
 }
 
-export interface WaSenderMessageKey {
-  remoteJid: string;  // Format: "1234567890@s.whatsapp.net"
-  fromMe: boolean;
+export interface MetaContact {
+  profile: { name: string };
+  wa_id: string; // Phone number without + (e.g., "436601234567")
+}
+
+export interface MetaMessage {
+  from: string; // Sender's phone number
+  id: string; // Message ID for deduplication
+  timestamp: string;
+  type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'reaction' | 'location' | 'interactive' | 'button';
+  text?: { body: string };
+  image?: { caption?: string; mime_type: string; sha256: string; id: string };
+  audio?: { mime_type: string; sha256: string; id: string };
+  video?: { caption?: string; mime_type: string; sha256: string; id: string };
+  document?: { filename: string; mime_type: string; sha256: string; id: string };
+}
+
+export interface MetaStatus {
   id: string;
+  status: 'sent' | 'delivered' | 'read' | 'failed';
+  timestamp: string;
+  recipient_id: string;
 }
 
 // OpenAI Types

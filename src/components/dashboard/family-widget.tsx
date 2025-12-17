@@ -38,10 +38,10 @@ export function FamilyWidget() {
   
   // Fetch family data
   const fetchFamily = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     try {
-      const res = await fetch(`/api/family?firebaseUid=${user.uid}`);
+      const res = await fetch(`/api/family?supabaseUserId=${user.id}`);
       const data = await res.json();
       
       if (data.success) {
@@ -55,7 +55,7 @@ export function FamilyWidget() {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchFamily();

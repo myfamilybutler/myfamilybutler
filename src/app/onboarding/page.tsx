@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Users, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { Users, ArrowRight, ArrowLeft, Loader2, Phone, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth-store';
 import { ProtectedRoute } from '@/components/auth/protected-route';
@@ -15,16 +16,38 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { user, setOnboardingCompleted } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [displayName, setDisplayName] = useState('');
+
+  const formatPhoneNumber = (value: string) => {
+    // Remove all non-digit characters except +
+    return value.replace(/[^\d+]/g, '');
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhoneNumber(formatPhoneNumber(e.target.value));
+  };
 
   const handleComplete = async () => {
     if (!user) return;
     
     setLoading(true);
     try {
+      // Format phone number if provided
+      let formattedPhone = phoneNumber;
+      if (phoneNumber && !phoneNumber.startsWith('+')) {
+        formattedPhone = phoneNumber.replace(/^0+/, '');
+        formattedPhone = '+43' + formattedPhone; // Default to Austria
+      }
+
       const response = await fetch('/api/auth/complete-onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firebaseUid: user.uid }),
+        body: JSON.stringify({ 
+          supabaseUserId: user.id,
+          displayName: displayName || undefined,
+          phoneNumber: formattedPhone || undefined,
+        }),
       });
       
       if (response.ok) {
@@ -63,13 +86,52 @@ export default function OnboardingPage() {
                   <Users className="w-8 h-8 text-emerald-600" />
                 </div>
                 <CardTitle className="text-2xl font-bold text-gray-900">
-                  Add Your Family
+                  Complete Your Profile
                 </CardTitle>
                 <CardDescription className="text-gray-500">
-                  Add family members to get started. You can always add more later.
+                  Set up your profile and add your phone number to use WhatsApp
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-4 space-y-6">
+                {/* Display Name */}
+                <div className="space-y-2">
+                  <label htmlFor="displayName" className="text-sm font-medium text-gray-700">
+                    Your Name
+                  </label>
+                  <Input
+                    id="displayName"
+                    type="text"
+                    placeholder="e.g. John"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="h-12"
+                    disabled={loading}
+                  />
+                </div>
+
+                {/* Phone Number for WhatsApp */}
+                <div className="space-y-2">
+                  <label htmlFor="phone" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-emerald-600" />
+                    WhatsApp Number (Optional)
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="+43 660 1234567"
+                      value={phoneNumber}
+                      onChange={handlePhoneChange}
+                      className="pl-11 h-12"
+                      disabled={loading}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Add your phone number to receive reminders and manage your family calendar via WhatsApp
+                  </p>
+                </div>
+
                 <OnboardingStep />
 
                 {/* Action buttons */}

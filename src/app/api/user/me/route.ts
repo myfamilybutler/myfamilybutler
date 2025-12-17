@@ -2,47 +2,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
 
-// Helper to sanitize phone numbers (strip + and spaces)
-function sanitizePhone(phone: string) {
-  return phone.replace(/[+\s]/g, '');
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const { firebaseUid, phoneNumber } = await request.json();
+    const { supabaseUserId, email } = await request.json();
 
-    if (!firebaseUid) {
-      return NextResponse.json({ error: 'Missing firebaseUid' }, { status: 400 });
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
     }
 
     const supabase = getAdminClient();
 
-    // 1. Try finding by Firebase UID
+    // 1. Try finding by Supabase User ID
     let { data: user } = await supabase
       .from('users')
-      .select('id, household_id, firebase_uid')
-      .eq('firebase_uid', firebaseUid)
+      .select('id, household_id, supabase_user_id')
+      .eq('supabase_user_id', supabaseUserId)
       .maybeSingle();
 
-    // 2. Self-Healing: If not found but phone provided, try linking
-    if (!user && phoneNumber) {
-      const cleanPhone = sanitizePhone(phoneNumber);
-      console.log(`[API] User not found by UID. Trying phone match: ${cleanPhone}`);
+    // 2. Self-Healing: If not found but email provided, try linking
+    if (!user && email) {
+      console.log(`[API] User not found by UID. Trying email match: ${email}`);
 
-      const { data: phoneUser } = await supabase
+      const { data: emailUser } = await supabase
         .from('users')
-        .select('id, household_id, firebase_uid')
-        .eq('phone_number', cleanPhone)
+        .select('id, household_id, supabase_user_id')
+        .eq('email', email)
         .maybeSingle();
 
-      if (phoneUser) {
-        console.log(`[API] Found user by phone ${phoneUser.id}. Linking to UID ${firebaseUid}...`);
+      if (emailUser) {
+        console.log(`[API] Found user by email ${emailUser.id}. Linking to UID ${supabaseUserId}...`);
         
-        // Update the user with the Firebase UID
+        // Update the user with the Supabase User ID
         const { error: updateError } = await supabase
           .from('users')
-          .update({ firebase_uid: firebaseUid })
-          .eq('id', phoneUser.id);
+          .update({ supabase_user_id: supabaseUserId })
+          .eq('id', emailUser.id);
 
         if (updateError) {
           console.error('[API] Failed to link user:', updateError);
@@ -50,7 +44,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Return the found user (now linked)
-        user = { ...phoneUser, firebase_uid: firebaseUid };
+        user = { ...emailUser, supabase_user_id: supabaseUserId };
       }
     }
 

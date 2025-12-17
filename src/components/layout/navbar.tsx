@@ -28,8 +28,8 @@ export function Navbar() {
     router.push('/login');
   };
 
-  // Format phone number for display
-  const displayIdentifier = user?.phoneNumber || user?.displayName || 'Account';
+  // Format email for display
+  const displayIdentifier = user?.email || 'Account';
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">

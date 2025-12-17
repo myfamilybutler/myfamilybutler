@@ -17,12 +17,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchEvents() {
-      if (!user?.uid) {
-        console.log('Dashboard: No Firebase UID available');
+      if (!user?.id) {
+        console.log('Dashboard: No Supabase User ID available');
         return;
       }
 
-      console.log('Dashboard: Fetching profile for UID:', user.uid);
+      console.log('Dashboard: Fetching profile for UID:', user.id);
 
       console.log('Dashboard: Fetching profile from /api/user/me...');
 
@@ -31,8 +31,8 @@ export default function DashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firebaseUid: user.uid,
-          phoneNumber: user.phoneNumber,
+          supabaseUserId: user.id,
+          email: user.email,
         }),
       });
 
@@ -47,7 +47,7 @@ export default function DashboardPage() {
       console.log('Dashboard: Found household_id:', userProfile.household_id);
 
       // Fetch events via API to bypass RLS
-      const eventsParams = new URLSearchParams({ firebaseUid: user.uid });
+      const eventsParams = new URLSearchParams({ supabaseUserId: user.id });
       const eventsRes = await fetch(`/api/events?${eventsParams.toString()}`);
       const eventsData = await eventsRes.json();
 
@@ -63,7 +63,7 @@ export default function DashboardPage() {
     }
 
     fetchEvents();
-  }, [user?.uid, user?.phoneNumber]);
+  }, [user?.id, user?.email]);
 
   return (
     <ProtectedRoute>

@@ -1,13 +1,13 @@
 import { create } from 'zustand';
-import type { User as FirebaseUser } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AuthStore {
-  user: FirebaseUser | null;
+  user: SupabaseUser | null;
   loading: boolean;
   onboardingCompleted: boolean;
   supabaseUserId: string | null;
-  setUser: (user: FirebaseUser | null) => void;
+  setUser: (user: SupabaseUser | null) => void;
   setLoading: (loading: boolean) => void;
   setOnboardingCompleted: (completed: boolean) => void;
   setSupabaseUserId: (id: string | null) => void;
@@ -28,7 +28,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   
   signOut: async () => {
     try {
-      await auth.signOut();
+      await supabase.auth.signOut();
       set({
         user: null,
         loading: false,

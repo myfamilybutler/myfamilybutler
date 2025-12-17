@@ -68,10 +68,10 @@ export default function SettingsPage() {
   
   // Fetch data - extracted to useCallback so mutations can refetch
   const fetchData = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     try {
-      const res = await fetch(`/api/family?firebaseUid=${user.uid}`);
+      const res = await fetch(`/api/family?supabaseUserId=${user.id}`);
       const data = await res.json();
       
       if (data.success) {
@@ -79,9 +79,9 @@ export default function SettingsPage() {
         setFamilyMembers(data.data.familyMembers || []);
         setIsAdmin(data.data.isAdmin || false);
         
-        // Find current user's display name
+        // Find current user's display name by email
         const currentUser = data.data.users?.find(
-          (u: FamilyUser) => u.phone_number === user.phoneNumber
+          (u: FamilyUser) => u.phone_number === user.email // may need email match
         );
         if (currentUser?.display_name) {
           setDisplayName(currentUser.display_name);
@@ -92,7 +92,7 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, user?.phoneNumber]);
+  }, [user?.id, user?.email]);
   
   useEffect(() => {
     fetchData();
@@ -106,14 +106,14 @@ export default function SettingsPage() {
   
   // Handle profile update
   const handleUpdateProfile = async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     setActionLoading(true);
     try {
       const res = await fetch('/api/account', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firebaseUid: user.uid, displayName })
+        body: JSON.stringify({ supabaseUserId: user.id, displayName })
       });
       
       if (res.ok) {
@@ -133,10 +133,10 @@ export default function SettingsPage() {
   
   // Handle data export (GDPR: Right to portability)
   const handleExportData = async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     try {
-      const res = await fetch(`/api/account/export?firebaseUid=${user.uid}`);
+      const res = await fetch(`/api/account/export?supabaseUserId=${user.id}`);
       const data = await res.json();
       
       // Download as JSON
@@ -155,14 +155,14 @@ export default function SettingsPage() {
   
   // Handle account deletion (GDPR: Right to erasure)
   const handleDeleteAccount = async () => {
-    if (!user?.uid || confirmText !== 'DELETE') return;
+    if (!user?.id || confirmText !== 'DELETE') return;
     
     setActionLoading(true);
     try {
       const res = await fetch('/api/account', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firebaseUid: user.uid })
+        body: JSON.stringify({ supabaseUserId: user.id })
       });
       
       if (res.ok) {
@@ -180,14 +180,14 @@ export default function SettingsPage() {
   
   // Handle family deletion (admin only)
   const handleDeleteFamily = async () => {
-    if (!user?.uid || confirmText !== 'DELETE') return;
+    if (!user?.id || confirmText !== 'DELETE') return;
     
     setActionLoading(true);
     try {
       const res = await fetch('/api/family', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firebaseUid: user.uid, action: 'deleteFamily' })
+        body: JSON.stringify({ supabaseUserId: user.id, action: 'deleteFamily' })
       });
       
       if (res.ok) {
@@ -204,14 +204,14 @@ export default function SettingsPage() {
   
   // Handle leaving family (non-admin)
   const handleLeaveFamily = async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     setActionLoading(true);
     try {
       const res = await fetch('/api/family', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firebaseUid: user.uid, action: 'leave' })
+        body: JSON.stringify({ supabaseUserId: user.id, action: 'leave' })
       });
       
       if (res.ok) {
@@ -263,7 +263,7 @@ export default function SettingsPage() {
                 </Button>
               </div>
               <div className="text-sm text-gray-500">
-                Phone: {user?.phoneNumber}
+                Email: {user?.email}
               </div>
             </CardContent>
           </Card>

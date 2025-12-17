@@ -1,32 +1,23 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Phone, ArrowRight, MessageCircle, Loader2, ArrowLeft } from 'lucide-react';
-import { auth, RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from '@/lib/firebase';
+import { Mail, Lock, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth-store';
 
-declare global {
-  interface Window {
-    recaptchaVerifier: RecaptchaVerifier | undefined;
-    confirmationResult: ConfirmationResult | undefined;
-  }
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuthStore();
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  // const [recaptchaReady, setRecaptchaReady] = useState(false); // Unused in invisible mode
-  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
-  const recaptchaInitialized = useRef(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -35,149 +26,40 @@ export default function LoginPage() {
     }
   }, [user, authLoading, router]);
 
-  // Setup reCAPTCHA verifier - use visible for debugging
-  const setupRecaptcha = useCallback(() => {
-    // Clear any existing verifier first
-    if (window.recaptchaVerifier) {
-      try {
-        window.recaptchaVerifier.clear();
-      } catch {
-        // Ignore clear errors
-      }
-      window.recaptchaVerifier = undefined;
-      // setRecaptchaReady(false);
-    }
-
-    // Create a new container element to avoid stale element issues
-    const container = recaptchaContainerRef.current;
-    if (!container) return null;
-
-    // Clear existing children
-    container.innerHTML = '';
-    
-    // Create a fresh div for reCAPTCHA
-    const recaptchaDiv = document.createElement('div');
-    recaptchaDiv.id = 'recaptcha-widget';
-    container.appendChild(recaptchaDiv);
-
-    try {
-      // Use device language for better compatibility
-      auth.useDeviceLanguage();
-      
-      // Use 'normal' (visible) reCAPTCHA for debugging - change to 'invisible' later
-      const verifier = new RecaptchaVerifier(auth, recaptchaDiv, {
-        size: 'invisible',
-        callback: () => {
-          // reCAPTCHA solved - now we can send OTP
-          console.log('reCAPTCHA verified successfully');
-          // setRecaptchaReady(true);
-        },
-        'expired-callback': () => {
-          setError('reCAPTCHA expired. Please try again.');
-          // setRecaptchaReady(false);
-          recaptchaInitialized.current = false;
-        },
-      });
-      
-      window.recaptchaVerifier = verifier;
-      recaptchaInitialized.current = true;
-      
-      // Render the reCAPTCHA widget immediately
-      verifier.render().then((widgetId) => {
-        console.log('reCAPTCHA widget rendered with ID:', widgetId);
-      });
-      
-      return verifier;
-    } catch (err) {
-      console.error('Error setting up reCAPTCHA:', err);
-      return null;
-    }
-  }, []);
-
-  // Setup reCAPTCHA on mount
-  useEffect(() => {
-    // Small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      setupRecaptcha();
-    }, 500);
-
-    return () => {
-      clearTimeout(timer);
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch {
-          // Ignore
-        }
-        window.recaptchaVerifier = undefined;
-      }
-    };
-  }, [setupRecaptcha]);
-
-  const formatPhoneNumber = (value: string) => {
-    // Remove all non-digit characters except +
-    return value.replace(/[^\d+]/g, '');
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPhoneNumber(formatPhoneNumber(e.target.value));
-    setError('');
-  };
-
-  const handleSendOTP = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Check if reCAPTCHA is solved (skipped for invisible reCAPTCHA)
-      // if (!recaptchaReady) {
-      //   throw new Error('Please complete the reCAPTCHA verification first');
-      // }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      // Validate phone number
-      let formattedPhone = phoneNumber;
-      if (!formattedPhone.startsWith('+')) {
-        // Remove loop references and cleanup
-        formattedPhone = formattedPhone.replace(/^0+/, '');
-        formattedPhone = '+43' + formattedPhone; // Default to Austria
+      if (signInError) {
+        throw signInError;
       }
 
-      if (formattedPhone.length < 10) {
-        throw new Error('Please enter a valid phone number');
-      }
-
-      // Use the existing verified reCAPTCHA
-      const verifier = window.recaptchaVerifier;
-      if (!verifier) {
-        throw new Error('reCAPTCHA not initialized. Please refresh the page.');
-      }
-
-      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, verifier);
-      window.confirmationResult = confirmationResult;
+      // Set server-side session cookie via API
+      await fetch('/api/auth/session', { method: 'POST' });
       
-      // Store phone number and redirect to verify page
-      sessionStorage.setItem('phoneNumber', formattedPhone);
-      router.push('/login/verify');
+      // Auth state change will redirect to dashboard or onboarding
     } catch (err) {
-      console.error('Error sending OTP:', err);
+      console.error('Error signing in:', err);
       
-      // Provide user-friendly error messages
-      let errorMessage = 'Failed to send OTP. Please try again.';
+      let errorMessage = 'Failed to sign in. Please try again.';
       if (err instanceof Error) {
-        if (err.message.includes('too-many-requests')) {
-          errorMessage = 'Too many attempts. Please try again later.';
-        } else if (err.message.includes('invalid-phone-number')) {
-          errorMessage = 'Invalid phone number format.';
-        } else if (err.message.includes('captcha-check-failed')) {
-          errorMessage = 'reCAPTCHA verification failed. Please try again.';
+        if (err.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password.';
+        } else if (err.message.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email before logging in.';
         } else {
           errorMessage = err.message;
         }
       }
       
       setError(errorMessage);
-      recaptchaInitialized.current = false;
     } finally {
       setLoading(false);
     }
@@ -212,36 +94,53 @@ export default function LoginPage() {
           <Card className="border-slate-200 shadow-lg">
             <CardHeader className="text-center pb-2">
               <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="w-8 h-8 text-emerald-600" />
+                <Mail className="w-8 h-8 text-emerald-600" />
               </div>
               <CardTitle className="text-2xl font-bold text-gray-900">
                 Welcome Back
               </CardTitle>
               <CardDescription className="text-gray-500">
-                Enter your phone number to sign in
+                Sign in to your account
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
-              <form onSubmit={handleSendOTP} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                    Phone Number
+                  <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Email
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+43 660 1234567"
-                      value={phoneNumber}
-                      onChange={handlePhoneChange}
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setError(''); }}
                       className="pl-11 h-12"
                       disabled={loading}
+                      required
                     />
                   </div>
-                  <p className="text-xs text-gray-500">
-                    We&apos;ll send you a verification code via SMS
-                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                      className="pl-11 h-12"
+                      disabled={loading}
+                      required
+                    />
+                  </div>
                 </div>
 
                 {error && (
@@ -256,25 +155,31 @@ export default function LoginPage() {
 
                 <Button
                   type="submit"
-                  disabled={loading || !phoneNumber}
+                  disabled={loading || !email || !password}
                   className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 gap-2"
                 >
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Sending...
+                      Signing in...
                     </>
                   ) : (
                     <>
-                      Send Code
+                      Sign In
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </Button>
               </form>
 
-              {/* reCAPTCHA container */}
-              <div ref={recaptchaContainerRef} id="recaptcha-container" />
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-500">
+                  Don&apos;t have an account?{' '}
+                  <Link href="/register" className="text-emerald-600 hover:underline font-medium">
+                    Create one
+                  </Link>
+                </p>
+              </div>
             </CardContent>
           </Card>
 

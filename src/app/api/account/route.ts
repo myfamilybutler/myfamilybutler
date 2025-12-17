@@ -6,10 +6,10 @@ import { getAdminClient } from '@/lib/supabase';
  */
 export async function PUT(request: NextRequest) {
   try {
-    const { firebaseUid, displayName } = await request.json();
+    const { supabaseUserId, displayName, phoneNumber } = await request.json();
     
-    if (!firebaseUid) {
-      return NextResponse.json({ error: 'Missing firebaseUid' }, { status: 400 });
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
     }
     
     const admin = getAdminClient();
@@ -18,17 +18,22 @@ export async function PUT(request: NextRequest) {
     const { data: user, error: userError } = await admin
       .from('users')
       .select('id')
-      .eq('firebase_uid', firebaseUid)
+      .eq('supabase_user_id', supabaseUserId)
       .single();
     
     if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
+    // Build update object
+    const updateData: Record<string, string> = {};
+    if (displayName !== undefined) updateData.display_name = displayName;
+    if (phoneNumber !== undefined) updateData.phone_number = phoneNumber;
+    
     // Update user
     const { error: updateError } = await admin
       .from('users')
-      .update({ display_name: displayName })
+      .update(updateData)
       .eq('id', user.id);
     
     if (updateError) {
@@ -48,10 +53,10 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const { firebaseUid } = await request.json();
+    const { supabaseUserId } = await request.json();
     
-    if (!firebaseUid) {
-      return NextResponse.json({ error: 'Missing firebaseUid' }, { status: 400 });
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
     }
     
     const admin = getAdminClient();
@@ -60,7 +65,7 @@ export async function DELETE(request: NextRequest) {
     const { data: user, error: userError } = await admin
       .from('users')
       .select('id, household_id, is_admin')
-      .eq('firebase_uid', firebaseUid)
+      .eq('supabase_user_id', supabaseUserId)
       .single();
     
     if (userError || !user) {

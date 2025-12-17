@@ -1,8 +1,8 @@
 // ===========================================
-// WaSenderAPI Webhook Handler
+// Meta WhatsApp Cloud API Webhook Handler
 // ===========================================
 import { NextRequest, NextResponse } from 'next/server';
-import type { WaSenderWebhookBody, ChatMessage } from '@/types';
+import type { MetaWebhookBody, MetaMessage, ChatMessage } from '@/types';
 import { 
   findOrCreateUser, 
   logMessage, 
@@ -12,19 +12,17 @@ import {
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
 import { generateAIResponse, parseReminderIntent, parseEventIntent } from '@/lib/openai';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/whatsapp';
 import { createReminder, createEvent } from '@/lib/supabase';
 import { APP_CONFIG } from '@/lib/config';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
-// This handles WaSenderAPI retry scenarios and race conditions
 // ===========================================
 const PROCESSED_MESSAGES = new Map<string, number>();
 const MESSAGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const CLEANUP_INTERVAL_MS = 60 * 1000; // Cleanup every minute
+const CLEANUP_INTERVAL_MS = 60 * 1000;
 
-// Periodic cleanup of old message IDs to prevent memory leak
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 function ensureCleanupInterval() {
   if (!cleanupInterval) {
@@ -36,7 +34,6 @@ function ensureCleanupInterval() {
         }
       }
     }, CLEANUP_INTERVAL_MS);
-    // Don't block process exit
     if (cleanupInterval.unref) {
       cleanupInterval.unref();
     }
@@ -53,170 +50,117 @@ function isDuplicateMessage(messageId: string): boolean {
 }
 
 /**
- * GET - Health check endpoint
- * WaSenderAPI doesn't use verification like Meta, but we keep this for debugging
+ * GET - Meta Webhook Verification
+ * Meta sends a GET request to verify the webhook URL
  */
-export async function GET(): Promise<NextResponse> {
-  return NextResponse.json({
-    status: 'ok',
-    provider: 'WaSenderAPI',
-    timestamp: new Date().toISOString(),
-  });
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const searchParams = request.nextUrl.searchParams;
+  
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
+  const challenge = searchParams.get('hub.challenge');
+  
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+  
+  console.log('[Webhook] GET verification request:', { mode, token: token?.slice(0, 10) + '...', challenge });
+  
+  // Verify the token matches
+  if (mode === 'subscribe' && token === verifyToken) {
+    console.log('[Webhook] Verification successful!');
+    // Must return ONLY the challenge value
+    return new NextResponse(challenge, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+  
+  console.log('[Webhook] Verification failed - token mismatch');
+  return NextResponse.json({ error: 'Verification failed' }, { status: 403 });
 }
 
 /**
- * POST - Handle incoming WaSenderAPI webhook events
- * IMPORTANT: Return 200 immediately, then process async
+ * POST - Handle incoming Meta WhatsApp webhook events
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body: WaSenderWebhookBody = await request.json();
-
-    console.log('WaSenderAPI webhook received:', body.event);
-
-    // Only process messages.received events
-    if (body.event !== 'messages.received') {
-      console.log(`Ignoring event: ${body.event}`);
-      return NextResponse.json({ success: true, ignored: true });
+    const body: MetaWebhookBody = await request.json();
+    
+    console.log('[Webhook] Received:', JSON.stringify(body, null, 2));
+    
+    // Validate this is from WhatsApp
+    if (body.object !== 'whatsapp_business_account') {
+      console.log('[Webhook] Not a WhatsApp event, ignoring');
+      return NextResponse.json({ success: true });
     }
-
-    // Process messages asynchronously
-    // We await to ensure execution completes in serverless environment
-    // Note: This might cause timeouts if AI is too slow, but necessary for debugging/reliability without a queue
-    await processWebhookAsync(body);
-
+    
+    // Process each entry (usually just one)
+    for (const entry of body.entry) {
+      for (const change of entry.changes) {
+        if (change.field !== 'messages') continue;
+        
+        const value = change.value;
+        
+        // Handle status updates (delivery receipts)
+        if (value.statuses) {
+          for (const status of value.statuses) {
+            console.log(`[Webhook] Status update: ${status.id} -> ${status.status}`);
+          }
+          continue;
+        }
+        
+        // Handle incoming messages
+        if (value.messages) {
+          for (const message of value.messages) {
+            await processMessage(message, value.contacts?.[0]);
+          }
+        }
+      }
+    }
+    
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Webhook POST error:', error);
-    // Still return 200 to prevent retries
+    console.error('[Webhook] POST error:', error);
+    // Return 200 to prevent Meta from retrying
     return NextResponse.json({ success: true, error: 'Processing error' });
   }
 }
 
 /**
- * Extract phone number from WaSenderAPI message key
- * Handles both standard format and LID (Linked ID) addressing mode
- * LID format: uses cleanedSenderPn or senderPn for actual phone number
- * Standard format: "1234567890@s.whatsapp.net" -> "1234567890"
+ * Process a single incoming message
  */
-function extractPhoneNumber(
-  messageKey: {
-    remoteJid: string;
-    cleanedSenderPn?: string;
-    senderPn?: string;
-    addressingMode?: string;
-  }
-): string {
-  // Priority 1: Use cleanedSenderPn if available (already cleaned)
-  if (messageKey.cleanedSenderPn) {
-    return messageKey.cleanedSenderPn;
-  }
-
-  // Priority 2: Use senderPn and clean it
-  if (messageKey.senderPn) {
-    return messageKey.senderPn.replace('@s.whatsapp.net', '').replace('@g.us', '');
-  }
-
-  // Priority 3: Fallback to remoteJid (for non-LID messages)
-  return messageKey.remoteJid
-    .replace('@s.whatsapp.net', '')
-    .replace('@g.us', '')
-    .replace('@lid', '');
-}
-
-/**
- * Extract message content from WaSenderAPI message
- */
-function extractMessageContent(body: WaSenderWebhookBody): {
-  text: string;
-  type: 'text' | 'image' | 'voice';
-} {
-  const data = body.data;
-  const message = data.messages?.message;
-
-  // Priority 1: messageBody field (normalized by WaSenderAPI)
-  if (data.messageBody) {
-    return { text: data.messageBody, type: 'text' };
-  }
-
-  // Priority 2: Direct message object
-  if (message) {
-    // Text message (conversation)
-    if (message.conversation) {
-      return { text: message.conversation, type: 'text' };
-    }
-
-    // Extended text message
-    if (message.extendedTextMessage?.text) {
-      return { text: message.extendedTextMessage.text, type: 'text' };
-    }
-
-    // Image message
-    if (message.imageMessage) {
-      return {
-        text: message.imageMessage.caption || '[Image received]',
-        type: 'image',
-      };
-    }
-
-    // Audio/Voice message
-    if (message.audioMessage) {
-      return { text: '[Voice message received]', type: 'voice' };
-    }
-
-    // Document message
-    if (message.documentMessage) {
-      return {
-        text: `[Document received: ${message.documentMessage.fileName || 'file'}]`,
-        type: 'text',
-      };
-    }
-
-    // Video message
-    if (message.videoMessage) {
-      return {
-        text: message.videoMessage.caption || '[Video received]',
-        type: 'text',
-      };
-    }
-  }
-
-  return { text: '', type: 'text' };
-}
-
-/**
- * Process webhook messages asynchronously
- */
-async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
+async function processMessage(
+  message: MetaMessage,
+  contact?: { profile: { name: string }; wa_id: string }
+): Promise<void> {
   try {
-    const data = body.data;
-    const messageKey = data.messages?.key || data.key;
-
-    if (!messageKey) {
-      console.warn('[Webhook] No message key found in payload');
-      return;
-    }
-
-    // Skip messages from ourselves
-    if (messageKey.fromMe) {
-      return;
-    }
-
-    // Extract phone number (handles LID addressing mode)
-    const phoneNumber = extractPhoneNumber(messageKey);
-    const messageId = messageKey.id;
-
-    // RACE CONDITION FIX: Deduplicate messages to prevent double processing
+    const phoneNumber = message.from;
+    const messageId = message.id;
+    const contactName = contact?.profile?.name;
+    
+    console.log(`[Webhook] Processing message from ${phoneNumber} (${contactName || 'Unknown'})`);
+    
+    // Deduplication check
     if (isDuplicateMessage(messageId)) {
       console.log(`[Webhook] Duplicate message ignored: ${messageId}`);
       return;
     }
-
-    console.log(`[Webhook] Processing: ${phoneNumber}, msgId: ${messageId}`);
-
+    
+    // Mark message as read (async, don't wait)
+    markMessageAsRead(messageId).catch(() => {});
+    
+    // Extract message content
+    const { text: userMessage, type: messageType } = extractMessageContent(message);
+    
+    if (!userMessage) {
+      console.warn('[Webhook] Empty message content');
+      return;
+    }
+    
+    console.log(`[Webhook] Message content: "${userMessage}" (${messageType})`);
+    
     // Find or create user
     const user = await findOrCreateUser(phoneNumber);
-
+    
     if (!user) {
       console.error(`[Webhook] Failed to find/create user: ${phoneNumber}`);
       await sendWhatsAppMessage(
@@ -230,10 +174,9 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
     if (!user.household_id) {
       const pendingInvite = await checkPendingInvite(phoneNumber);
       if (pendingInvite) {
-        console.log(`[Webhook] Auto-linking user ${phoneNumber} to family via pending invite`);
+        console.log(`[Webhook] Auto-linking user ${phoneNumber} to family`);
         await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
         
-        // Update user object with family
         const admin = getAdminClient();
         const { data: updatedUser } = await admin
           .from('users')
@@ -245,26 +188,17 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
           user.household_id = updatedUser.household_id;
         }
         
-        // Welcome message
         await sendWhatsAppMessage(
           phoneNumber,
           '🎉 Willkommen bei FamilyButler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!'
         );
       }
     }
-
-    // Extract message content
-    const { text: userMessage, type: messageType } = extractMessageContent(body);
-
-    if (!userMessage) {
-      console.warn('[Webhook] Empty message content - aborting');
-      return;
-    }
-
+    
     // Log user message
     await logMessage(user.id, 'user', userMessage, messageType, messageId);
-
-    // Check for reminder intent first (fast path)
+    
+    // Check for reminder intent
     const reminderIntent = await parseReminderIntent(userMessage);
     
     if (reminderIntent) {
@@ -273,7 +207,7 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
         reminderIntent.task,
         reminderIntent.datetime
       );
-
+      
       if (reminder) {
         const formattedDate = reminderIntent.datetime.toLocaleDateString('de-AT', {
           weekday: 'long',
@@ -282,49 +216,45 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
           hour: '2-digit',
           minute: '2-digit',
         });
-
+        
         const confirmationMessage = `✅ Erinnerung erstellt!\n\n📋 *${reminderIntent.task}*\n📅 ${formattedDate}`;
-
         await sendWhatsAppMessage(phoneNumber, confirmationMessage);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text');
         return;
       }
     }
-
-    // Check for event intent (only if user has a family)
-    const eventIntent = await parseEventIntent(userMessage); // Parse intent once
-    if (user.household_id) {
-      if (eventIntent) {
-        const event = await createEvent(
-          user.household_id,
-          user.id,
-          {
-            ...eventIntent,
-            source_message_id: messageId
-          }
-        );
-
-        if (event) {
-          const dateObj = new Date(event.event_date);
-          const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-          });
-          
-          const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
-          const memberStr = event.family_member ? ` für ${event.family_member}` : '';
-          const locationStr = event.location ? `\n📍 ${event.location}` : '';
-          
-          const confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
-
-          await sendWhatsAppMessage(phoneNumber, confirmationMessage);
-          await logMessage(user.id, 'assistant', confirmationMessage, 'text');
-          return;
+    
+    // Check for event intent (if user has a family)
+    const eventIntent = await parseEventIntent(userMessage);
+    if (user.household_id && eventIntent) {
+      const event = await createEvent(
+        user.household_id,
+        user.id,
+        {
+          ...eventIntent,
+          source_message_id: messageId
         }
+      );
+      
+      if (event) {
+        const dateObj = new Date(event.event_date);
+        const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        });
+        
+        const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
+        const memberStr = event.family_member ? ` für ${event.family_member}` : '';
+        const locationStr = event.location ? `\n📍 ${event.location}` : '';
+        
+        const confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
+        await sendWhatsAppMessage(phoneNumber, confirmationMessage);
+        await logMessage(user.id, 'assistant', confirmationMessage, 'text');
+        return;
       }
     }
-
+    
     // Get message history for context
     const history = await getMessageHistory(user.id, 10);
     
@@ -332,22 +262,57 @@ async function processWebhookAsync(body: WaSenderWebhookBody): Promise<void> {
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
     }));
-
+    
     // Generate AI response
     const aiResponse = await generateAIResponse(chatHistory, userMessage);
-
-    // Send response back via WhatsApp
+    
+    // Send response
     const sendResult = await sendWhatsAppMessage(phoneNumber, aiResponse);
-
+    
     if (sendResult.success) {
       await logMessage(user.id, 'assistant', aiResponse, 'text', sendResult.messageId);
+      console.log('[Webhook] Response sent successfully');
     } else {
-      console.error('[Webhook] Failed to send message:', sendResult.error);
+      console.error('[Webhook] Failed to send response:', sendResult.error);
     }
   } catch (err) {
-    console.error('[Webhook] Critical error:', err);
-    if (err instanceof Error) {
-      console.error('[Webhook] Stack:', err.stack);
-    }
+    console.error('[Webhook] Critical error processing message:', err);
+  }
+}
+
+/**
+ * Extract message content from Meta message object
+ */
+function extractMessageContent(message: MetaMessage): {
+  text: string;
+  type: 'text' | 'image' | 'voice';
+} {
+  switch (message.type) {
+    case 'text':
+      return { text: message.text?.body || '', type: 'text' };
+      
+    case 'image':
+      return { 
+        text: message.image?.caption || '[Image received]', 
+        type: 'image' 
+      };
+      
+    case 'audio':
+      return { text: '[Voice message received]', type: 'voice' };
+      
+    case 'video':
+      return { 
+        text: message.video?.caption || '[Video received]', 
+        type: 'text' 
+      };
+      
+    case 'document':
+      return { 
+        text: `[Document received: ${message.document?.filename || 'file'}]`, 
+        type: 'text' 
+      };
+      
+    default:
+      return { text: '', type: 'text' };
   }
 }

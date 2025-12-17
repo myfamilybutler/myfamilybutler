@@ -40,13 +40,13 @@ export function AddMemberDialog({
   const [memberName, setMemberName] = useState('');
 
   const handleAction = async (type: 'invite' | 'add') => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     setLoading(true);
     try {
       const payload = type === 'invite' 
-        ? { firebaseUid: user.uid, action: 'invite', phoneNumber: invitePhone }
-        : { firebaseUid: user.uid, action: 'add', name: memberName };
+        ? { supabaseUserId: user.id, action: 'invite', phoneNumber: invitePhone }
+        : { supabaseUserId: user.id, action: 'add', name: memberName };
         
       const res = await fetch('/api/family', {
         method: 'POST',

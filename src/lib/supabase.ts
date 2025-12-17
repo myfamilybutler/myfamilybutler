@@ -291,44 +291,44 @@ export async function getEventsForHousehold(
 }
 
 // ===========================================
-// Firebase Auth User Operations
+// Supabase Auth User Operations
 // ===========================================
-export async function findOrCreateUserByFirebaseUid(
-  firebaseUid: string,
-  phoneNumber: string
+export async function findOrCreateUserBySupabaseId(
+  supabaseUserId: string,
+  email: string
 ): Promise<User | null> {
   const admin = getAdminClient();
   
-  // Try to find existing user by firebase_uid
+  // Try to find existing user by supabase_user_id
   const { data: existingUser, error: findError } = await admin
     .from('users')
     .select('*')
-    .eq('firebase_uid', firebaseUid)
+    .eq('supabase_user_id', supabaseUserId)
     .single();
   
   if (existingUser && !findError) {
     return existingUser as User;
   }
   
-  // Check if user exists by phone number (migration case)
-  const { data: phoneUser } = await admin
+  // Check if user exists by email (migration case)
+  const { data: emailUser } = await admin
     .from('users')
     .select('*')
-    .eq('phone_number', phoneNumber)
+    .eq('email', email)
     .single();
   
-  if (phoneUser) {
-    // Update existing user with firebase_uid
+  if (emailUser) {
+    // Update existing user with supabase_user_id
     const { data: updatedUser, error: updateError } = await admin
       .from('users')
-      .update({ firebase_uid: firebaseUid })
-      .eq('id', phoneUser.id)
+      .update({ supabase_user_id: supabaseUserId })
+      .eq('id', emailUser.id)
       .select()
       .single();
     
     if (updateError) {
-      console.error('Error updating user with firebase_uid:', updateError);
-      return phoneUser as User;
+      console.error('Error updating user with supabase_user_id:', updateError);
+      return emailUser as User;
     }
     
     return updatedUser as User;
@@ -338,8 +338,8 @@ export async function findOrCreateUserByFirebaseUid(
   const { data: newUser, error: createError } = await admin
     .from('users')
     .insert({ 
-      phone_number: phoneNumber,
-      firebase_uid: firebaseUid,
+      email: email,
+      supabase_user_id: supabaseUserId,
       subscription_status: 'free',
       onboarding_completed: false,
     })
@@ -355,14 +355,14 @@ export async function findOrCreateUserByFirebaseUid(
 }
 
 export async function updateOnboardingCompleted(
-  firebaseUid: string
+  supabaseUserId: string
 ): Promise<boolean> {
   const admin = getAdminClient();
   
   const { error } = await admin
     .from('users')
     .update({ onboarding_completed: true })
-    .eq('firebase_uid', firebaseUid);
+    .eq('supabase_user_id', supabaseUserId);
   
   if (error) {
     console.error('Error updating onboarding status:', error);
@@ -373,14 +373,14 @@ export async function updateOnboardingCompleted(
 }
 
 export async function checkOnboardingStatus(
-  firebaseUid: string
+  supabaseUserId: string
 ): Promise<{ completed: boolean; userId: string | null; householdId: string | null }> {
   const admin = getAdminClient();
   
   const { data, error } = await admin
     .from('users')
     .select('id, onboarding_completed, household_id')
-    .eq('firebase_uid', firebaseUid)
+    .eq('supabase_user_id', supabaseUserId)
     .single();
   
   if (error || !data) {

@@ -1,21 +1,58 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   // Paths to protect
-  const protectedPaths = ['/dashboard'];
+  const protectedPaths = ['/dashboard', '/onboarding'];
   
   const isProtectedPath = protectedPaths.some((path) => 
     request.nextUrl.pathname.startsWith(path)
   );
 
   if (isProtectedPath) {
+    // Check for Supabase session cookie
+    const accessToken = request.cookies.get('sb-access-token')?.value;
+    const refreshToken = request.cookies.get('sb-refresh-token')?.value;
+    
+    // Also check for our custom session cookie as fallback
     const sessionDetail = request.cookies.get('session_authenticated');
     
-    // If no session cookie, redirect to login
-    if (!sessionDetail) {
+    // If no session cookies, redirect to login
+    if (!accessToken && !refreshToken && !sessionDetail) {
       const loginUrl = new URL('/login', request.url);
       return NextResponse.redirect(loginUrl);
+    }
+
+    // If we have tokens, verify with Supabase (optional - for SSR validation)
+    if (accessToken) {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            },
+          }
+        );
+        
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (error || !user) {
+          // Token is invalid, redirect to login
+          const loginUrl = new URL('/login', request.url);
+          return NextResponse.redirect(loginUrl);
+        }
+      } catch (_error) {
+        // If verification fails, still allow through if we have session_authenticated
+        if (!sessionDetail) {
+          const loginUrl = new URL('/login', request.url);
+          return NextResponse.redirect(loginUrl);
+        }
+      }
     }
   }
 
@@ -31,8 +68,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - login (login pages)
-     * - onboarding (onboarding pages - debatable, but leaving open for now or could protect too)
+     * - register (register pages)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|login|onboarding).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|login|register).*)',
   ],
 };

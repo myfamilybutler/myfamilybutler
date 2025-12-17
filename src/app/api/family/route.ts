@@ -13,10 +13,10 @@ import { getAdminClient } from '@/lib/supabase';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const firebaseUid = searchParams.get('firebaseUid');
+    const supabaseUserId = searchParams.get('supabaseUserId');
     
-    if (!firebaseUid) {
-      return NextResponse.json({ error: 'Missing firebaseUid' }, { status: 400 });
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
     }
     
     const admin = getAdminClient();
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const { data: user, error } = await admin
       .from('users')
       .select('household_id, is_admin')
-      .eq('firebase_uid', firebaseUid)
+      .eq('supabase_user_id', supabaseUserId)
       .single();
     
     if (error || !user?.household_id) {
@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { firebaseUid, action, phoneNumber, name } = await request.json();
+    const { supabaseUserId, action, phoneNumber, name } = await request.json();
     
-    if (!firebaseUid || !action) {
+    if (!supabaseUserId || !action) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const { data: user, error } = await admin
       .from('users')
       .select('id, household_id, is_admin')
-      .eq('firebase_uid', firebaseUid)
+      .eq('supabase_user_id', supabaseUserId)
       .single();
     
     if (error || !user?.household_id) {
@@ -118,10 +118,10 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const { firebaseUid, action } = await request.json();
+    const { supabaseUserId, action } = await request.json();
     
-    if (!firebaseUid) {
-      return NextResponse.json({ error: 'Missing firebaseUid' }, { status: 400 });
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
     }
     
     const admin = getAdminClient();
@@ -130,7 +130,7 @@ export async function DELETE(request: NextRequest) {
     const { data: user, error } = await admin
       .from('users')
       .select('id, household_id, is_admin')
-      .eq('firebase_uid', firebaseUid)
+      .eq('supabase_user_id', supabaseUserId)
       .single();
     
     if (error || !user?.household_id) {

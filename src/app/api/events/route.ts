@@ -5,10 +5,10 @@ import { getAdminClient } from '@/lib/supabase';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const firebaseUid = searchParams.get('firebaseUid');
+    const supabaseUserId = searchParams.get('supabaseUserId');
 
-    if (!firebaseUid) {
-      return NextResponse.json({ error: 'Missing firebaseUid' }, { status: 400 });
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
     }
 
     const supabase = getAdminClient();
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, household_id')
-      .eq('firebase_uid', firebaseUid)
+      .eq('supabase_user_id', supabaseUserId)
       .single();
 
     if (userError || !user) {

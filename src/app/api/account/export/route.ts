@@ -7,10 +7,10 @@ import { getAdminClient } from '@/lib/supabase';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const firebaseUid = searchParams.get('firebaseUid');
+    const supabaseUserId = searchParams.get('supabaseUserId');
     
-    if (!firebaseUid) {
-      return NextResponse.json({ error: 'Missing firebaseUid' }, { status: 400 });
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
     }
     
     const admin = getAdminClient();
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { data: user, error: userError } = await admin
       .from('users')
       .select('*')
-      .eq('firebase_uid', firebaseUid)
+      .eq('supabase_user_id', supabaseUserId)
       .single();
     
     if (userError || !user) {
@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
     const exportData = {
       exportDate: new Date().toISOString(),
       user: {
+        email: user.email,
         phoneNumber: user.phone_number,
         displayName: user.display_name,
         isAdmin: user.is_admin,
