@@ -18,8 +18,12 @@ export async function middleware(request: NextRequest) {
     // Also check for our custom session cookie as fallback
     const sessionDetail = request.cookies.get('session_authenticated');
     
+    // Debug logging
+    console.log(`[Middleware] Path: ${request.nextUrl.pathname}, session_authenticated: ${sessionDetail?.value || 'none'}, accessToken: ${!!accessToken}`);
+    
     // If no session cookies, redirect to login
     if (!accessToken && !refreshToken && !sessionDetail) {
+      console.log(`[Middleware] No session found, redirecting to login`);
       const loginUrl = new URL('/login', request.url);
       return NextResponse.redirect(loginUrl);
     }
