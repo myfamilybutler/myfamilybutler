@@ -753,6 +753,8 @@ export async function validateMagicToken(
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     
+    console.log(`[Magic Token] Validating token, hash prefix: ${tokenHash.substring(0, 16)}...`);
+    
     // Find token
     const { data: tokenRecord, error } = await admin
       .from('magic_tokens')
@@ -760,8 +762,13 @@ export async function validateMagicToken(
       .eq('token_hash', tokenHash)
       .single();
     
-    if (error || !tokenRecord) {
-      console.log('[Magic Token] Token not found');
+    if (error) {
+      console.log(`[Magic Token] DB error: ${error.message}, code: ${error.code}`);
+      return null;
+    }
+    
+    if (!tokenRecord) {
+      console.log('[Magic Token] Token not found in database');
       return null;
     }
     
