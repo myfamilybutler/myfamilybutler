@@ -19,6 +19,26 @@ export async function POST(request: NextRequest) {
       .eq('supabase_user_id', supabaseUserId)
       .maybeSingle();
 
+    // 2. If not found, try finding by Database ID (custom session auth)
+    if (!user) {
+      // Check if the ID provided is a valid UUID (which matches our DB ID format)
+      // This handles the case where we pass the DB ID as the supabaseUserId from ProtectedRoute
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(supabaseUserId);
+      
+      if (isUuid) {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('id, household_id, supabase_user_id')
+          .eq('id', supabaseUserId)
+          .maybeSingle();
+        
+        if (dbUser) {
+          console.log(`[API] Found user by Database ID: ${dbUser.id}`);
+          user = dbUser;
+        }
+      }
+    }
+
     // 2. Self-Healing: If not found but email provided, try linking
     if (!user && email) {
       console.log(`[API] User not found by UID. Trying email match: ${email}`);

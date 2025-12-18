@@ -52,7 +52,7 @@ function useSessionStatus() {
 
 export function ProtectedRoute({ children, requireOnboarding = false }: ProtectedRouteProps) {
   const router = useRouter();
-  const { user, loading, onboardingCompleted } = useAuthStore();
+  const { user, loading, onboardingCompleted, setUser, setSupabaseUserId } = useAuthStore();
   const customSession = useSessionStatus();
 
   // Determine authentication status
@@ -69,9 +69,27 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
       return;
     }
 
-    // For custom session users, skip onboarding checks (messaging users don't need onboarding)
-    if (customSession.valid) {
-      // Messaging users are already onboarded via their phone
+    // For custom session users, skip onboarding checks and hydrate store
+    if (customSession.valid && customSession.userId) {
+      // Hydrate store so DashboardPage works
+      if (!user) {
+        console.log('[ProtectedRoute] Hydrating store for custom session user:', customSession.userId);
+        setSupabaseUserId(customSession.userId);
+        
+        // Create a minimal user object that satisfies the interface
+        // We use the DB ID as the Auth ID here since that's what we have
+        setUser({
+          id: customSession.userId,
+          app_metadata: { provider: 'custom' },
+          user_metadata: {},
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+          email: 'user@custom.session', // Placeholder
+          phone: '',
+          role: 'authenticated',
+          updated_at: new Date().toISOString(),
+        } as any);
+      }
       return;
     }
 
@@ -86,7 +104,7 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
       router.replace('/onboarding');
       return;
     }
-  }, [isAuthenticated, isLoading, onboardingCompleted, requireOnboarding, router, customSession.valid]);
+  }, [isAuthenticated, isLoading, onboardingCompleted, requireOnboarding, router, customSession.valid, customSession.userId, user, setUser, setSupabaseUserId]);
 
   if (isLoading) {
     return (
