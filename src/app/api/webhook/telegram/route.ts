@@ -185,11 +185,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (result.success && result.link) {
           await sendTelegramMessage(
             chatId,
-            `🔗 *Dein sicherer Dashboard-Link*\n\n` +
+            `🔗 Dein sicherer Dashboard-Link\n\n` +
             `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
             `${result.link}\n\n` +
-            `⏱️ Der Link ist 15 Minuten gültig.`,
-            { parseMode: 'Markdown' }
+            `⏱️ Der Link ist 15 Minuten gültig.`
+            // Note: No parseMode - URLs with & break Telegram Markdown
           );
         } else {
           console.error(`[Telegram Webhook] Dashboard link error:`, result.error);
