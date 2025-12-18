@@ -23,11 +23,12 @@
      "Dashboard" → Magic link → Auto-login
    - Phone number is the **golden key** for identity resolution across channels
 
-2. **Dashboard Access**:
-   - `generateDashboardLink()` creates proxy Supabase Auth user
-     (`{phone}@wa.myfamilybutler.com`)
-   - Single-use magic links with 15-minute expiry
-   - Session cookie persists for 14 days after first login
+2. **Dashboard Access (Custom Tokens)**:
+   - `generateDashboardLink()` creates cryptographic token stored in
+     `magic_tokens` table
+   - Token exchanged for session cookie at `/api/auth/magic`
+   - Single-use tokens with 15-minute expiry
+   - NO proxy emails - clean architecture
 
 3. **App**:
    - **Dashboard**: Protected by `src/middleware.ts`. Data fetching via
@@ -45,8 +46,8 @@
 
 - **Implicit Authentication**: Trusts WhatsApp/Telegram verified identity via
   webhook signatures
-- **Proxy Email Strategy**: Messaging-first users get
-  `{phone}@wa.myfamilybutler.com` for Supabase Auth
+- **Custom Token Authentication**: Messaging users authenticated via secure
+  tokens (no proxy emails)
 - **Server Actions**: `src/actions/*` contain server-side logic, replacing API
   routes for mutations
 - **Error Handling**:

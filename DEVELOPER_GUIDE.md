@@ -113,14 +113,13 @@ checks for Supabase session cookies (`sb-access-token`, `sb-refresh-token`).
 3. User adds phone number (optional) during onboarding
 4. Session cookie set
 
-**WhatsApp/Telegram Users (Implicit Auth):**
+**WhatsApp/Telegram Users (Custom Token):**
 
 1. User sends message → webhook creates user by phone
 2. User sends "Dashboard" command
-3. `generateDashboardLink()` creates proxy auth user
-   (`{phone}@wa.myfamilybutler.com`)
-4. Magic link sent via messaging channel
-5. User clicks → auto-logged in with session cookie
+3. `generateDashboardLink()` creates cryptographic token in `magic_tokens` table
+4. Link sent: `/api/auth/magic?token=xxx`
+5. User clicks → token validated → session cookie set
 
 ### Dashboard Link Generation
 

@@ -632,15 +632,21 @@ export async function getPendingInvites(
 }
 
 // ===========================================
-// Dashboard Link Generation (Implicit Auth)
+// Dashboard Link Generation (Custom Tokens)
 // ===========================================
 
+import crypto from 'crypto';
+
 /**
- * Generate a magic link for dashboard access.
- * Works for users who registered via WhatsApp, Telegram, or Email.
+ * Generate a custom magic link for dashboard access.
  * 
- * For messaging-first users (no Supabase Auth), creates a proxy email
- * account: {phone}@wa.myfamilybutler.com
+ * This uses a clean custom token approach:
+ * 1. Create a cryptographic token
+ * 2. Store hash in magic_tokens table
+ * 3. Return link with token
+ * 4. Token is exchanged for session cookie at /api/auth/magic
+ * 
+ * NO proxy emails - cleaner architecture.
  */
 export async function generateDashboardLink(
   phoneNumber: string,
@@ -677,9 +683,8 @@ export async function generateDashboardLink(
       return { success: false, error: 'User not found. Please send a message first to register.' };
     }
     
-    // 2. Check if user already has Supabase Auth (email registered user)
-    if (foundUser.supabase_user_id && foundUser.email && !foundUser.email.endsWith('@wa.myfamilybutler.com')) {
-      // User registered via email - generate link for their real email
+    // 2. For email-registered users with Supabase Auth, use native magic link
+    if (foundUser.supabase_user_id && foundUser.email) {
       const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
         type: 'magiclink',
         email: foundUser.email,
@@ -689,76 +694,131 @@ export async function generateDashboardLink(
       });
       
       if (linkError) {
-        console.error('[Dashboard Link] Error generating magic link:', linkError);
+        console.error('[Dashboard Link] Error generating Supabase magic link:', linkError);
         return { success: false, error: 'Failed to generate link. Please try again.' };
       }
       
       return { success: true, link: linkData.properties.action_link };
     }
     
-    // 3. Messaging-first user - create/use proxy email
-    const proxyEmail = `${normalizedPhone.replace('+', '')}@wa.myfamilybutler.com`;
+    // 3. Messaging-first user - create custom token (NO proxy emails!)
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     
-    // Check if Supabase Auth user exists with proxy email
-    const { data: authListData } = await admin.auth.admin.listUsers();
-    const existingAuthUser = authListData?.users?.find(u => u.email === proxyEmail);
-    
-    let authUserId: string;
-    
-    if (existingAuthUser) {
-      // Auth user exists, use it
-      authUserId = existingAuthUser.id;
-    } else {
-      // Create new Supabase Auth user with proxy email
-      const { data: newAuthUser, error: createError } = await admin.auth.admin.createUser({
-        email: proxyEmail,
-        email_confirm: true, // Skip email verification (messaging verified)
-        phone: normalizedPhone,
-        phone_confirm: true,
-        user_metadata: {
-          channel,
-          phone_number: normalizedPhone,
-        }
+    // Store token in database
+    const { error: insertError } = await admin
+      .from('magic_tokens')
+      .insert({
+        token_hash: tokenHash,
+        user_id: foundUser.id,
+        expires_at: expiresAt.toISOString(),
+        channel: channel,
       });
-      
-      if (createError) {
-        console.error('[Dashboard Link] Error creating auth user:', createError);
-        return { success: false, error: 'Failed to create authentication. Please try again.' };
-      }
-      
-      authUserId = newAuthUser.user.id;
-      
-      // Link auth user to existing users record
-      await admin
-        .from('users')
-        .update({ 
-          email: proxyEmail,
-          supabase_user_id: authUserId 
-        })
-        .eq('id', foundUser.id);
-      
-      console.log(`[Dashboard Link] Created proxy auth for ${normalizedPhone}`);
+    
+    if (insertError) {
+      console.error('[Dashboard Link] Error storing token:', insertError);
+      return { success: false, error: 'Failed to create link. Please try again.' };
     }
     
-    // 4. Generate magic link
-    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: proxyEmail,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard`
-      }
-    });
+    // 4. Generate link
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const magicLink = `${baseUrl}/api/auth/magic?token=${token}`;
     
-    if (linkError) {
-      console.error('[Dashboard Link] Error generating magic link:', linkError);
-      return { success: false, error: 'Failed to generate link. Please try again.' };
-    }
-    
-    console.log(`[Dashboard Link] Generated link for ${normalizedPhone}`);
-    return { success: true, link: linkData.properties.action_link };
+    console.log(`[Dashboard Link] Created token for ${normalizedPhone} (expires ${expiresAt.toISOString()})`);
+    return { success: true, link: magicLink };
     
   } catch (error) {
     console.error('[Dashboard Link] Unexpected error:', error);
     return { success: false, error: 'An unexpected error occurred.' };
   }
 }
+
+/**
+ * Validate and consume a magic token.
+ * Returns the user if valid, null if invalid/expired.
+ */
+export async function validateMagicToken(
+  token: string
+): Promise<{ userId: string; user: User } | null> {
+  const admin = getAdminClient();
+  
+  try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    
+    // Find token
+    const { data: tokenRecord, error } = await admin
+      .from('magic_tokens')
+      .select('id, user_id, expires_at, used_at')
+      .eq('token_hash', tokenHash)
+      .single();
+    
+    if (error || !tokenRecord) {
+      console.log('[Magic Token] Token not found');
+      return null;
+    }
+    
+    // Check if already used
+    if (tokenRecord.used_at) {
+      console.log('[Magic Token] Token already used');
+      return null;
+    }
+    
+    // Check if expired
+    if (new Date(tokenRecord.expires_at) < new Date()) {
+      console.log('[Magic Token] Token expired');
+      return null;
+    }
+    
+    // Mark token as used
+    await admin
+      .from('magic_tokens')
+      .update({ used_at: new Date().toISOString() })
+      .eq('id', tokenRecord.id);
+    
+    // Get user
+    const { data: user, error: userError } = await admin
+      .from('users')
+      .select('*')
+      .eq('id', tokenRecord.user_id)
+      .single();
+    
+    if (userError || !user) {
+      console.log('[Magic Token] User not found');
+      return null;
+    }
+    
+    console.log(`[Magic Token] Valid token for user ${user.id}`);
+    return { userId: user.id, user: user as User };
+    
+  } catch (error) {
+    console.error('[Magic Token] Validation error:', error);
+    return null;
+  }
+}
+
+/**
+ * Cleanup expired tokens (call periodically or via cron)
+ */
+export async function cleanupExpiredTokens(): Promise<number> {
+  const admin = getAdminClient();
+  
+  const { data, error } = await admin
+    .from('magic_tokens')
+    .delete()
+    .lt('expires_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // 1 day old
+    .select('id');
+  
+  if (error) {
+    console.error('[Magic Token] Cleanup error:', error);
+    return 0;
+  }
+  
+  const count = data?.length || 0;
+  if (count > 0) {
+    console.log(`[Magic Token] Cleaned up ${count} expired tokens`);
+  }
+  
+  return count;
+}
+

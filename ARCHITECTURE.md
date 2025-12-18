@@ -17,7 +17,7 @@ _List only the technologies that are CRITICAL. Mark others as "To Deprecate"._
 
 _Describe the lifecycle of a message and authentication._
 
-### Authentication Flow (Implicit Auth)
+### Authentication Flow (Custom Token)
 
 ```
 User sends message (WhatsApp/Telegram)
@@ -26,11 +26,11 @@ Webhook receives → Signature verified → User found/created by phone
         ↓
 User sends "Dashboard" command
         ↓
-generateDashboardLink() → Creates/finds proxy Supabase Auth user
+generateDashboardLink() → Creates token in magic_tokens table
         ↓
-Magic link sent via messaging channel
+Link sent: /api/auth/magic?token=xxx
         ↓
-User clicks → Auto-logged in → Session cookie set (14 days)
+User clicks → Token validated → Session cookie set (14 days)
 ```
 
 ### Message Processing Flow
