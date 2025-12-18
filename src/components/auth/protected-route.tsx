@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { Loader2 } from 'lucide-react';
@@ -10,16 +10,68 @@ interface ProtectedRouteProps {
   requireOnboarding?: boolean; // If true, redirects to dashboard if onboarding is complete
 }
 
+// Custom hook to check session status
+function useSessionStatus() {
+  const [status, setStatus] = useState<{
+    checked: boolean;
+    valid: boolean;
+    userId?: string;
+  }>({ checked: false, valid: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    
+    async function check() {
+      try {
+        const res = await fetch('/api/auth/status');
+        const data = await res.json();
+        
+        if (!cancelled) {
+          if (data.authenticated && data.userId) {
+            setStatus({ checked: true, valid: true, userId: data.userId });
+          } else {
+            setStatus({ checked: true, valid: false });
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setStatus({ checked: true, valid: false });
+        }
+      }
+    }
+
+    check();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return status;
+}
+
 export function ProtectedRoute({ children, requireOnboarding = false }: ProtectedRouteProps) {
   const router = useRouter();
   const { user, loading, onboardingCompleted } = useAuthStore();
+  const customSession = useSessionStatus();
+
+  // Determine authentication status
+  const isAuthenticated = user || customSession.valid;
+  // For Supabase users, we don't need to wait for custom session check
+  const isLoading = loading || (!user && !customSession.checked);
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
 
-    if (!user) {
+    if (!isAuthenticated) {
       // Not authenticated, redirect to login
       router.replace('/login');
+      return;
+    }
+
+    // For custom session users, skip onboarding checks (messaging users don't need onboarding)
+    if (customSession.valid) {
+      // Messaging users are already onboarded via their phone
       return;
     }
 
@@ -34,9 +86,9 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
       router.replace('/onboarding');
       return;
     }
-  }, [user, loading, onboardingCompleted, requireOnboarding, router]);
+  }, [isAuthenticated, isLoading, onboardingCompleted, requireOnboarding, router, customSession.valid]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
@@ -47,17 +99,19 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return null;
   }
 
-  // Additional checks for proper routing
-  if (requireOnboarding && onboardingCompleted) {
-    return null;
-  }
+  // Additional checks for Supabase users
+  if (user && !customSession.valid) {
+    if (requireOnboarding && onboardingCompleted) {
+      return null;
+    }
 
-  if (!requireOnboarding && !onboardingCompleted) {
-    return null;
+    if (!requireOnboarding && !onboardingCompleted) {
+      return null;
+    }
   }
 
   return <>{children}</>;
