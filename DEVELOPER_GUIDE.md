@@ -20,9 +20,9 @@ We have added a unit testing framework to ensure code stability.
   import { myFunction } from "./example";
 
   describe("myFunction", () => {
-      it("should return true", () => {
-          expect(myFunction()).toBe(true);
-      });
+    it("should return true", () => {
+      expect(myFunction()).toBe(true);
+    });
   });
   ```
 
@@ -65,14 +65,14 @@ Never trust AI output or User input blindly.
   import { z } from "zod";
 
   const MySchema = z.object({
-      title: z.string(),
-      date: z.string().datetime(),
+    title: z.string(),
+    date: z.string().datetime(),
   });
 
   // safeParse doesn't throw!
   const result = MySchema.safeParse(data);
   if (!result.success) {
-      console.error(result.error);
+    console.error(result.error);
   }
   ```
 
@@ -99,10 +99,42 @@ Keep your TypeScript types in sync with your Database schema.
 
 ## 7. Middleware & Auth
 
-- **Behavior**: `src/middleware.ts` runs on every request to `/dashboard/*`. It
-  checks for a `session_authenticated` cookie.
-- **Login Flow**: When a user logs in via Firebase, we call `/api/auth/session`
-  to set this cookie.
-- **Developer Note**: If you manually clear cookies, you will be logged out of
-  the Dashboard but might still be logged in to Firebase on the client. Just go
-  to `/login` to refresh the session.
+### Route Protection
+
+`src/middleware.ts` protects `/dashboard/*` and `/onboarding/*` routes. It
+checks for Supabase session cookies (`sb-access-token`, `sb-refresh-token`).
+
+### Multi-Provider Authentication
+
+**Email Users (Web Registration):**
+
+1. User registers at `/register` with email/password
+2. Supabase Auth creates user → redirect to `/onboarding`
+3. User adds phone number (optional) during onboarding
+4. Session cookie set
+
+**WhatsApp/Telegram Users (Implicit Auth):**
+
+1. User sends message → webhook creates user by phone
+2. User sends "Dashboard" command
+3. `generateDashboardLink()` creates proxy auth user
+   (`{phone}@wa.myfamilybutler.com`)
+4. Magic link sent via messaging channel
+5. User clicks → auto-logged in with session cookie
+
+### Dashboard Link Generation
+
+```typescript
+import { generateDashboardLink } from "@/lib/supabase";
+
+const result = await generateDashboardLink(phoneNumber, "telegram");
+if (result.success) {
+  // Send result.link to user
+}
+```
+
+### Commands (Available in WhatsApp & Telegram)
+
+- `dashboard` / `link` / `login` - Get dashboard magic link
+- `start` / `hi` / `hello` - Welcome message
+- `help` / `hilfe` - Show help

@@ -198,6 +198,73 @@ async function processMessage(
     // Log user message
     await logMessage(user.id, 'user', userMessage, messageType, messageId);
     
+    // ===========================================
+    // Handle Special Commands
+    // ===========================================
+    const lowerMessage = userMessage.toLowerCase().trim();
+    
+    // Dashboard/Login command - generate magic link
+    if (['dashboard', 'link', 'login'].includes(lowerMessage)) {
+      console.log(`[Webhook] Dashboard command from ${phoneNumber}`);
+      
+      const { generateDashboardLink } = await import('@/lib/supabase');
+      const result = await generateDashboardLink(phoneNumber, 'whatsapp');
+      
+      if (result.success && result.link) {
+        const dashboardMessage = 
+          `🔗 *Dein sicherer Dashboard-Link*\n\n` +
+          `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
+          `${result.link}\n\n` +
+          `⏱️ Der Link ist 15 Minuten gültig.`;
+        
+        await sendWhatsAppMessage(phoneNumber, dashboardMessage);
+        await logMessage(user.id, 'assistant', dashboardMessage, 'text');
+      } else {
+        const errorMessage = `❌ Fehler: ${result.error || 'Unbekannter Fehler'}`;
+        await sendWhatsAppMessage(phoneNumber, errorMessage);
+        await logMessage(user.id, 'assistant', errorMessage, 'text');
+      }
+      return;
+    }
+    
+    // Start command - welcome message
+    if (['start', 'hallo', 'hi', 'hello'].includes(lowerMessage)) {
+      const welcomeMessage = 
+        `👋 *Willkommen bei FamilyButler!*\n\n` +
+        `Ich bin dein persönlicher Familienassistent. Ich kann dir helfen mit:\n\n` +
+        `📅 *Termine erstellen* - "Zahnarzt am Montag um 10 Uhr"\n` +
+        `⏰ *Erinnerungen* - "Erinnere mich morgen an Milch kaufen"\n` +
+        `🔗 *Dashboard öffnen* - "Dashboard" oder "Link"\n\n` +
+        `Probiere es aus! Schreib mir einfach eine Nachricht.`;
+      
+      await sendWhatsAppMessage(phoneNumber, welcomeMessage);
+      await logMessage(user.id, 'assistant', welcomeMessage, 'text');
+      return;
+    }
+    
+    // Help command
+    if (['help', 'hilfe', '?'].includes(lowerMessage)) {
+      const helpMessage = 
+        `ℹ️ *FamilyButler Hilfe*\n\n` +
+        `*Termine:*\n` +
+        `• "Zahnarzt am Montag um 10 Uhr"\n` +
+        `• "Meeting morgen 14:00"\n\n` +
+        `*Erinnerungen:*\n` +
+        `• "Erinnere mich in 1 Stunde an..."\n` +
+        `• "Reminder: Milch kaufen morgen"\n\n` +
+        `*Befehle:*\n` +
+        `• dashboard - Dashboard öffnen\n` +
+        `• help - Diese Hilfe anzeigen`;
+      
+      await sendWhatsAppMessage(phoneNumber, helpMessage);
+      await logMessage(user.id, 'assistant', helpMessage, 'text');
+      return;
+    }
+    
+    // ===========================================
+    // Parse for Intents (Reminders/Events)
+    // ===========================================
+    
     // Check for reminder intent
     const reminderIntent = await parseReminderIntent(userMessage);
     

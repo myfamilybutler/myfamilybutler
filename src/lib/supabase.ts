@@ -630,3 +630,135 @@ export async function getPendingInvites(
   
   return data ?? [];
 }
+
+// ===========================================
+// Dashboard Link Generation (Implicit Auth)
+// ===========================================
+
+/**
+ * Generate a magic link for dashboard access.
+ * Works for users who registered via WhatsApp, Telegram, or Email.
+ * 
+ * For messaging-first users (no Supabase Auth), creates a proxy email
+ * account: {phone}@wa.myfamilybutler.com
+ */
+export async function generateDashboardLink(
+  phoneNumber: string,
+  channel: 'whatsapp' | 'telegram' = 'whatsapp'
+): Promise<{ success: boolean; link?: string; error?: string }> {
+  const admin = getAdminClient();
+  
+  // Normalize phone number
+  const normalizedPhone = phoneNumber.startsWith('+') 
+    ? phoneNumber 
+    : `+${phoneNumber}`;
+  
+  try {
+    // 1. Find existing user by phone
+    const { data: user, error: findError } = await admin
+      .from('users')
+      .select('*')
+      .eq('phone_number', normalizedPhone)
+      .single();
+    
+    // Also try without + prefix
+    let foundUser = user;
+    if (!foundUser && !findError) {
+      const altPhone = normalizedPhone.substring(1);
+      const { data: altUser } = await admin
+        .from('users')
+        .select('*')
+        .eq('phone_number', altPhone)
+        .single();
+      foundUser = altUser;
+    }
+    
+    if (!foundUser) {
+      return { success: false, error: 'User not found. Please send a message first to register.' };
+    }
+    
+    // 2. Check if user already has Supabase Auth (email registered user)
+    if (foundUser.supabase_user_id && foundUser.email && !foundUser.email.endsWith('@wa.myfamilybutler.com')) {
+      // User registered via email - generate link for their real email
+      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: foundUser.email,
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard`
+        }
+      });
+      
+      if (linkError) {
+        console.error('[Dashboard Link] Error generating magic link:', linkError);
+        return { success: false, error: 'Failed to generate link. Please try again.' };
+      }
+      
+      return { success: true, link: linkData.properties.action_link };
+    }
+    
+    // 3. Messaging-first user - create/use proxy email
+    const proxyEmail = `${normalizedPhone.replace('+', '')}@wa.myfamilybutler.com`;
+    
+    // Check if Supabase Auth user exists with proxy email
+    const { data: authListData } = await admin.auth.admin.listUsers();
+    const existingAuthUser = authListData?.users?.find(u => u.email === proxyEmail);
+    
+    let authUserId: string;
+    
+    if (existingAuthUser) {
+      // Auth user exists, use it
+      authUserId = existingAuthUser.id;
+    } else {
+      // Create new Supabase Auth user with proxy email
+      const { data: newAuthUser, error: createError } = await admin.auth.admin.createUser({
+        email: proxyEmail,
+        email_confirm: true, // Skip email verification (messaging verified)
+        phone: normalizedPhone,
+        phone_confirm: true,
+        user_metadata: {
+          channel,
+          phone_number: normalizedPhone,
+        }
+      });
+      
+      if (createError) {
+        console.error('[Dashboard Link] Error creating auth user:', createError);
+        return { success: false, error: 'Failed to create authentication. Please try again.' };
+      }
+      
+      authUserId = newAuthUser.user.id;
+      
+      // Link auth user to existing users record
+      await admin
+        .from('users')
+        .update({ 
+          email: proxyEmail,
+          supabase_user_id: authUserId 
+        })
+        .eq('id', foundUser.id);
+      
+      console.log(`[Dashboard Link] Created proxy auth for ${normalizedPhone}`);
+    }
+    
+    // 4. Generate magic link
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: proxyEmail,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard`
+      }
+    });
+    
+    if (linkError) {
+      console.error('[Dashboard Link] Error generating magic link:', linkError);
+      return { success: false, error: 'Failed to generate link. Please try again.' };
+    }
+    
+    console.log(`[Dashboard Link] Generated link for ${normalizedPhone}`);
+    return { success: true, link: linkData.properties.action_link };
+    
+  } catch (error) {
+    console.error('[Dashboard Link] Unexpected error:', error);
+    return { success: false, error: 'An unexpected error occurred.' };
+  }
+}

@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { TelegramUpdate } from '@/types';
 import { getAdminClient } from '@/lib/supabase';
 import { processIncomingMessage, handleTelegramPhoneReceived } from '@/lib/message-processor';
-import { requestPhoneNumber } from '@/lib/telegram';
+import { requestPhoneNumber, sendTelegramMessage } from '@/lib/telegram';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -153,7 +153,79 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ ok: true });
     }
     
-    // Process the message using shared logic
+    // ===========================================
+    // Handle Special Commands
+    // ===========================================
+    const lowerText = text.toLowerCase().trim();
+    
+    // Dashboard/Login command - generate magic link
+    if (['dashboard', 'link', 'login', '/dashboard', '/link', '/login'].includes(lowerText)) {
+      console.log(`[Telegram Webhook] Dashboard command from ${chatId}`);
+      
+      const { generateDashboardLink } = await import('@/lib/supabase');
+      const result = await generateDashboardLink(linkedUser.phone_number || '', 'telegram');
+      
+      if (result.success && result.link) {
+        await sendTelegramMessage(
+          chatId,
+          `🔗 *Dein sicherer Dashboard-Link*\n\n` +
+          `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
+          `${result.link}\n\n` +
+          `⏱️ Der Link ist 15 Minuten gültig.`,
+          { parseMode: 'Markdown' }
+        );
+      } else {
+        await sendTelegramMessage(
+          chatId,
+          `❌ Fehler beim Erstellen des Links: ${result.error || 'Unbekannter Fehler'}`,
+          { parseMode: 'Markdown' }
+        );
+      }
+      
+      return NextResponse.json({ ok: true });
+    }
+    
+    // Start command - welcome message
+    if (['start', '/start', 'hallo', 'hi', 'hello'].includes(lowerText)) {
+      console.log(`[Telegram Webhook] Start command from ${chatId}`);
+      
+      await sendTelegramMessage(
+        chatId,
+        `👋 *Willkommen bei FamilyButler, ${firstName}!*\n\n` +
+        `Ich bin dein persönlicher Familienassistent. Ich kann dir helfen mit:\n\n` +
+        `📅 *Termine erstellen* - "Zahnarzt am Montag um 10 Uhr"\n` +
+        `⏰ *Erinnerungen* - "Erinnere mich morgen an Milch kaufen"\n` +
+        `🔗 *Dashboard öffnen* - "Dashboard" oder "Link"\n\n` +
+        `Probiere es aus! Schreib mir einfach eine Nachricht.`,
+        { parseMode: 'Markdown' }
+      );
+      
+      return NextResponse.json({ ok: true });
+    }
+    
+    // Help command
+    if (['help', '/help', 'hilfe', '?'].includes(lowerText)) {
+      await sendTelegramMessage(
+        chatId,
+        `ℹ️ *FamilyButler Hilfe*\n\n` +
+        `*Termine:*\n` +
+        `• "Zahnarzt am Montag um 10 Uhr"\n` +
+        `• "Meeting morgen 14:00"\n\n` +
+        `*Erinnerungen:*\n` +
+        `• "Erinnere mich in 1 Stunde an..."\n` +
+        `• "Reminder: Milch kaufen morgen"\n\n` +
+        `*Befehle:*\n` +
+        `• /dashboard - Dashboard öffnen\n` +
+        `• /help - Diese Hilfe anzeigen`,
+        { parseMode: 'Markdown' }
+      );
+      
+      return NextResponse.json({ ok: true });
+    }
+    
+    // ===========================================
+    // Process general messages via AI
+    // ===========================================
     await processIncomingMessage({
       phoneNumber: linkedUser.phone_number || '',
       userMessage: text,

@@ -17,30 +17,44 @@
 
 ### Core Data Flow
 
-1. **Auth**: User verifies phone (Firebase) -> Login Page sets Cookie
-   (`/api/auth/session`) -> Middleware protects Access.
-2. **App**:
-   - **Dashboard**: Protected by `src/middleware.ts`. data fetching via standard
+1. **Auth (Multi-Provider Implicit Auth)**:
+   - **Email Users**: Register via web → Supabase Auth → Onboarding (add phone)
+   - **WhatsApp/Telegram Users**: Message → Webhook creates user → Send
+     "Dashboard" → Magic link → Auto-login
+   - Phone number is the **golden key** for identity resolution across channels
+
+2. **Dashboard Access**:
+   - `generateDashboardLink()` creates proxy Supabase Auth user
+     (`{phone}@wa.myfamilybutler.com`)
+   - Single-use magic links with 15-minute expiry
+   - Session cookie persists for 14 days after first login
+
+3. **App**:
+   - **Dashboard**: Protected by `src/middleware.ts`. Data fetching via
      Client/Server patterns.
    - **Mutations**: Moving towards **Server Actions** (see
      `src/actions/reminders.ts`).
-3. **WhatsApp**:
-   - Webhook receives message -> Deduplicates -> AI Parses Intent
-     (Reminder/Event) -> DB Update -> Response sent.
+
+4. **WhatsApp/Telegram**:
+   - Webhook receives message → Deduplicates → Handles commands
+     (Dashboard/Start/Help)
+   - If not command: AI parses intent (Reminder/Event) → DB Update → Response
+     sent
 
 ### Key Patterns
 
-- **Hybrid Authentication**: Combines Firebase (client-side OTP) with a custom
-  Server-Side Session Cookie for reliable Middleware protection.
-- **Server Actions**: `src/actions/*` contain server-side logic (e.g., creating
-  reminders), replacing API routes for mutations.
+- **Implicit Authentication**: Trusts WhatsApp/Telegram verified identity via
+  webhook signatures
+- **Proxy Email Strategy**: Messaging-first users get
+  `{phone}@wa.myfamilybutler.com` for Supabase Auth
+- **Server Actions**: `src/actions/*` contain server-side logic, replacing API
+  routes for mutations
 - **Error Handling**:
-  - **Global/Layout**: `src/app/dashboard/error.tsx` catches React render
-    errors.
-  - **API/AI**: Zod validation prevents bad data from crashing the app.
+  - **Global/Layout**: `src/app/dashboard/error.tsx` catches React render errors
+  - **API/AI**: Zod validation prevents bad data from crashing the app
 - **Configuration**:
   - `src/lib/config.ts` holds all hardcoded "Business Logic" (Timezones,
-    Prompts).
+    Prompts)
 
 ## 3. Project Status
 
