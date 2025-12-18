@@ -772,10 +772,17 @@ export async function validateMagicToken(
       return null;
     }
     
-    // Check if already used
+    // Check if already used - but allow grace period for prefetch (30 seconds)
     if (tokenRecord.used_at) {
-      console.log('[Magic Token] Token already used');
-      return null;
+      const usedAt = new Date(tokenRecord.used_at);
+      const gracePeriod = 30 * 1000; // 30 seconds
+      const now = new Date();
+      
+      if (now.getTime() - usedAt.getTime() > gracePeriod) {
+        console.log('[Magic Token] Token already used (outside grace period)');
+        return null;
+      }
+      console.log('[Magic Token] Token reused within grace period (prefetch handling)');
     }
     
     // Check if expired
