@@ -682,13 +682,21 @@ export async function generateDashboardLink(
       return { success: false, error: 'User not found. Please send a message first to register.' };
     }
     
-    // 2. For email-registered users with Supabase Auth, use native magic link
-    if (foundUser.supabase_user_id && foundUser.email) {
+    // 2. For email-registered users with REAL email (not proxy), use native magic link
+    // Skip this for messaging users - they should use custom tokens
+    const hasRealEmail = foundUser.email && 
+                         !foundUser.email.endsWith('@wa.myfamilybutler.com') &&
+                         !foundUser.telegram_chat_id; // If they have telegram, use custom tokens
+    
+    if (foundUser.supabase_user_id && hasRealEmail && channel !== 'telegram' && channel !== 'whatsapp') {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://myfamilybutler.com';
+      console.log(`[Dashboard Link] Using Supabase Auth for ${foundUser.email}, redirect: ${appUrl}`);
+      
       const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
         type: 'magiclink',
         email: foundUser.email,
         options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard`
+          redirectTo: `${appUrl}/dashboard`
         }
       });
       
