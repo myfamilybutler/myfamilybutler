@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { ScheduleWidget } from '@/components/dashboard/schedule-widget';
@@ -12,79 +12,48 @@ import { useAuthStore } from '@/stores/auth-store';
 import type { CalendarEvent } from '@/components/calendar/calendar-widget';
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
-    async function fetchEvents() {
-      if (!user?.id) {
-        console.log('Dashboard: No Supabase User ID available');
-        return;
-      }
+    async function fetchDashboard() {
+      if (hasFetchedRef.current) return;
 
-      console.log('Dashboard: Fetching profile for UID:', user.id);
-
-      console.log('Dashboard: Fetching profile from /api/user/me...');
-
-      // Use API route to bypass RLS and handle auto-linking
-      const response = await fetch('/api/user/me', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supabaseUserId: user.id,
-          email: user.email,
-        }),
-      });
-
+      const response = await fetch('/api/dashboard');
       const result = await response.json();
 
-      if (!response.ok || !result.success || !result.user) {
-        console.error('Error fetching user profile:', result.error);
+      if (!response.ok || !result.success) {
+        console.error('Dashboard fetch failed:', result.error);
         return;
       }
 
-      const userProfile = result.user;
-      console.log('Dashboard: Found household_id:', userProfile.household_id);
-
-      // Fetch events via API to bypass RLS
-      const eventsParams = new URLSearchParams({ supabaseUserId: user.id });
-      const eventsRes = await fetch(`/api/events?${eventsParams.toString()}`);
-      const eventsData = await eventsRes.json();
-
-      if (!eventsRes.ok || !eventsData.success) {
-        console.error('Error fetching events:', eventsData.error);
-        return;
-      }
-
-      const fetchedEvents: CalendarEvent[] = eventsData.data || [];
-      console.log('Dashboard: Fetched events:', fetchedEvents.length);
-      
-      setEvents(fetchedEvents);
+      // Store raw DB user (clean - no fake object manufacturing)
+      useAuthStore.getState().setDbUser(result.user);
+      setEvents(result.events || []);
+      hasFetchedRef.current = true;
     }
 
-    fetchEvents();
-  }, [user?.id, user?.email]);
+    fetchDashboard();
+  }, []);
+
+  // Memoized today's events (no console.log spam in render)
+  const todayEvents = useMemo(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    return events.filter(e => e.event_date === today);
+  }, [events]);
 
   return (
     <ProtectedRoute>
       <DashboardLayout>
         <div className="space-y-6">
-          {/* Page Header */}
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-gray-500 mt-1">Your family&apos;s schedule at a glance</p>
           </div>
 
-          {/* Simple grid layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Today's Events */}
             <div className="lg:col-span-2">
-              <ScheduleWidget events={events.filter(e => {
-                const today = format(new Date(), 'yyyy-MM-dd');
-                const isMatch = e.event_date === today;
-                console.log(`Checking event: ${e.title}, Date: ${e.event_date}, Today: ${today}, Match: ${isMatch}`);
-                return isMatch;
-              })} />
+              <ScheduleWidget events={todayEvents} />
             </div>
 
             {/* Family Members */}

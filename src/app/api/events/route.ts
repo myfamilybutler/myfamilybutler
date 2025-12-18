@@ -1,23 +1,30 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
+import { validateSession } from '@/lib/auth-helpers';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const supabaseUserId = searchParams.get('supabaseUserId');
-
-    if (!supabaseUserId) {
-      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
+    // SECURITY: Enforce session validation. 
+    // Do NOT accept userId/supabaseUserId from params (IDOR risk).
+    let session;
+    try {
+      session = await validateSession();
+    } catch (error) {
+      console.error('[API/events] Auth failed:', error);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { userId } = session;
+    console.log(`[API/events] Fetching for verified user: ${userId}`);
 
     const supabase = getAdminClient();
 
-    // 1. Get User & Household
+    // 1. Get User & Household using TRUSTED session ID
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, household_id')
-      .eq('supabase_user_id', supabaseUserId)
+      .eq('id', userId)
       .single();
 
     if (userError || !user) {

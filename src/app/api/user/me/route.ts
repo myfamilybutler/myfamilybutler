@@ -1,76 +1,45 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
+import { validateSession } from '@/lib/auth-helpers';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
-    const { supabaseUserId, email } = await request.json();
-
-    if (!supabaseUserId) {
-      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
+    // SECURITY: Validate session first.
+    let session;
+    try {
+      session = await validateSession();
+    } catch (error) {
+      console.error('[API/user/me] Auth failed:', error);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { userId } = session;
     const supabase = getAdminClient();
 
-    // 1. Try finding by Supabase User ID
-    let { data: user } = await supabase
+    // 1. Fetch Verified User
+    const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, household_id, supabase_user_id')
-      .eq('supabase_user_id', supabaseUserId)
-      .maybeSingle();
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-    // 2. If not found, try finding by Database ID (custom session auth)
-    if (!user) {
-      // Check if the ID provided is a valid UUID (which matches our DB ID format)
-      // This handles the case where we pass the DB ID as the supabaseUserId from ProtectedRoute
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(supabaseUserId);
-      
-      if (isUuid) {
-        const { data: dbUser } = await supabase
-          .from('users')
-          .select('id, household_id, supabase_user_id')
-          .eq('id', supabaseUserId)
-          .maybeSingle();
-        
-        if (dbUser) {
-          console.log(`[API] Found user by Database ID: ${dbUser.id}`);
-          user = dbUser;
-        }
-      }
+    if (userError || !user) {
+      console.error('[API/user/me] User not found for session:', userId);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // 2. Self-Healing: If not found but email provided, try linking
-    if (!user && email) {
-      console.log(`[API] User not found by UID. Trying email match: ${email}`);
-
-      const { data: emailUser } = await supabase
-        .from('users')
-        .select('id, household_id, supabase_user_id')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (emailUser) {
-        console.log(`[API] Found user by email ${emailUser.id}. Linking to UID ${supabaseUserId}...`);
-        
-        // Update the user with the Supabase User ID
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ supabase_user_id: supabaseUserId })
-          .eq('id', emailUser.id);
-
-        if (updateError) {
-          console.error('[API] Failed to link user:', updateError);
-          return NextResponse.json({ error: 'Failed to link account' }, { status: 500 });
-        }
-
-        // Return the found user (now linked)
-        user = { ...emailUser, supabase_user_id: supabaseUserId };
-      }
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
-    }
+    // 2. Handle Merging Strategy (Secure)
+    // Only allow merging if we are in a specific secure context (e.g. Supabase Auth)
+    // For now, "Custom Session" implies we are already logged in as a specific user.
+    // If we want to merge, it needs a more complex flow (e.g. "Link Account" page with OTP).
+    // The "Self-Healing" via simple POST is too dangerous (ATO risk).
+    // We REMOVE the blind "phone/email" linking here. 
+    
+    // However, if the user has NO Supabase ID yet, and they are currently authenticated via Supabase (Auth Header),
+    // we could link them. But `validateSession` prefers Cookies.
+    
+    // For this Security Hardening pass, we simply RETURN the verified user.
+    // Explicit merging should be a separate, explicit user action, not a side-effect.
 
     return NextResponse.json({ success: true, user });
     

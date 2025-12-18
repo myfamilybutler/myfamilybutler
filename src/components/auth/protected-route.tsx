@@ -52,7 +52,7 @@ function useSessionStatus() {
 
 export function ProtectedRoute({ children, requireOnboarding = false }: ProtectedRouteProps) {
   const router = useRouter();
-  const { user, loading, onboardingCompleted, setUser, setSupabaseUserId } = useAuthStore();
+  const { user, loading, onboardingCompleted, setSupabaseUserId } = useAuthStore();
   const customSession = useSessionStatus();
 
   // Determine authentication status
@@ -71,24 +71,13 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
 
     // For custom session users, skip onboarding checks and hydrate store
     if (customSession.valid && customSession.userId) {
-      // Hydrate store so DashboardPage works
+      // Only store the userId - let DashboardPage fetch and set the full profile
+      // This prevents race conditions where fake data overwrites real data
       if (!user) {
-        console.log('[ProtectedRoute] Hydrating store for custom session user:', customSession.userId);
+        console.log('[ProtectedRoute] Custom session valid, userId:', customSession.userId);
         setSupabaseUserId(customSession.userId);
-        
-        // Create a minimal user object that satisfies the interface
-        // We use the DB ID as the Auth ID here since that's what we have
-        setUser({
-          id: customSession.userId,
-          app_metadata: { provider: 'custom' },
-          user_metadata: {},
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-          email: 'user@custom.session', // Placeholder
-          phone: '',
-          role: 'authenticated',
-          updated_at: new Date().toISOString(),
-        } as any);
+        // NOTE: We do NOT call setUser() here anymore.
+        // DashboardPage will fetch the real profile and hydrate properly.
       }
       return;
     }
@@ -104,7 +93,7 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
       router.replace('/onboarding');
       return;
     }
-  }, [isAuthenticated, isLoading, onboardingCompleted, requireOnboarding, router, customSession.valid, customSession.userId, user, setUser, setSupabaseUserId]);
+  }, [isAuthenticated, isLoading, onboardingCompleted, requireOnboarding, router, customSession, user, setSupabaseUserId]);
 
   if (isLoading) {
     return (
@@ -119,17 +108,6 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
 
   if (!isAuthenticated) {
     return null;
-  }
-
-  // Additional checks for Supabase users
-  if (user && !customSession.valid) {
-    if (requireOnboarding && onboardingCompleted) {
-      return null;
-    }
-
-    if (!requireOnboarding && !onboardingCompleted) {
-      return null;
-    }
   }
 
   return <>{children}</>;
