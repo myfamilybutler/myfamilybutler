@@ -120,11 +120,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     // Check if user is linked (has shared phone number)
     const admin = getAdminClient();
-    const { data: linkedUser } = await admin
+    const { data: linkedUser, error: linkError } = await admin
       .from('users')
       .select('*')
       .eq('telegram_chat_id', chatId.toString())
       .single();
+    
+    console.log(`[Telegram Webhook] User lookup for ${chatId}: found=${!!linkedUser}, error=${linkError?.message || 'none'}, phone=${linkedUser?.phone_number || 'none'}`);
     
     if (!linkedUser) {
       // User not linked - request phone number
@@ -160,24 +162,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     // Dashboard/Login command - generate magic link
     if (['dashboard', 'link', 'login', '/dashboard', '/link', '/login'].includes(lowerText)) {
-      console.log(`[Telegram Webhook] Dashboard command from ${chatId}`);
+      console.log(`[Telegram Webhook] Dashboard command from ${chatId}, phone: ${linkedUser.phone_number}`);
       
-      const { generateDashboardLink } = await import('@/lib/supabase');
-      const result = await generateDashboardLink(linkedUser.phone_number || '', 'telegram');
-      
-      if (result.success && result.link) {
+      try {
+        // Check if user has phone number
+        if (!linkedUser.phone_number) {
+          console.log(`[Telegram Webhook] User ${chatId} has no phone number`);
+          await sendTelegramMessage(
+            chatId,
+            `⚠️ Deine Telefonnummer ist nicht hinterlegt. Bitte teile sie zuerst mit dem "📞 Telefonnummer teilen" Button.`,
+            { parseMode: 'Markdown' }
+          );
+          await requestPhoneNumber(chatId);
+          return NextResponse.json({ ok: true });
+        }
+        
+        const { generateDashboardLink } = await import('@/lib/supabase');
+        const result = await generateDashboardLink(linkedUser.phone_number, 'telegram');
+        
+        console.log(`[Telegram Webhook] Dashboard link result:`, result);
+        
+        if (result.success && result.link) {
+          await sendTelegramMessage(
+            chatId,
+            `🔗 *Dein sicherer Dashboard-Link*\n\n` +
+            `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
+            `${result.link}\n\n` +
+            `⏱️ Der Link ist 15 Minuten gültig.`,
+            { parseMode: 'Markdown' }
+          );
+        } else {
+          console.error(`[Telegram Webhook] Dashboard link error:`, result.error);
+          await sendTelegramMessage(
+            chatId,
+            `❌ Fehler beim Erstellen des Links: ${result.error || 'Unbekannter Fehler'}`,
+            { parseMode: 'Markdown' }
+          );
+        }
+      } catch (error) {
+        console.error(`[Telegram Webhook] Dashboard command error:`, error);
         await sendTelegramMessage(
           chatId,
-          `🔗 *Dein sicherer Dashboard-Link*\n\n` +
-          `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
-          `${result.link}\n\n` +
-          `⏱️ Der Link ist 15 Minuten gültig.`,
-          { parseMode: 'Markdown' }
-        );
-      } else {
-        await sendTelegramMessage(
-          chatId,
-          `❌ Fehler beim Erstellen des Links: ${result.error || 'Unbekannter Fehler'}`,
+          `❌ Ein Fehler ist aufgetreten. Bitte versuche es später erneut.`,
           { parseMode: 'Markdown' }
         );
       }
