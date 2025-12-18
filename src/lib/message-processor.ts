@@ -109,7 +109,7 @@ export async function processIncomingMessage(
 
         await sendResponse(
           phoneNumber,
-          '🎉 Willkommen bei FamilyButler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!',
+          '🎉 Willkommen bei My Family Butler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!',
           channel,
           telegramChatId
         );

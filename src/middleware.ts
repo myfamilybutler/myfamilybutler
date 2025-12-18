@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
           const loginUrl = new URL('/login', request.url);
           return NextResponse.redirect(loginUrl);
         }
-      } catch (_error) {
+      } catch {
         // If verification fails, still allow through if we have session_authenticated
         if (!sessionDetail) {
           const loginUrl = new URL('/login', request.url);

@@ -191,7 +191,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       await sendTelegramMessage(
         chatId,
-        `👋 *Willkommen bei FamilyButler, ${firstName}!*\n\n` +
+        `👋 *Willkommen bei My Family Butler, ${firstName}!*\n\n` +
         `Ich bin dein persönlicher Familienassistent. Ich kann dir helfen mit:\n\n` +
         `📅 *Termine erstellen* - "Zahnarzt am Montag um 10 Uhr"\n` +
         `⏰ *Erinnerungen* - "Erinnere mich morgen an Milch kaufen"\n` +
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (['help', '/help', 'hilfe', '?'].includes(lowerText)) {
       await sendTelegramMessage(
         chatId,
-        `ℹ️ *FamilyButler Hilfe*\n\n` +
+        `ℹ️ *My Family Butler Hilfe*\n\n` +
         `*Termine:*\n` +
         `• "Zahnarzt am Montag um 10 Uhr"\n` +
         `• "Meeting morgen 14:00"\n\n` +

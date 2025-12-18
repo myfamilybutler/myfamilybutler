@@ -190,7 +190,7 @@ async function processMessage(
         
         await sendWhatsAppMessage(
           phoneNumber,
-          '🎉 Willkommen bei FamilyButler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!'
+          '🎉 Willkommen bei My Family Butler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!'
         );
       }
     }
@@ -230,7 +230,7 @@ async function processMessage(
     // Start command - welcome message
     if (['start', 'hallo', 'hi', 'hello'].includes(lowerMessage)) {
       const welcomeMessage = 
-        `👋 *Willkommen bei FamilyButler!*\n\n` +
+        `👋 *Willkommen bei My Family Butler!*\n\n` +
         `Ich bin dein persönlicher Familienassistent. Ich kann dir helfen mit:\n\n` +
         `📅 *Termine erstellen* - "Zahnarzt am Montag um 10 Uhr"\n` +
         `⏰ *Erinnerungen* - "Erinnere mich morgen an Milch kaufen"\n` +
@@ -245,7 +245,7 @@ async function processMessage(
     // Help command
     if (['help', 'hilfe', '?'].includes(lowerMessage)) {
       const helpMessage = 
-        `ℹ️ *FamilyButler Hilfe*\n\n` +
+        `ℹ️ *My Family Butler Hilfe*\n\n` +
         `*Termine:*\n` +
         `• "Zahnarzt am Montag um 10 Uhr"\n` +
         `• "Meeting morgen 14:00"\n\n` +

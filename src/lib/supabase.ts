@@ -3,6 +3,7 @@
 // ===========================================
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { User, Message, Reminder, Event } from '@/types';
+import crypto from 'crypto';
 
 // Validate environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -634,8 +635,6 @@ export async function getPendingInvites(
 // ===========================================
 // Dashboard Link Generation (Custom Tokens)
 // ===========================================
-
-import crypto from 'crypto';
 
 /**
  * Generate a custom magic link for dashboard access.

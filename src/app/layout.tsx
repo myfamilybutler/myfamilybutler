@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FamilyButler - Your AI Family Assistant",
+  title: "My Family Butler - Your AI Family Assistant",
   description: "The smart AI assistant that organizes your family. Appointments, reminders, school letters – all easily via chat.",
 };
 

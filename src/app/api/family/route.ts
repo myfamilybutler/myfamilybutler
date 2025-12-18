@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({ 
         success: true, 
-        message: 'Invite created. Ask them to message the FamilyButler WhatsApp.' 
+        message: 'Invite created. Ask them to message the My Family Butler WhatsApp.' 
       });
     }
     
