@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { validateMagicToken } from '@/lib/supabase';
 
 /**
@@ -28,41 +27,27 @@ export async function GET(request: NextRequest) {
   
   const { userId, user } = result;
   
-  // Set session cookie
-  const cookieStore = await cookies();
-  
-  // Set our custom session cookie with user info
-  cookieStore.set('session_authenticated', 'true', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 14, // 14 days
-  });
-  
-  // Store user ID in a separate cookie for middleware/APIs
-  cookieStore.set('session_user_id', userId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 14, // 14 days
-  });
-  
-  // Optional: Store phone number for easy access
-  if (user.phone_number) {
-    cookieStore.set('session_phone', user.phone_number, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 14, // 14 days
-    });
-  }
-  
   console.log(`[Magic Auth] Session created for user ${userId}`);
   
-  // Redirect to dashboard
+  // Create redirect response
   const dashboardUrl = new URL('/dashboard', request.url);
-  return NextResponse.redirect(dashboardUrl);
+  const response = NextResponse.redirect(dashboardUrl);
+  
+  // Set cookies on the response object (this is the correct way!)
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 14, // 14 days
+  };
+  
+  response.cookies.set('session_authenticated', 'true', cookieOptions);
+  response.cookies.set('session_user_id', userId, cookieOptions);
+  
+  if (user.phone_number) {
+    response.cookies.set('session_phone', user.phone_number, cookieOptions);
+  }
+  
+  return response;
 }
