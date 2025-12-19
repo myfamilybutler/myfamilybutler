@@ -10,16 +10,29 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
+// Public client singleton (lazy initialization)
+let publicClient: SupabaseClient | null = null;
+
+/**
+ * Get public Supabase client (for client-side usage)
+ * Uses lazy initialization to prevent build-time errors
+ */
+export function getSupabase(): SupabaseClient {
+  if (!supabaseUrl) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
+  }
+  if (!supabaseAnonKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
+  }
+  
+  if (!publicClient) {
+    publicClient = createClient(supabaseUrl, supabaseAnonKey);
+  }
+  
+  return publicClient;
 }
 
-if (!supabaseAnonKey) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
-}
-
-// Public client (for client-side usage)
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+// NOTE: Use getSupabase() for client-side usage. Direct export removed to prevent runtime errors.
 
 // Admin client singleton
 let adminClient: SupabaseClient | null = null;
@@ -47,47 +60,32 @@ export function getAdminClient(): SupabaseClient {
 // ===========================================
 export async function findOrCreateUser(phoneNumber: string): Promise<User | null> {
   const admin = getAdminClient();
+  const normalized = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
   
-  // Try to find existing user
-  let { data: existingUser } = await admin
+  // 1. Try to find existing user
+  const { data: existing } = await admin
     .from('users')
     .select('*')
-    .eq('phone_number', phoneNumber)
-    .single();
+    .eq('phone_number', normalized)
+    .maybeSingle();
   
-  // If not found, try alternative format (with/without +)
-  if (!existingUser) {
-    const altPhone = phoneNumber.startsWith('+') 
-      ? phoneNumber.substring(1) 
-      : `+${phoneNumber}`;
-      
-    const { data: altUser } = await admin
-      .from('users')
-      .select('*')
-      .eq('phone_number', altPhone)
-      .single();
-      
-    if (altUser) {
-      existingUser = altUser;
-    }
-  }
-
-  if (existingUser) {
-    return existingUser as User;
-  }
+  if (existing) return existing as User;
   
-  // Create new user
-  const { data: newUser, error: createError } = await admin
+  // 2. Create new (UNIQUE constraint on phone_number prevents duplicates)
+  const { data: newUser, error } = await admin
     .from('users')
-    .insert({ 
-      phone_number: phoneNumber,
-      subscription_status: 'free'
-    })
+    .insert({ phone_number: normalized, subscription_status: 'free' })
     .select()
     .single();
   
-  if (createError) {
-    console.error('Error creating user:', createError);
+  // 3. Race condition: another request created user first
+  if (error?.code === '23505') {
+    const { data } = await admin.from('users').select('*').eq('phone_number', normalized).single();
+    return data as User | null;
+  }
+  
+  if (error) {
+    console.error('Error creating user:', error);
     return null;
   }
   
@@ -465,7 +463,8 @@ export async function checkPendingInvite(
 }
 
 /**
- * Accept an invite and join family
+ * Accept an invite and join family.
+ * Note: Without database transactions, partial failures can leave inconsistent state.
  */
 export async function acceptInvite(
   userId: string,
@@ -474,7 +473,6 @@ export async function acceptInvite(
 ): Promise<boolean> {
   const admin = getAdminClient();
   
-  // Update invite status
   const { error: inviteError } = await admin
     .from('household_invites')
     .update({ status: 'accepted' })
@@ -485,14 +483,14 @@ export async function acceptInvite(
     return false;
   }
   
-  // Link user to family
   const { error: userError } = await admin
     .from('users')
     .update({ household_id: familyId, is_admin: false })
     .eq('id', userId);
   
   if (userError) {
-    console.error('Error linking user to family:', userError);
+    // Log inconsistency - invite marked accepted but user not linked
+    console.error('INCONSISTENCY: Invite accepted but user link failed', { inviteId, userId, familyId });
     return false;
   }
   
@@ -755,47 +753,55 @@ export async function validateMagicToken(
     
     console.log(`[Magic Token] Validating token, hash prefix: ${tokenHash.substring(0, 16)}...`);
     
-    // Find token
-    const { data: tokenRecord, error } = await admin
-      .from('magic_tokens')
-      .select('id, user_id, expires_at, used_at')
-      .eq('token_hash', tokenHash)
-      .single();
-    
-    if (error) {
-      console.log(`[Magic Token] DB error: ${error.message}, code: ${error.code}`);
-      return null;
-    }
-    
-    if (!tokenRecord) {
-      console.log('[Magic Token] Token not found in database');
-      return null;
-    }
-    
-    // Check if already used - but allow grace period for prefetch (30 seconds)
-    if (tokenRecord.used_at) {
-      const usedAt = new Date(tokenRecord.used_at);
-      const gracePeriod = 30 * 1000; // 30 seconds
-      const now = new Date();
-      
-      if (now.getTime() - usedAt.getTime() > gracePeriod) {
-        console.log('[Magic Token] Token already used (outside grace period)');
-        return null;
-      }
-      console.log('[Magic Token] Token reused within grace period (prefetch handling)');
-    }
-    
-    // Check if expired
-    if (new Date(tokenRecord.expires_at) < new Date()) {
-      console.log('[Magic Token] Token expired');
-      return null;
-    }
-    
-    // Mark token as used
-    await admin
+    // ATOMIC: Find and mark token as used in a single operation
+    // This prevents race conditions where two requests could both pass the "unused" check
+    const { data: tokenRecords, error: updateError } = await admin
       .from('magic_tokens')
       .update({ used_at: new Date().toISOString() })
-      .eq('id', tokenRecord.id);
+      .eq('token_hash', tokenHash)
+      .is('used_at', null)  // Only update if not already used
+      .gt('expires_at', new Date().toISOString())  // Only update if not expired
+      .select('id, user_id, expires_at, used_at');
+    
+    // If no records updated, check why (already used, expired, or not found)
+    if (updateError || !tokenRecords || tokenRecords.length === 0) {
+      // Check if token exists but was already used (allow grace period for prefetch)
+      const { data: existingToken } = await admin
+        .from('magic_tokens')
+        .select('id, user_id, expires_at, used_at')
+        .eq('token_hash', tokenHash)
+        .single();
+      
+      if (existingToken?.used_at) {
+        const usedAt = new Date(existingToken.used_at);
+        const gracePeriod = 30 * 1000; // 30 seconds
+        const now = new Date();
+        
+        if (now.getTime() - usedAt.getTime() <= gracePeriod) {
+          console.log('[Magic Token] Token reused within grace period (prefetch handling)');
+          // Allow reuse within grace period - get user
+          const { data: user } = await admin
+            .from('users')
+            .select('*')
+            .eq('id', existingToken.user_id)
+            .single();
+          
+          if (user) {
+            return { userId: user.id, user: user as User };
+          }
+        }
+        console.log('[Magic Token] Token already used (outside grace period)');
+      } else if (existingToken && new Date(existingToken.expires_at) < new Date()) {
+        console.log('[Magic Token] Token expired');
+      } else {
+        console.log('[Magic Token] Token not found in database');
+      }
+      
+      return null;
+    }
+    
+    const tokenRecord = tokenRecords[0];
+    console.log('[Magic Token] Token consumed successfully');
     
     // Get user
     const { data: user, error: userError } = await admin

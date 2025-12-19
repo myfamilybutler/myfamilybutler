@@ -3,6 +3,8 @@
 // ===========================================
 // Documentation: https://developers.facebook.com/docs/whatsapp/cloud-api
 
+import { fetchWithTimeout } from './fetch-utils';
+
 const GRAPH_API_VERSION = 'v21.0';
 const BASE_URL = 'https://graph.facebook.com';
 
@@ -27,7 +29,7 @@ export async function sendWhatsAppMessage(
   console.log(`[WhatsApp] Sending message to ${normalizedTo}`);
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${BASE_URL}/${GRAPH_API_VERSION}/${phoneNumberId}/messages`,
       {
         method: 'POST',
@@ -81,7 +83,7 @@ export async function markMessageAsRead(messageId: string): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${BASE_URL}/${GRAPH_API_VERSION}/${phoneNumberId}/messages`,
       {
         method: 'POST',

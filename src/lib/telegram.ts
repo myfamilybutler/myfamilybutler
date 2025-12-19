@@ -3,6 +3,8 @@
 // ===========================================
 // Documentation: https://core.telegram.org/bots/api
 
+import { fetchWithTimeout } from './fetch-utils';
+
 const BASE_URL = 'https://api.telegram.org';
 
 /**
@@ -26,7 +28,7 @@ export async function sendTelegramMessage(
   console.log(`[Telegram] Sending message to ${chatId}`);
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${BASE_URL}/bot${botToken}/sendMessage`,
       {
         method: 'POST',
@@ -79,7 +81,7 @@ export async function requestPhoneNumber(
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${BASE_URL}/bot${botToken}/sendMessage`,
       {
         method: 'POST',
@@ -132,7 +134,7 @@ export async function removeKeyboard(
   if (!botToken) return;
 
   try {
-    await fetch(
+    await fetchWithTimeout(
       `${BASE_URL}/bot${botToken}/sendMessage`,
       {
         method: 'POST',
@@ -148,8 +150,9 @@ export async function removeKeyboard(
         }),
       }
     );
-  } catch {
-    // Ignore errors for keyboard removal
+  } catch (error) {
+    // Keyboard removal is non-critical, log for debugging only
+    console.debug('[Telegram] Keyboard removal failed:', error);
   }
 }
 
@@ -166,7 +169,7 @@ export async function setTelegramWebhook(
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${BASE_URL}/bot${botToken}/setWebhook`,
       {
         method: 'POST',
@@ -209,8 +212,9 @@ export async function getTelegramWebhookInfo(): Promise<{
   if (!botToken) return null;
 
   try {
-    const response = await fetch(
-      `${BASE_URL}/bot${botToken}/getWebhookInfo`
+    const response = await fetchWithTimeout(
+      `${BASE_URL}/bot${botToken}/getWebhookInfo`,
+      { method: 'GET' }
     );
 
     const data = await response.json();
@@ -224,7 +228,8 @@ export async function getTelegramWebhookInfo(): Promise<{
     }
 
     return null;
-  } catch {
+  } catch (error) {
+    console.debug('[Telegram] getWebhookInfo failed:', error);
     return null;
   }
 }

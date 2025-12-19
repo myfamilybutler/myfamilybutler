@@ -292,45 +292,73 @@ async function processMessage(
     }
     
     // Check for event intent (if user has a family)
-    const eventIntent = await parseEventIntent(userMessage);
-    if (user.household_id && eventIntent) {
-      const event = await createEvent(
-        user.household_id,
-        user.id,
-        {
-          ...eventIntent,
-          source_message_id: messageId
-        }
-      );
+    // Get message history for context (needed for multi-turn understanding)
+    const history = await getMessageHistory(user.id, 10);
+    const chatHistory: ChatMessage[] = history.map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+    
+    const eventIntents = await parseEventIntent(userMessage, chatHistory);
+    if (user.household_id && eventIntents && eventIntents.length > 0) {
+      console.log(`[Webhook] Creating ${eventIntents.length} event(s)`);
       
-      if (event) {
-        const dateObj = new Date(event.event_date);
-        const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-        });
+      const createdEvents = [];
+      for (const eventIntent of eventIntents) {
+        const event = await createEvent(
+          user.household_id,
+          user.id,
+          {
+            ...eventIntent,
+            source_message_id: messageId
+          }
+        );
+        if (event) {
+          createdEvents.push(event);
+        }
+      }
+
+      if (createdEvents.length > 0) {
+        let confirmationMessage: string;
         
-        const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
-        const memberStr = event.family_member ? ` für ${event.family_member}` : '';
-        const locationStr = event.location ? `\n📍 ${event.location}` : '';
+        if (createdEvents.length === 1) {
+          // Single event - detailed message
+          const event = createdEvents[0];
+          const dateObj = new Date(event.event_date);
+          const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          });
+
+          const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
+          const memberStr = event.family_member ? ` für ${event.family_member}` : '';
+          const locationStr = event.location ? `\n📍 ${event.location}` : '';
+
+          confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
+        } else {
+          // Multiple events - summary message
+          const eventList = createdEvents.map(event => {
+            const dateObj = new Date(event.event_date);
+            const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            });
+            const timeStr = event.event_time ? ` ${event.event_time}` : '';
+            return `• ${formattedDate}${timeStr} - ${event.title}`;
+          }).join('\n');
+          
+          confirmationMessage = `📅 ${createdEvents.length} Termine erstellt!\n\n${eventList}\n\n✅ Alle Termine wurden in deinem Kalender gespeichert!`;
+        }
         
-        const confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
         await sendWhatsAppMessage(phoneNumber, confirmationMessage);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text');
         return;
       }
     }
     
-    // Get message history for context
-    const history = await getMessageHistory(user.id, 10);
-    
-    const chatHistory: ChatMessage[] = history.map((msg) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }));
-    
-    // Generate AI response
+    // Generate AI response (using already-fetched history)
     const aiResponse = await generateAIResponse(chatHistory, userMessage);
     
     // Send response

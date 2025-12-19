@@ -2,34 +2,43 @@ import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 
 /**
  * Normalize phone number to E.164 format.
- * Defaults to DE (Germany) if country code is missing, as per typical user base.
+ * Handles various input formats:
+ * - International with + prefix: +491234567890
+ * - International with 00 prefix: 00491234567890
+ * - Local German numbers: 01234567890
  * Returns null if invalid.
  */
 export function normalizePhone(phone: string): string | null {
   try {
     if (!phone) return null;
     
-    // Add + prefix if missing (heuristic)
-    const p = phone.trim();
-    if (!p.startsWith('+') && !p.startsWith('00')) {
-      // Assume local number? Or international without +?
-      // Best practice: Use parsing library with default country
-      // If starts with 00, replace with +
+    let p = phone.trim();
+    
+    // Handle 00 international prefix (replace with +)
+    if (p.startsWith('00')) {
+      p = '+' + p.substring(2);
     }
-
-    if (!isValidPhoneNumber(p, 'DE')) {
-       // Try 'US' or generic?
-       // Let's stick to strict validation.
-       if (isValidPhoneNumber(p)) {
-         const parsed = parsePhoneNumber(p);
-         return parsed?.number?.toString() || null;
-       }
-       return null;
+    
+    // First try to parse as-is (may already have country code)
+    if (isValidPhoneNumber(p)) {
+      const parsed = parsePhoneNumber(p);
+      return parsed?.number?.toString() || null;
     }
-
-    const parsed = parsePhoneNumber(p, 'DE');
-    return parsed?.number?.toString() || null;
-  } catch (_error) {
+    
+    // Try with German country code as default
+    if (isValidPhoneNumber(p, 'DE')) {
+      const parsed = parsePhoneNumber(p, 'DE');
+      return parsed?.number?.toString() || null;
+    }
+    
+    // Try with Austrian country code
+    if (isValidPhoneNumber(p, 'AT')) {
+      const parsed = parsePhoneNumber(p, 'AT');
+      return parsed?.number?.toString() || null;
+    }
+    
+    return null;
+  } catch {
     return null;
   }
 }

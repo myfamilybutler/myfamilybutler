@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Raw database user (from our users table)
@@ -44,7 +44,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   
   signOut: async () => {
     try {
-      await supabase.auth.signOut();
+      await getSupabase().auth.signOut();
       set({
         user: null,
         dbUser: null,

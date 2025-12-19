@@ -14,7 +14,8 @@ import {
   createEvent,
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
-import { generateAIResponse, parseReminderIntent, parseEventIntent } from '@/lib/openai';
+import { parseReminderIntent } from '@/lib/openai';
+import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai-router';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from '@/lib/telegram';
 import { APP_CONFIG } from '@/lib/config';
@@ -90,7 +91,8 @@ export async function processIncomingMessage(
     }
 
     // Check for pending invite and auto-link to family
-    if (!user.household_id) {
+    let currentHouseholdId = user.household_id;
+    if (!currentHouseholdId) {
       const pendingInvite = await checkPendingInvite(phoneNumber);
       if (pendingInvite) {
         console.log(`[${channel.toUpperCase()}] Auto-linking user ${phoneNumber} to family`);
@@ -104,7 +106,7 @@ export async function processIncomingMessage(
           .single();
 
         if (updatedUser) {
-          user.household_id = updatedUser.household_id;
+          currentHouseholdId = updatedUser.household_id;
         }
 
         await sendResponse(
@@ -146,46 +148,87 @@ export async function processIncomingMessage(
     }
 
     // Check for event intent (if user has a family)
-    const eventIntent = await parseEventIntent(userMessage);
-    if (user.household_id && eventIntent) {
-      const event = await createEvent(
-        user.household_id,
-        user.id,
-        {
-          ...eventIntent,
-          source_message_id: messageId
+    // Get message history for context (needed for multi-turn understanding)
+    const history = await getMessageHistory(user.id, 10);
+    const chatHistory: ChatMessage[] = history.map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+    
+    // Use AI router with fallback and clarification support
+    const extractionResult = await parseEventWithFallback(userMessage, chatHistory);
+    
+    // Handle clarification requests from AI
+    if (extractionResult.needs_clarification && extractionResult.clarification_question) {
+      console.log(`[${channel.toUpperCase()}] AI needs clarification: ${extractionResult.clarification_question}`);
+      
+      const clarificationMessage = `🤔 ${extractionResult.clarification_question}`;
+      await sendResponse(phoneNumber, clarificationMessage, channel, telegramChatId);
+      await logMessage(user.id, 'assistant', clarificationMessage, 'text', undefined, channel);
+      return;
+    }
+    
+    // Process detected events
+    if (currentHouseholdId && extractionResult.events.length > 0) {
+      console.log(`[${channel.toUpperCase()}] Creating ${extractionResult.events.length} event(s)`);
+      
+      const createdEvents = [];
+      for (const eventIntent of extractionResult.events) {
+        const event = await createEvent(
+          currentHouseholdId!, // Asserted: checked in condition above
+          user.id,
+          {
+            ...eventIntent,
+            source_message_id: messageId
+          }
+        );
+        if (event) {
+          createdEvents.push(event);
         }
-      );
+      }
 
-      if (event) {
-        const dateObj = new Date(event.event_date);
-        const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-        });
+      if (createdEvents.length > 0) {
+        let confirmationMessage: string;
+        
+        if (createdEvents.length === 1) {
+          // Single event - detailed message
+          const event = createdEvents[0];
+          const dateObj = new Date(event.event_date);
+          const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          });
 
-        const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
-        const memberStr = event.family_member ? ` für ${event.family_member}` : '';
-        const locationStr = event.location ? `\n📍 ${event.location}` : '';
+          const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
+          const memberStr = event.family_member ? ` für ${event.family_member}` : '';
+          const locationStr = event.location ? `\n📍 ${event.location}` : '';
 
-        const confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
+          confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
+        } else {
+          // Multiple events - summary message
+          const eventList = createdEvents.map(event => {
+            const dateObj = new Date(event.event_date);
+            const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            });
+            const timeStr = event.event_time ? ` ${event.event_time}` : '';
+            return `• ${formattedDate}${timeStr} - ${event.title}`;
+          }).join('\n');
+          
+          confirmationMessage = `📅 ${createdEvents.length} Termine erstellt!\n\n${eventList}\n\n✅ Alle Termine wurden in deinem Kalender gespeichert!`;
+        }
+        
         await sendResponse(phoneNumber, confirmationMessage, channel, telegramChatId);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text', undefined, channel);
         return;
       }
     }
 
-    // Get message history for context
-    const history = await getMessageHistory(user.id, 10);
-
-    const chatHistory: ChatMessage[] = history.map((msg) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }));
-
-    // Generate AI response
-    const aiResponse = await generateAIResponse(chatHistory, userMessage);
+    // Generate AI response with fallback (using already-fetched history)
+    const aiResponse = await generateResponseWithFallback(chatHistory, userMessage);
 
     // Send response
     const sendResult = await sendResponse(phoneNumber, aiResponse, channel, telegramChatId);
