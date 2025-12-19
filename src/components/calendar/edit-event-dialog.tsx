@@ -21,25 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  event_date: string;
-  event_time?: string;
-  end_time?: string;
-  is_all_day: boolean;
-  family_member?: string;
-  location?: string;
-  description?: string;
-}
+import type { CalendarEvent } from '@/types/calendar';
 
 interface EditEventDialogProps {
   event: CalendarEvent | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onEventUpdated: () => void;
-  onEventDeleted: () => void;
+  onEventUpdated?: () => void;
+  onEventDeleted?: () => void;
 }
 
 export function EditEventDialog({
@@ -115,7 +104,7 @@ export function EditEventDialog({
       }
 
       toast.success('Event updated successfully');
-      onEventUpdated();
+      onEventUpdated?.();
       onOpenChange(false);
     } catch (error) {
       console.error('Error updating event:', error);
@@ -141,7 +130,7 @@ export function EditEventDialog({
       }
 
       toast.success('Event deleted');
-      onEventDeleted();
+      onEventDeleted?.();
       onOpenChange(false);
     } catch (error) {
       console.error('Error deleting event:', error);

@@ -10,7 +10,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setUser, setLoading, setOnboardingCompleted, setSupabaseUserId } = useAuthStore();
+  const { setUser, setLoading, setOnboardingCompleted } = useAuthStore();
 
   const checkAuthStatus = useCallback(async (supabaseUserIdParam: string, email: string | undefined) => {
     try {
@@ -26,14 +26,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         const data = await response.json();
         setOnboardingCompleted(data.onboardingCompleted);
-        setSupabaseUserId(data.userId);
+        // Note: userId is now derived from user?.id in the store
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
     } finally {
       setLoading(false);
     }
-  }, [setOnboardingCompleted, setSupabaseUserId, setLoading]);
+  }, [setOnboardingCompleted, setLoading]);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -61,15 +61,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           await checkAuthStatus(user.id, user.email);
         } else {
           setOnboardingCompleted(false);
-          setSupabaseUserId(null);
           setLoading(false);
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [setUser, setLoading, setOnboardingCompleted, setSupabaseUserId, checkAuthStatus]);
+  }, [setUser, setLoading, setOnboardingCompleted, checkAuthStatus]);
 
   return <>{children}</>;
 }
-

@@ -1,61 +1,62 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { log } from '@/lib/logger';
+
+const PROTECTED_PATHS = ['/dashboard', '/onboarding'];
+
+/** Helper to create login redirect */
+const redirectToLogin = (request: NextRequest) => 
+  NextResponse.redirect(new URL('/login', request.url));
 
 export async function middleware(request: NextRequest) {
-  // Paths to protect
-  const protectedPaths = ['/dashboard', '/onboarding'];
-  
-  const isProtectedPath = protectedPaths.some((path) => 
+  const isProtectedPath = PROTECTED_PATHS.some((path) => 
     request.nextUrl.pathname.startsWith(path)
   );
 
-  if (isProtectedPath) {
-    // Check for Supabase session cookie
-    const accessToken = request.cookies.get('sb-access-token')?.value;
-    const refreshToken = request.cookies.get('sb-refresh-token')?.value;
-    
-    // Also check for our custom session cookie as fallback
-    const sessionDetail = request.cookies.get('session_authenticated');
-    
-    // Debug logging
-    console.log(`[Middleware] Path: ${request.nextUrl.pathname}, session_authenticated: ${sessionDetail?.value || 'none'}, accessToken: ${!!accessToken}`);
-    
-    // If no session cookies, redirect to login
-    if (!accessToken && !refreshToken && !sessionDetail) {
-      console.log(`[Middleware] No session found, redirecting to login`);
-      const loginUrl = new URL('/login', request.url);
-      return NextResponse.redirect(loginUrl);
-    }
+  if (!isProtectedPath) {
+    return NextResponse.next();
+  }
 
-    // If we have tokens, verify with Supabase (optional - for SSR validation)
-    if (accessToken) {
-      try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          {
-            global: {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
+  // Get session indicators
+  const accessToken = request.cookies.get('sb-access-token')?.value;
+  const refreshToken = request.cookies.get('sb-refresh-token')?.value;
+  const sessionDetail = request.cookies.get('session_authenticated');
+
+  log.debug(`[Middleware] Path: ${request.nextUrl.pathname}, session_authenticated: ${sessionDetail?.value ?? 'none'}, accessToken: ${!!accessToken}`);
+
+  // Quick check: any session indicator present?
+  const hasAnySession = accessToken || refreshToken || sessionDetail;
+  if (!hasAnySession) {
+    log.debug('[Middleware] No session found, redirecting to login');
+    return redirectToLogin(request);
+  }
+
+  // Verify Supabase token if present
+  if (accessToken) {
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
             },
-          }
-        );
-        
-        const { data: { user }, error } = await supabase.auth.getUser();
-        
-        if (error || !user) {
-          // Token is invalid, redirect to login
-          const loginUrl = new URL('/login', request.url);
-          return NextResponse.redirect(loginUrl);
+          },
         }
-      } catch {
-        // If verification fails, still allow through if we have session_authenticated
-        if (!sessionDetail) {
-          const loginUrl = new URL('/login', request.url);
-          return NextResponse.redirect(loginUrl);
-        }
+      );
+      
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      // Token invalid - fallback to session cookie or redirect
+      if (error || !user) {
+        return sessionDetail ? NextResponse.next() : redirectToLogin(request);
+      }
+    } catch {
+      // Verification failed - fallback to session cookie or redirect
+      if (!sessionDetail) {
+        return redirectToLogin(request);
       }
     }
   }
@@ -77,3 +78,4 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|login|register).*)',
   ],
 };
+

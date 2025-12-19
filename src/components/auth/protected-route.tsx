@@ -52,7 +52,7 @@ function useSessionStatus() {
 
 export function ProtectedRoute({ children, requireOnboarding = false }: ProtectedRouteProps) {
   const router = useRouter();
-  const { user, loading, onboardingCompleted, setSupabaseUserId } = useAuthStore();
+  const { user, loading, onboardingCompleted } = useAuthStore();
   const customSession = useSessionStatus();
 
   // Determine authentication status
@@ -69,16 +69,11 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
       return;
     }
 
-    // For custom session users, skip onboarding checks and hydrate store
-    if (customSession.valid && customSession.userId) {
-      // Only store the userId - let DashboardPage fetch and set the full profile
-      // This prevents race conditions where fake data overwrites real data
-      if (!user) {
-        console.log('[ProtectedRoute] Custom session valid, userId:', customSession.userId);
-        setSupabaseUserId(customSession.userId);
-        // NOTE: We do NOT call setUser() here anymore.
-        // DashboardPage will fetch the real profile and hydrate properly.
-      }
+    // For custom session users, skip onboarding checks
+    // The userId is available via customSession.userId for any code that needs it
+    if (customSession.valid && customSession.userId && !user) {
+      console.log('[ProtectedRoute] Custom session valid, userId:', customSession.userId);
+      // Custom session users bypass onboarding flow
       return;
     }
 
@@ -93,7 +88,7 @@ export function ProtectedRoute({ children, requireOnboarding = false }: Protecte
       router.replace('/onboarding');
       return;
     }
-  }, [isAuthenticated, isLoading, onboardingCompleted, requireOnboarding, router, customSession, user, setSupabaseUserId]);
+  }, [isAuthenticated, isLoading, onboardingCompleted, requireOnboarding, router, customSession, user]);
 
   if (isLoading) {
     return (

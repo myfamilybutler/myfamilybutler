@@ -17,18 +17,7 @@ import {
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { EditEventDialog } from './edit-event-dialog';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  event_date: string;
-  event_time?: string;
-  end_time?: string;
-  is_all_day: boolean;
-  family_member?: string;
-  location?: string;
-  description?: string;
-}
+import type { CalendarEvent } from '@/types/calendar';
 
 interface DayDetailDialogProps {
   date: Date | null;
@@ -57,9 +46,7 @@ export function DayDetailDialog({
     setEditDialogOpen(true);
   };
 
-  const handleEventsChanged = () => {
-    onEventsChanged?.();
-  };
+
 
   const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
@@ -184,8 +171,8 @@ export function DayDetailDialog({
         event={editingEvent}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
-        onEventUpdated={handleEventsChanged}
-        onEventDeleted={handleEventsChanged}
+        onEventUpdated={onEventsChanged}
+        onEventDeleted={onEventsChanged}
       />
     </>
   );

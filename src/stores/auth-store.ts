@@ -16,15 +16,14 @@ export interface DbUser {
 
 interface AuthStore {
   user: SupabaseUser | null;
-  dbUser: DbUser | null; // Raw DB user - preferred for display
+  dbUser: DbUser | null;
   loading: boolean;
   onboardingCompleted: boolean;
-  supabaseUserId: string | null;
+  // Removed supabaseUserId - use user?.id instead (single source of truth)
   setUser: (user: SupabaseUser | null) => void;
   setDbUser: (dbUser: DbUser | null) => void;
   setLoading: (loading: boolean) => void;
   setOnboardingCompleted: (completed: boolean) => void;
-  setSupabaseUserId: (id: string | null) => void;
   signOut: () => Promise<void>;
   reset: () => void;
 }
@@ -34,13 +33,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   dbUser: null,
   loading: true,
   onboardingCompleted: false,
-  supabaseUserId: null,
 
   setUser: (user) => set({ user }),
   setDbUser: (dbUser) => set({ dbUser }),
   setLoading: (loading) => set({ loading }),
   setOnboardingCompleted: (completed) => set({ onboardingCompleted: completed }),
-  setSupabaseUserId: (id) => set({ supabaseUserId: id }),
   
   signOut: async () => {
     try {
@@ -50,7 +47,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
         dbUser: null,
         loading: false,
         onboardingCompleted: false,
-        supabaseUserId: null,
       });
     } catch (error) {
       console.error('Error signing out:', error);
@@ -62,7 +58,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
     dbUser: null,
     loading: false,
     onboardingCompleted: false,
-    supabaseUserId: null,
   }),
 }));
+
+// Convenience selector for getting supabase user ID
+export const useSupabaseUserId = () => useAuthStore((state) => state.user?.id ?? null);
+
 

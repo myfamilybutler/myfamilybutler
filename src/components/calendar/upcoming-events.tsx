@@ -5,7 +5,7 @@ import { format, parseISO, isAfter, startOfDay, addDays } from 'date-fns';
 import { Clock } from 'lucide-react';
 import { useState } from 'react';
 import { cn, formatTime } from '@/lib/utils';
-import type { CalendarEvent } from './calendar-widget';
+import type { CalendarEvent } from '@/types/calendar';
 import { EditEventDialog } from './edit-event-dialog';
 
 import { getMemberColor } from '@/lib/events';
@@ -29,9 +29,7 @@ export function UpcomingEvents({ events, maxItems = 5, onEventsChanged }: Upcomi
     setEditDialogOpen(true);
   };
 
-  const handleEventUpdated = () => {
-    onEventsChanged?.();
-  };
+
 
   // Filter, sort, and process upcoming events with date labels
   const upcomingEvents = useMemo(() => {
@@ -134,8 +132,8 @@ export function UpcomingEvents({ events, maxItems = 5, onEventsChanged }: Upcomi
         event={editingEvent}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
-        onEventUpdated={handleEventUpdated}
-        onEventDeleted={handleEventUpdated}
+        onEventUpdated={onEventsChanged}
+        onEventDeleted={onEventsChanged}
       />
     </>
   );

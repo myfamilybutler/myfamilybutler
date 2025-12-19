@@ -17,18 +17,10 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getMemberColor } from '@/lib/events';
 import { DayDetailDialog } from './day-detail-dialog';
+import type { CalendarEvent } from '@/types/calendar';
 
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  event_date: string;
-  event_time?: string;
-  end_time?: string;
-  is_all_day: boolean;
-  family_member?: string;
-  location?: string;
-  description?: string;
-}
+// Re-export for backwards compatibility
+export type { CalendarEvent } from '@/types/calendar';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_VISIBLE_EVENTS = 2;

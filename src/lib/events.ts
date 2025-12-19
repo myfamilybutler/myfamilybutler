@@ -16,6 +16,23 @@ export function getMemberColor(member?: string): string {
   return MEMBER_COLORS.default;
 }
 
-export function getInitials(name: string) {
-  return name.slice(0, 2).toUpperCase();
+/**
+ * Get initials from a name.
+ * Examples:
+ *   "John Doe" → "JD"
+ *   "Anna" → "AN"
+ *   "John Paul Doe" → "JD" (first and last)
+ */
+export function getInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  
+  if (words.length === 0) return '';
+  if (words.length === 1) {
+    // Single word: take first two characters
+    return words[0].slice(0, 2).toUpperCase();
+  }
+  
+  // Multiple words: first letter of first and last word
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
+
