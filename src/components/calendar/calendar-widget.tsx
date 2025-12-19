@@ -51,9 +51,10 @@ const MAX_VISIBLE_EVENTS = 2;
 export interface CalendarWidgetProps {
   events: CalendarEvent[];
   selectedMembers?: string[];
+  onEventsChanged?: () => void;
 }
 
-export function CalendarWidget({ events, selectedMembers }: CalendarWidgetProps) {
+export function CalendarWidget({ events, selectedMembers, onEventsChanged }: CalendarWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [direction, setDirection] = useState(0);
@@ -238,6 +239,7 @@ export function CalendarWidget({ events, selectedMembers }: CalendarWidgetProps)
         events={selectedDayEvents}
         open={selectedDate !== null}
         onOpenChange={(open: boolean) => !open && setSelectedDate(null)}
+        onEventsChanged={onEventsChanged}
       />
     </>
   );

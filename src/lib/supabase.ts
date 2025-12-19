@@ -291,6 +291,130 @@ export async function getEventsForHousehold(
   return (data ?? []) as Event[];
 }
 
+/**
+ * Update an existing event
+ */
+export async function updateEvent(
+  eventId: string,
+  householdId: string,
+  updates: {
+    title?: string;
+    event_date?: string;
+    event_time?: string | null;
+    end_time?: string | null;
+    is_all_day?: boolean;
+    family_member?: string | null;
+    location?: string | null;
+    description?: string | null;
+  }
+): Promise<Event | null> {
+  const admin = getAdminClient();
+  
+  // Build update object, only including defined fields
+  const updateData: Record<string, unknown> = {};
+  if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.event_date !== undefined) updateData.event_date = updates.event_date;
+  if (updates.event_time !== undefined) updateData.event_time = updates.event_time;
+  if (updates.end_time !== undefined) updateData.end_time = updates.end_time;
+  if (updates.is_all_day !== undefined) updateData.is_all_day = updates.is_all_day;
+  if (updates.family_member !== undefined) updateData.family_member = updates.family_member;
+  if (updates.location !== undefined) updateData.location = updates.location;
+  if (updates.description !== undefined) updateData.description = updates.description;
+  
+  const { data, error } = await admin
+    .from('events')
+    .update(updateData)
+    .eq('id', eventId)
+    .eq('household_id', householdId) // Security: ensure user owns this event
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error updating event:', error);
+    return null;
+  }
+  
+  return data as Event;
+}
+
+/**
+ * Delete an event
+ */
+export async function deleteEvent(
+  eventId: string,
+  householdId: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+  
+  const { error } = await admin
+    .from('events')
+    .delete()
+    .eq('id', eventId)
+    .eq('household_id', householdId); // Security: ensure user owns this event
+  
+  if (error) {
+    console.error('Error deleting event:', error);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Create a reminder linked to an event
+ */
+export async function createEventReminder(
+  userId: string,
+  eventId: string,
+  eventTitle: string,
+  remindAt: Date,
+  customMessage?: string
+): Promise<Reminder | null> {
+  const admin = getAdminClient();
+  
+  const message = customMessage || `📅 Reminder: ${eventTitle}`;
+  
+  const { data, error } = await admin
+    .from('reminders')
+    .insert({
+      user_id: userId,
+      message,
+      remind_at: remindAt.toISOString(),
+      status: 'pending',
+      event_id: eventId, // Link to event (requires schema update if not exists)
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    // If event_id column doesn't exist, retry without it
+    if (error.message?.includes('event_id')) {
+      const { data: fallbackData, error: fallbackError } = await admin
+        .from('reminders')
+        .insert({
+          user_id: userId,
+          message: `${message} (Event: ${eventId})`,
+          remind_at: remindAt.toISOString(),
+          status: 'pending',
+        })
+        .select()
+        .single();
+      
+      if (fallbackError) {
+        console.error('Error creating event reminder (fallback):', fallbackError);
+        return null;
+      }
+      
+      return fallbackData as Reminder;
+    }
+    
+    console.error('Error creating event reminder:', error);
+    return null;
+  }
+  
+  return data as Reminder;
+}
+
 // ===========================================
 // Supabase Auth User Operations
 // ===========================================

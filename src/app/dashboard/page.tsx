@@ -29,28 +29,50 @@ export default function DashboardPage() {
     setSelectedMembers(Array.from(members));
   }, []);
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      if (hasFetchedRef.current) return;
+  // Fetch events from API - returns loaded events or null on error
+  const fetchEventsData = async () => {
+    const response = await fetch('/api/dashboard');
+    const result = await response.json();
 
-      const response = await fetch('/api/dashboard');
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        console.error('Dashboard fetch failed:', result.error);
-        return;
-      }
-
-      // Store raw DB user (clean - no fake object manufacturing)
-      useAuthStore.getState().setDbUser(result.user);
-      const loadedEvents = result.events || [];
-      setEvents(loadedEvents);
-      initializeFilters(loadedEvents);
-      hasFetchedRef.current = true;
+    if (!response.ok || !result.success) {
+      console.error('Dashboard fetch failed:', result.error);
+      return null;
     }
 
-    fetchDashboard();
+    // Store raw DB user (clean - no fake object manufacturing)
+    useAuthStore.getState().setDbUser(result.user);
+    return result.events || [];
+  };
+
+  // Initial fetch effect
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadData = async () => {
+      if (hasFetchedRef.current) return;
+      
+      const loadedEvents = await fetchEventsData();
+      if (loadedEvents && isMounted) {
+        setEvents(loadedEvents);
+        initializeFilters(loadedEvents);
+        hasFetchedRef.current = true;
+      }
+    };
+    
+    loadData();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [initializeFilters]);
+
+  // Callback for when events are changed (edited/deleted)
+  const handleEventsChanged = useCallback(async () => {
+    const loadedEvents = await fetchEventsData();
+    if (loadedEvents) {
+      setEvents(loadedEvents);
+    }
+  }, []);
 
   // Memoized filtered events to prevent unnecessary re-renders
   const filteredEvents = useMemo(() => {
@@ -112,6 +134,7 @@ export default function DashboardPage() {
             <CalendarWidget 
               events={events} 
               selectedMembers={selectedMembers}
+              onEventsChanged={handleEventsChanged}
             />
           </main>
         </div>
@@ -119,3 +142,4 @@ export default function DashboardPage() {
     </ProtectedRoute>
   );
 }
+
