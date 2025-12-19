@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, addHours, addDays, setHours, setMinutes } from 'date-fns';
 import { Pencil, Trash2, Bell, Clock, MapPin, User, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -69,9 +69,9 @@ export function EditEventDialog({
   const [customReminderDate, setCustomReminderDate] = useState('');
   const [customReminderTime, setCustomReminderTime] = useState('');
 
-  // Initialize form when event changes
-  const initializeForm = () => {
-    if (event) {
+  // Initialize form when event changes or dialog opens
+  useEffect(() => {
+    if (open && event) {
       setTitle(event.title);
       setEventDate(event.event_date);
       setEventTime(event.event_time || '');
@@ -83,15 +83,7 @@ export function EditEventDialog({
       setShowDeleteConfirm(false);
       setShowReminderForm(false);
     }
-  };
-
-  // Handle dialog open state change
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen) {
-      initializeForm();
-    }
-    onOpenChange(newOpen);
-  };
+  }, [open, event]);
 
   const handleSave = async () => {
     if (!event) return;
@@ -215,16 +207,16 @@ export function EditEventDialog({
   if (!event) return null;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-5 h-5 text-emerald-600" />
             Edit Event
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4 px-1">
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
@@ -388,7 +380,7 @@ export function EditEventDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-shrink-0 flex-col sm:flex-row gap-2 border-t pt-4">
           {/* Delete Section */}
           {!showDeleteConfirm ? (
             <Button
