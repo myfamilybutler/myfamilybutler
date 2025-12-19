@@ -178,7 +178,7 @@ export default function SettingsPage() {
           </div>
           
           {/* Account & Security Section */}
-          <AccountSecurityCard dbUser={dbUser} />
+          <AccountSecurityCard dbUser={dbUser} onUpdate={fetchData} />
           
           {/* Family Section */}
           <Card>

@@ -73,6 +73,19 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Set custom session cookies to keep server-side session in sync
+    const cookieStore = await cookies();
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+    };
+    
+    cookieStore.set('session_authenticated', 'true', cookieOptions);
+    cookieStore.set('session_user_id', user.id, cookieOptions);
+    
     return NextResponse.json({
       userId: user.id,
       onboardingCompleted: user.onboarding_completed ?? false,

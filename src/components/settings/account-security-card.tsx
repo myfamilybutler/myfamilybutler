@@ -66,7 +66,8 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         toast.success('Name updated successfully');
         onUpdate?.();
       } else {
-        toast.error('Failed to update name');
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to update name');
       }
     } catch (error) {
       console.error('Update error:', error);
@@ -97,7 +98,8 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         setNewPhone('');
         onUpdate?.();
       } else {
-        toast.error('Failed to update phone number');
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to update phone number');
       }
     } catch (error) {
       console.error('Update error:', error);
