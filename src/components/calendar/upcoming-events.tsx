@@ -3,33 +3,36 @@
 import { useMemo } from 'react';
 import { format, parseISO, isAfter, startOfDay, addDays } from 'date-fns';
 import { Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { cn, formatTime } from '@/lib/utils';
 import type { CalendarEvent } from './calendar-widget';
+import { EditEventDialog } from './edit-event-dialog';
 
-// Color mapping for family members
-const MEMBER_COLORS: Record<string, string> = {
-  default: 'bg-emerald-500',
-  mom: 'bg-blue-500',
-  dad: 'bg-purple-500',
-  kids: 'bg-orange-500',
-};
-
-function getMemberColor(member?: string): string {
-  if (!member) return MEMBER_COLORS.default;
-  const lowerMember = member.toLowerCase();
-  return MEMBER_COLORS[lowerMember] || MEMBER_COLORS.default;
-}
+import { getMemberColor } from '@/lib/events';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
   maxItems?: number;
+  onEventsChanged?: () => void;
 }
 
 interface ProcessedEvent extends CalendarEvent {
   dateLabel: string;
 }
 
-export function UpcomingEvents({ events, maxItems = 5 }: UpcomingEventsProps) {
+export function UpcomingEvents({ events, maxItems = 5, onEventsChanged }: UpcomingEventsProps) {
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  const handleEditClick = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setEditDialogOpen(true);
+  };
+
+  const handleEventUpdated = () => {
+    onEventsChanged?.();
+  };
+
   // Filter, sort, and process upcoming events with date labels
   const upcomingEvents = useMemo(() => {
     const today = startOfDay(new Date());
@@ -85,45 +88,56 @@ export function UpcomingEvents({ events, maxItems = 5 }: UpcomingEventsProps) {
   }
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-900">Upcoming</h3>
-      <div className="space-y-2">
-        {upcomingEvents.map((event) => (
-          <div
-            key={event.id}
-            className="flex items-start gap-3 p-3 rounded-xl bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
-          >
-            {/* Time column */}
-            <div className="flex-shrink-0 w-16 text-right">
-              <span className="text-sm font-semibold text-gray-900">
-                {event.is_all_day ? 'All day' : event.event_time}
-              </span>
-              <p className="text-xs text-gray-500">{event.dateLabel}</p>
+    <>
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-900">Upcoming</h3>
+        <div className="space-y-2">
+          {upcomingEvents.map((event) => (
+            <div
+              key={event.id}
+              className="flex items-start gap-3 p-3 rounded-xl bg-gray-50/50 hover:bg-gray-100/50 transition-colors cursor-pointer"
+              onClick={() => handleEditClick(event)}
+            >
+              {/* Time column */}
+              <div className="flex-shrink-0 w-16 text-right">
+                <span className="text-sm font-semibold text-gray-900">
+                  {event.is_all_day ? 'All day' : formatTime(event.event_time)}
+                </span>
+                <p className="text-xs text-gray-500">{event.dateLabel}</p>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {event.title}
+                </p>
+                {event.family_member && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span
+                      className={cn(
+                        'w-2 h-2 rounded-full',
+                        getMemberColor(event.family_member)
+                      )}
+                    />
+                    <span className="text-xs text-gray-500">
+                      {event.family_member}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {event.title}
-              </p>
-              {event.family_member && (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span
-                    className={cn(
-                      'w-2 h-2 rounded-full',
-                      getMemberColor(event.family_member)
-                    )}
-                  />
-                  <span className="text-xs text-gray-500">
-                    {event.family_member}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+
+      <EditEventDialog
+        event={editingEvent}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onEventUpdated={handleEventUpdated}
+        onEventDeleted={handleEventUpdated}
+      />
+    </>
   );
 }
 

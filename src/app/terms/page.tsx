@@ -26,7 +26,7 @@ export default function Terms() {
               </p>
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <p className="font-medium">MyFamilyButler</p>
-                <p>Nominchuluun Baasankhuu</p>
+                <p>Khongorzul Gantulga</p>
                 <p>Madleinweg 3</p>
                 <p>6065 Thaur, Österreich</p>
                 <p className="mt-2">E-Mail: info@myfamilybutler.com</p>

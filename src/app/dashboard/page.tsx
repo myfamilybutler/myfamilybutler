@@ -99,7 +99,11 @@ export default function DashboardPage() {
             {/* Upcoming Events Card */}
             <Card className="border-gray-200 shadow-sm bg-white">
               <CardContent className="p-4">
-                <UpcomingEvents events={filteredEvents} maxItems={5} />
+                <UpcomingEvents 
+                  events={filteredEvents} 
+                  maxItems={5} 
+                  onEventsChanged={handleEventsChanged}
+                />
               </CardContent>
             </Card>
 
@@ -132,8 +136,7 @@ export default function DashboardPage() {
 
             {/* Calendar Grid */}
             <CalendarWidget 
-              events={events} 
-              selectedMembers={selectedMembers}
+              events={filteredEvents} 
               onEventsChanged={handleEventsChanged}
             />
           </main>

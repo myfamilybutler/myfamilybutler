@@ -72,7 +72,7 @@ export function FamilyWidget() {
   
   if (loading) {
     return (
-      <Card className="h-full border-slate-200 shadow-sm">
+      <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-semibold text-gray-900">Family</CardTitle>
         </CardHeader>
@@ -88,7 +88,7 @@ export function FamilyWidget() {
 
   return (
     <>
-      <Card className="h-full border-slate-200 shadow-sm">
+      <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <Users className="w-5 h-5" />

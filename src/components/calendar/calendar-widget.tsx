@@ -1,6 +1,4 @@
-'use client';
-
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   format,
   startOfMonth,
@@ -14,11 +12,11 @@ import {
   subMonths,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { DayDetailSheet } from './day-detail-sheet';
+import { getMemberColor } from '@/lib/events';
+import { DayDetailDialog } from './day-detail-dialog';
 
 export interface CalendarEvent {
   id: string;
@@ -29,20 +27,7 @@ export interface CalendarEvent {
   is_all_day: boolean;
   family_member?: string;
   location?: string;
-}
-
-// Color mapping for family members
-const MEMBER_COLORS: Record<string, string> = {
-  default: 'bg-emerald-500',
-  mom: 'bg-blue-500',
-  dad: 'bg-purple-500',
-  kids: 'bg-orange-500',
-};
-
-function getMemberColor(member?: string): string {
-  if (!member) return MEMBER_COLORS.default;
-  const lowerMember = member.toLowerCase();
-  return MEMBER_COLORS[lowerMember] || MEMBER_COLORS.default;
+  description?: string;
 }
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -50,25 +35,12 @@ const MAX_VISIBLE_EVENTS = 2;
 
 export interface CalendarWidgetProps {
   events: CalendarEvent[];
-  selectedMembers?: string[];
   onEventsChanged?: () => void;
 }
 
-export function CalendarWidget({ events, selectedMembers, onEventsChanged }: CalendarWidgetProps) {
+export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [direction, setDirection] = useState(0);
-
-  // Filter events by selected members
-  const filteredEvents = useMemo(() => {
-    if (!selectedMembers || selectedMembers.length === 0) {
-      return events;
-    }
-    return events.filter((event) => {
-      if (!event.family_member) return true; // Show events without a family member
-      return selectedMembers.includes(event.family_member);
-    });
-  }, [events, selectedMembers]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -76,27 +48,23 @@ export function CalendarWidget({ events, selectedMembers, onEventsChanged }: Cal
   const calendarEnd = endOfWeek(monthEnd);
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
+  // Simple O(N) lookup - for small datasets (family calendar) this is negligible.
+  // For larger datasets, we would map events by date in a useMemo.
   const getEventsForDay = useCallback((day: Date) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return filteredEvents.filter((event) => event.event_date === dayStr);
-  }, [filteredEvents]);
+    return events.filter((event) => event.event_date === dayStr);
+  }, [events]);
 
   const handlePrevMonth = () => {
-    setDirection(-1);
     setCurrentMonth(subMonths(currentMonth, 1));
   };
 
   const handleNextMonth = () => {
-    setDirection(1);
     setCurrentMonth(addMonths(currentMonth, 1));
   };
 
   const handleToday = () => {
-    const today = new Date();
-    if (format(currentMonth, 'yyyy-MM') !== format(today, 'yyyy-MM')) {
-      setDirection(today > currentMonth ? 1 : -1);
-      setCurrentMonth(today);
-    }
+    setCurrentMonth(new Date());
   };
 
   const handleDayClick = (day: Date) => {
@@ -117,7 +85,7 @@ export function CalendarWidget({ events, selectedMembers, onEventsChanged }: Cal
                 variant="ghost" 
                 size="icon" 
                 onClick={handlePrevMonth}
-                className="h-8 w-8"
+                className="h-8 w-8 hover:bg-slate-100"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -125,7 +93,7 @@ export function CalendarWidget({ events, selectedMembers, onEventsChanged }: Cal
                 variant="ghost" 
                 size="icon" 
                 onClick={handleNextMonth}
-                className="h-8 w-8"
+                className="h-8 w-8 hover:bg-slate-100"
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -165,15 +133,7 @@ export function CalendarWidget({ events, selectedMembers, onEventsChanged }: Cal
           </div>
 
           {/* Calendar grid */}
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={currentMonth.toISOString()}
-              initial={{ x: direction * 30, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: direction * -30, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="grid grid-cols-7 gap-0.5 sm:gap-1"
-            >
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
               {calendarDays.map((day) => {
                 const dayEvents = getEventsForDay(day);
                 const isCurrentMonth = isSameMonth(day, currentMonth);
@@ -186,34 +146,33 @@ export function CalendarWidget({ events, selectedMembers, onEventsChanged }: Cal
                     key={day.toISOString()}
                     onClick={() => handleDayClick(day)}
                     className={cn(
-                      'relative min-h-[52px] sm:min-h-[72px] p-0.5 sm:p-1 rounded-lg text-sm transition-colors flex flex-col',
-                      'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1',
-                      !isCurrentMonth && 'opacity-40',
-                      isTodayDate && 'bg-emerald-50 ring-1 ring-emerald-300'
+                      'relative min-h-[52px] sm:min-h-[72px] p-0.5 sm:p-1 rounded-lg text-sm transition-colors flex flex-col items-start text-left',
+                      'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1',
+                      !isCurrentMonth && 'opacity-30 bg-slate-50/50',
+                      isTodayDate && 'bg-emerald-50/50 ring-1 ring-emerald-200'
                     )}
                   >
                     {/* Day number */}
                     <span
                       className={cn(
                         'text-[11px] sm:text-xs font-medium self-center mb-0.5',
-                        isTodayDate ? 'text-emerald-700 font-bold' : 'text-gray-900',
-                        !isCurrentMonth && 'text-gray-400'
+                        isTodayDate ? 'text-emerald-700 font-bold' : 'text-gray-700',
                       )}
                     >
                       {format(day, 'd')}
                     </span>
 
-                    {/* Event strips (Google Calendar style) */}
-                    <div className="flex-1 space-y-0.5 overflow-hidden">
+                    {/* Event strips */}
+                    <div className="w-full space-y-0.5 overflow-hidden">
                       {visibleEvents.map((event) => (
                         <div
                           key={event.id}
                           className={cn(
-                            'h-[14px] sm:h-4 rounded px-1 flex items-center',
+                            'h-[14px] sm:h-4 rounded px-1 flex items-center w-full',
                             getMemberColor(event.family_member)
                           )}
                         >
-                          <span className="text-[8px] sm:text-[10px] font-medium text-white truncate leading-none">
+                          <span className="text-[8px] sm:text-[10px] font-medium text-white truncate leading-none w-full">
                             {event.title}
                           </span>
                         </div>
@@ -221,7 +180,7 @@ export function CalendarWidget({ events, selectedMembers, onEventsChanged }: Cal
                       
                       {/* Overflow indicator */}
                       {overflowCount > 0 && (
-                        <div className="text-[9px] sm:text-[10px] text-gray-500 font-medium px-1">
+                        <div className="text-[9px] sm:text-[10px] text-gray-400 font-medium px-1">
                           +{overflowCount} more
                         </div>
                       )}
@@ -229,12 +188,11 @@ export function CalendarWidget({ events, selectedMembers, onEventsChanged }: Cal
                   </button>
                 );
               })}
-            </motion.div>
-          </AnimatePresence>
+          </div>
         </CardContent>
       </Card>
 
-      <DayDetailSheet
+      <DayDetailDialog
         date={selectedDate}
         events={selectedDayEvents}
         open={selectedDate !== null}
