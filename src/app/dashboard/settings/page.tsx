@@ -5,31 +5,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { 
-  User, 
   Users, 
   Trash2, 
   LogOut, 
   Download, 
-  AlertTriangle,
   Crown,
   UserMinus,
   Plus,
-  Save,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
+import { AccountSecurityCard } from '@/components/settings/account-security-card';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -47,11 +36,10 @@ interface FamilyMember {
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, signOut } = useAuthStore();
+  const { dbUser, signOut } = useAuthStore();
   const [members, setMembers] = useState<FamilyUser[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(true);
   
   // Dialog states
@@ -59,7 +47,6 @@ export default function SettingsPage() {
   const [deleteFamilyDialog, setDeleteFamilyDialog] = useState(false);
   const [leaveFamilyDialog, setLeaveFamilyDialog] = useState(false);
   const [addMemberDialog, setAddMemberDialog] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   
   // Add Member states
@@ -68,31 +55,21 @@ export default function SettingsPage() {
   
   // Fetch data - extracted to useCallback so mutations can refetch
   const fetchData = useCallback(async () => {
-    if (!user?.id) return;
-    
     try {
-      const res = await fetch(`/api/family?supabaseUserId=${user.id}`);
+      const res = await fetch('/api/family');
       const data = await res.json();
       
       if (data.success) {
         setMembers(data.data.users || []);
         setFamilyMembers(data.data.familyMembers || []);
         setIsAdmin(data.data.isAdmin || false);
-        
-        // Find current user's display name by email
-        const currentUser = data.data.users?.find(
-          (u: FamilyUser) => u.phone_number === user.email // may need email match
-        );
-        if (currentUser?.display_name) {
-          setDisplayName(currentUser.display_name);
-        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.id, user?.email]);
+  }, []);
   
   useEffect(() => {
     fetchData();
@@ -104,39 +81,12 @@ export default function SettingsPage() {
     router.push('/login');
   };
   
-  // Handle profile update
-  const handleUpdateProfile = async () => {
-    if (!user?.id) return;
-    
-    setActionLoading(true);
-    try {
-      const res = await fetch('/api/account', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supabaseUserId: user.id, displayName })
-      });
-      
-      if (res.ok) {
-        toast.success('Profile updated successfully');
-        fetchData(); // Refetch to update UI
-      } else {
-        toast.error('Failed to update profile');
-      }
-    } catch (error) {
-      console.error('Update error:', error);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-  
   // Handle add/invite member logic moved to AddMemberDialog
   
   // Handle data export (GDPR: Right to portability)
   const handleExportData = async () => {
-    if (!user?.id) return;
-    
     try {
-      const res = await fetch(`/api/account/export?supabaseUserId=${user.id}`);
+      const res = await fetch('/api/account/export');
       const data = await res.json();
       
       // Download as JSON
@@ -155,14 +105,10 @@ export default function SettingsPage() {
   
   // Handle account deletion (GDPR: Right to erasure)
   const handleDeleteAccount = async () => {
-    if (!user?.id || confirmText !== 'DELETE') return;
-    
     setActionLoading(true);
     try {
       const res = await fetch('/api/account', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supabaseUserId: user.id })
       });
       
       if (res.ok) {
@@ -180,14 +126,12 @@ export default function SettingsPage() {
   
   // Handle family deletion (admin only)
   const handleDeleteFamily = async () => {
-    if (!user?.id || confirmText !== 'DELETE') return;
-    
     setActionLoading(true);
     try {
       const res = await fetch('/api/family', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supabaseUserId: user.id, action: 'deleteFamily' })
+        body: JSON.stringify({ action: 'deleteFamily' })
       });
       
       if (res.ok) {
@@ -204,14 +148,12 @@ export default function SettingsPage() {
   
   // Handle leaving family (non-admin)
   const handleLeaveFamily = async () => {
-    if (!user?.id) return;
-    
     setActionLoading(true);
     try {
       const res = await fetch('/api/family', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supabaseUserId: user.id, action: 'leave' })
+        body: JSON.stringify({ action: 'leave' })
       });
       
       if (res.ok) {
@@ -235,38 +177,8 @@ export default function SettingsPage() {
             <p className="text-gray-500 mt-1">Manage your account and family</p>
           </div>
           
-          {/* Profile Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-4 items-end">
-                <div className="flex-1">
-                  <Label htmlFor="displayName">Display Name</Label>
-                  <Input
-                    id="displayName"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Your name"
-                  />
-                </div>
-                <Button 
-                  onClick={handleUpdateProfile} 
-                  disabled={actionLoading}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save
-                </Button>
-              </div>
-              <div className="text-sm text-gray-500">
-                Email: {user?.email}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Account & Security Section */}
+          <AccountSecurityCard dbUser={dbUser} />
           
           {/* Family Section */}
           <Card>
@@ -402,103 +314,36 @@ export default function SettingsPage() {
         />
         
         {/* Delete Account Dialog */}
-        <Dialog open={deleteAccountDialog} onOpenChange={setDeleteAccountDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-red-600">
-                <AlertTriangle className="w-5 h-5" />
-                Delete Account
-              </DialogTitle>
-              <DialogDescription>
-                This will permanently delete your account and all your data. This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div>
-                <Label>Type DELETE to confirm</Label>
-                <Input
-                  value={confirmText}
-                  onChange={(e) => setConfirmText(e.target.value)}
-                  placeholder="DELETE"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteAccountDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteAccount}
-                disabled={confirmText !== 'DELETE' || actionLoading}
-              >
-                {actionLoading ? 'Deleting...' : 'Delete Account'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+          open={deleteAccountDialog}
+          onOpenChange={setDeleteAccountDialog}
+          title="Delete Account"
+          description="This will permanently delete your account and all your data. This action cannot be undone."
+          confirmText="DELETE"
+          onConfirm={handleDeleteAccount}
+          loading={actionLoading}
+        />
         
-
         {/* Delete Family Dialog */}
-        <Dialog open={deleteFamilyDialog} onOpenChange={setDeleteFamilyDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-red-600">
-                <AlertTriangle className="w-5 h-5" />
-                Delete Family
-              </DialogTitle>
-              <DialogDescription>
-                This will delete the family and remove all members. All events will be lost.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div>
-                <Label>Type DELETE to confirm</Label>
-                <Input
-                  value={confirmText}
-                  onChange={(e) => setConfirmText(e.target.value)}
-                  placeholder="DELETE"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteFamilyDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteFamily}
-                disabled={confirmText !== 'DELETE' || actionLoading}
-              >
-                {actionLoading ? 'Deleting...' : 'Delete Family'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+          open={deleteFamilyDialog}
+          onOpenChange={setDeleteFamilyDialog}
+          title="Delete Family"
+          description="This will delete the family and remove all members. All events will be lost."
+          confirmText="DELETE"
+          onConfirm={handleDeleteFamily}
+          loading={actionLoading}
+        />
         
         {/* Leave Family Dialog */}
-        <Dialog open={leaveFamilyDialog} onOpenChange={setLeaveFamilyDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Leave Family</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to leave this family? You can be invited back later.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setLeaveFamilyDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleLeaveFamily}
-                disabled={actionLoading}
-              >
-                {actionLoading ? 'Leaving...' : 'Leave Family'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+          open={leaveFamilyDialog}
+          onOpenChange={setLeaveFamilyDialog}
+          title="Leave Family"
+          description="Are you sure you want to leave this family? You can be invited back later."
+          onConfirm={handleLeaveFamily}
+          loading={actionLoading}
+        />
       </DashboardLayout>
     </ProtectedRoute>
   );

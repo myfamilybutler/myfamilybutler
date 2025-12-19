@@ -1,25 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
+import { validateSession } from '@/lib/auth-helpers';
 
 /**
  * GET - Export user data (GDPR: Right to data portability)
+ * SECURITY: Uses validateSession() to get userId from session, not client input
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const supabaseUserId = searchParams.get('supabaseUserId');
-    
-    if (!supabaseUserId) {
-      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
+    // SECURITY: Validate session and get userId from server, NOT from client
+    let session;
+    try {
+      session = await validateSession();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    const { userId } = session;
     const admin = getAdminClient();
     
-    // Get user
+    // Get user using validated session userId
     const { data: user, error: userError } = await admin
       .from('users')
       .select('*')
-      .eq('supabase_user_id', supabaseUserId)
+      .eq('id', userId)
       .single();
     
     if (userError || !user) {

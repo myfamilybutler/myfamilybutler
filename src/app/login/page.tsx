@@ -32,7 +32,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error: signInError } = await getSupabase().auth.signInWithPassword({
+      const { data, error: signInError } = await getSupabase().auth.signInWithPassword({
         email,
         password,
       });
@@ -41,8 +41,19 @@ export default function LoginPage() {
         throw signInError;
       }
 
-      // Set server-side session cookie via API
-      await fetch('/api/auth/session', { method: 'POST' });
+      // Get the DB user ID to set in session cookie
+      if (data.user) {
+        // Fetch DB user by supabase_user_id
+        const userRes = await fetch(`/api/user/me?supabaseUserId=${data.user.id}`);
+        const userData = await userRes.json();
+        
+        // Set server-side session cookie with DB user ID
+        await fetch('/api/auth/session', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: userData.user?.id })
+        });
+      }
       
       // Auth state change will redirect to dashboard or onboarding
     } catch (err) {

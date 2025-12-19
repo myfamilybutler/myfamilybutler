@@ -6,26 +6,30 @@ import {
   getPendingInvites 
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
+import { validateSession } from '@/lib/auth-helpers';
 
 /**
  * GET - Get family members and pending invites
+ * SECURITY: Uses validateSession() to get userId from session
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const supabaseUserId = searchParams.get('supabaseUserId');
-    
-    if (!supabaseUserId) {
-      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
+    // SECURITY: Validate session
+    let session;
+    try {
+      session = await validateSession();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    const { userId } = session;
     const admin = getAdminClient();
     
-    // Get user and their family
+    // Get user and their family using validated session userId
     const { data: user, error } = await admin
       .from('users')
       .select('household_id, is_admin')
-      .eq('supabase_user_id', supabaseUserId)
+      .eq('id', userId)
       .single();
     
     if (error || !user?.household_id) {
@@ -53,22 +57,32 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST - Add member or invite
+ * SECURITY: Uses validateSession() to get userId from session
  */
 export async function POST(request: NextRequest) {
   try {
-    const { supabaseUserId, action, phoneNumber, name } = await request.json();
+    // SECURITY: Validate session
+    let session;
+    try {
+      session = await validateSession();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     
-    if (!supabaseUserId || !action) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const { userId } = session;
+    const { action, phoneNumber, name } = await request.json();
+    
+    if (!action) {
+      return NextResponse.json({ error: 'Missing action' }, { status: 400 });
     }
     
     const admin = getAdminClient();
     
-    // Get user and verify they're admin
+    // Get user using validated session userId
     const { data: user, error } = await admin
       .from('users')
       .select('id, household_id, is_admin')
-      .eq('supabase_user_id', supabaseUserId)
+      .eq('id', userId)
       .single();
     
     if (error || !user?.household_id) {
@@ -80,7 +94,6 @@ export async function POST(request: NextRequest) {
     }
     
     if (action === 'invite' && phoneNumber) {
-      // Create invite for WhatsApp user
       const success = await createFamilyInvite(user.household_id, phoneNumber, user.id);
       
       if (!success) {
@@ -96,7 +109,6 @@ export async function POST(request: NextRequest) {
     }
     
     if (action === 'add' && name) {
-      // Add family member (non-WhatsApp)
       const success = await addFamilyMember(user.household_id, name);
       
       if (!success) {
@@ -115,22 +127,27 @@ export async function POST(request: NextRequest) {
 
 /**
  * DELETE - Leave or delete family
+ * SECURITY: Uses validateSession() to get userId from session
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const { supabaseUserId, action } = await request.json();
-    
-    if (!supabaseUserId) {
-      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
+    // SECURITY: Validate session
+    let session;
+    try {
+      session = await validateSession();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    const { userId } = session;
+    const { action } = await request.json();
     const admin = getAdminClient();
     
-    // Get user
+    // Get user using validated session userId
     const { data: user, error } = await admin
       .from('users')
       .select('id, household_id, is_admin')
-      .eq('supabase_user_id', supabaseUserId)
+      .eq('id', userId)
       .single();
     
     if (error || !user?.household_id) {
@@ -138,7 +155,6 @@ export async function DELETE(request: NextRequest) {
     }
     
     if (action === 'leave' && !user.is_admin) {
-      // Non-admin leaving family
       const { error: updateError } = await admin
         .from('users')
         .update({ household_id: null, is_admin: false })
@@ -152,13 +168,11 @@ export async function DELETE(request: NextRequest) {
     }
     
     if (action === 'deleteFamily' && user.is_admin) {
-      // Admin deleting family - unset all members first
       await admin
         .from('users')
         .update({ household_id: null, is_admin: false })
         .eq('household_id', user.household_id);
       
-      // Delete family (cascades to events, family_members, invites)
       const { error: deleteError } = await admin
         .from('households')
         .delete()

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, UserPlus, Clock, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuthStore } from '@/stores/auth-store';
 import { AddMemberDialog } from './add-member-dialog';
 
 interface FamilyUser {
@@ -25,7 +24,6 @@ interface PendingInvite {
 }
 
 export function FamilyWidget() {
-  const { user } = useAuthStore();
   const [members, setMembers] = useState<FamilyUser[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
@@ -37,11 +35,10 @@ export function FamilyWidget() {
   const [defaultTab, setDefaultTab] = useState<'invite' | 'add'>('invite');
   
   // Fetch family data
-  const fetchFamily = useCallback(async () => {
-    if (!user?.id) return;
-    
+  const fetchFamily = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/family?supabaseUserId=${user.id}`);
+      // API uses session cookies now, no need for supabaseUserId
+      const res = await fetch('/api/family', { signal });
       const data = await res.json();
       
       if (data.success) {
@@ -51,14 +48,21 @@ export function FamilyWidget() {
         setIsAdmin(data.data.isAdmin || false);
       }
     } catch (error) {
+      // Ignore abort errors
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Error fetching family:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
-    fetchFamily();
+    const controller = new AbortController();
+    fetchFamily(controller.signal);
+    
+    return () => {
+      controller.abort();
+    };
   }, [fetchFamily]);
   
   const handleOpenDialog = (tab: 'invite' | 'add') => {

@@ -19,7 +19,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { useAuthStore } from '@/stores/auth-store';
 
 interface AddMemberDialogProps {
   open: boolean;
@@ -34,19 +33,17 @@ export function AddMemberDialog({
   onSuccess,
   defaultTab = 'invite' 
 }: AddMemberDialogProps) {
-  const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [invitePhone, setInvitePhone] = useState('');
   const [memberName, setMemberName] = useState('');
 
   const handleAction = async (type: 'invite' | 'add') => {
-    if (!user?.id) return;
-    
     setLoading(true);
     try {
+      // SECURITY: Don't send supabaseUserId - backend uses session
       const payload = type === 'invite' 
-        ? { supabaseUserId: user.id, action: 'invite', phoneNumber: invitePhone }
-        : { supabaseUserId: user.id, action: 'add', name: memberName };
+        ? { action: 'invite', phoneNumber: invitePhone }
+        : { action: 'add', name: memberName };
         
       const res = await fetch('/api/family', {
         method: 'POST',
@@ -57,6 +54,7 @@ export function AddMemberDialog({
       const data = await res.json();
       
       if (res.ok) {
+        toast.success(type === 'invite' ? 'Invite sent!' : 'Member added!');
         setInvitePhone('');
         setMemberName('');
         onOpenChange(false);
@@ -66,6 +64,7 @@ export function AddMemberDialog({
       }
     } catch (error) {
       console.error('Add member error:', error);
+      toast.error('Failed to add member. Please try again.');
     } finally {
       setLoading(false);
     }

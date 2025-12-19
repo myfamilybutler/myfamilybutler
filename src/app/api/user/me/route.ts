@@ -2,6 +2,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth-helpers';
 
+/**
+ * GET - Fetch user by supabaseUserId (for login flow)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const supabaseUserId = searchParams.get('supabaseUserId');
+    
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
+    }
+    
+    const supabase = getAdminClient();
+    
+    // Fetch user by supabase_user_id
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, email, supabase_user_id')
+      .eq('supabase_user_id', supabaseUserId)
+      .single();
+    
+    if (userError || !user) {
+      return NextResponse.json({ error: 'User not found', user: null }, { status: 200 });
+    }
+    
+    return NextResponse.json({ success: true, user });
+    
+  } catch (error) {
+    console.error('[API] /api/user/me GET error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
 export async function POST(_request: NextRequest) {
   try {
     // SECURITY: Validate session first.

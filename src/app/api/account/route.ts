@@ -1,24 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
+import { validateSession } from '@/lib/auth-helpers';
+
+/**
+ * GET - Fetch user account data for settings page
+ */
+export async function GET() {
+  try {
+    let session;
+    try {
+      session = await validateSession();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { userId } = session;
+    const admin = getAdminClient();
+
+    // Get user data
+    const { data: user, error: userError } = await admin
+      .from('users')
+      .select('id, email, phone_number, display_name, telegram_chat_id, supabase_user_id, created_at')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Try to get email from Supabase Auth if not in users table
+    let email = user.email;
+    if (!email && user.supabase_user_id) {
+      try {
+        const { data: authUser } = await admin.auth.admin.getUserById(user.supabase_user_id);
+        if (authUser?.user?.email) {
+          email = authUser.user.email;
+          // Also update the users table to sync the email
+          await admin
+            .from('users')
+            .update({ email: authUser.user.email })
+            .eq('id', user.id);
+        }
+      } catch (authError) {
+        console.error('Error fetching auth user:', authError);
+      }
+    }
+
+    // Build response with connection statuses
+    const accountData = {
+      displayName: user.display_name || '',
+      email: email || null,
+      phoneNumber: user.phone_number || null,
+      connections: {
+        whatsapp: !!user.phone_number,
+        telegram: !!user.telegram_chat_id,
+        supabaseAuth: !!user.supabase_user_id,
+      },
+      createdAt: user.created_at,
+    };
+
+    return NextResponse.json({ success: true, data: accountData });
+
+  } catch (error) {
+    console.error('Get account error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 
 /**
  * PUT - Update user profile
+ * SECURITY: Uses validateSession() to get userId from session
  */
 export async function PUT(request: NextRequest) {
   try {
-    const { supabaseUserId, displayName, phoneNumber } = await request.json();
-    
-    if (!supabaseUserId) {
-      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
+    // SECURITY: Validate session
+    let session;
+    try {
+      session = await validateSession();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    const { userId } = session;
+    const { displayName, phoneNumber } = await request.json();
     const admin = getAdminClient();
     
-    // Get user to verify existence
+    // Get user using validated session userId
     const { data: user, error: userError } = await admin
       .from('users')
       .select('id')
-      .eq('supabase_user_id', supabaseUserId)
+      .eq('id', userId)
       .single();
     
     if (userError || !user) {
@@ -50,22 +122,26 @@ export async function PUT(request: NextRequest) {
 
 /**
  * DELETE - Delete user account (GDPR: Right to erasure)
+ * SECURITY: Uses validateSession() to get userId from session
  */
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   try {
-    const { supabaseUserId } = await request.json();
-    
-    if (!supabaseUserId) {
-      return NextResponse.json({ error: 'Missing supabaseUserId' }, { status: 400 });
+    // SECURITY: Validate session
+    let session;
+    try {
+      session = await validateSession();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    const { userId } = session;
     const admin = getAdminClient();
     
-    // Get user
+    // Get user using validated session userId
     const { data: user, error: userError } = await admin
       .from('users')
       .select('id, household_id, is_admin')
-      .eq('supabase_user_id', supabaseUserId)
+      .eq('id', userId)
       .single();
     
     if (userError || !user) {

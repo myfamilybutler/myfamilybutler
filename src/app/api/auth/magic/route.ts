@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     );
   }
   
-  const { userId, user } = result;
+  const { userId } = result;
   
   console.log(`[Magic Auth] Session created for user ${userId}`);
   
@@ -44,10 +44,6 @@ export async function GET(request: NextRequest) {
   
   response.cookies.set('session_authenticated', 'true', cookieOptions);
   response.cookies.set('session_user_id', userId, cookieOptions);
-  
-  if (user.phone_number) {
-    response.cookies.set('session_phone', user.phone_number, cookieOptions);
-  }
   
   return response;
 }

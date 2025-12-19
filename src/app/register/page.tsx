@@ -47,7 +47,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const { error: signUpError } = await getSupabase().auth.signUp({
+      const { data, error: signUpError } = await getSupabase().auth.signUp({
         email,
         password,
         options: {
@@ -59,8 +59,24 @@ export default function RegisterPage() {
         throw signUpError;
       }
 
-      // Set server-side session cookie via API
-      await fetch('/api/auth/session', { method: 'POST' });
+      // Try to get the DB user ID to set in session cookie (may not exist for new users)
+      let userId = null;
+      if (data.user) {
+        try {
+          const userRes = await fetch(`/api/user/me?supabaseUserId=${data.user.id}`);
+          const userData = await userRes.json();
+          userId = userData.user?.id;
+        } catch {
+          // New users may not have DB record yet
+        }
+      }
+      
+      // Set server-side session cookie
+      await fetch('/api/auth/session', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
       
       setSuccess(true);
       
