@@ -58,7 +58,7 @@ export async function generateAIResponse(
   ];
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
     messages,
     max_tokens: 500,
     temperature: 0.7,
@@ -144,7 +144,7 @@ export async function parseEventWithClarification(
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages,
       response_format: { type: 'json_object' },
       max_tokens: 1000,
