@@ -1,5 +1,12 @@
 
 export const APP_CONFIG = {
+  /**
+   * Current locale key - change this to switch regions
+   * Available: 'de-AT' (Austria), future: 'de-DE', 'de-CH'
+   * @see src/lib/locales/ for locale configurations
+   */
+  currentLocale: 'de-AT' as const,
+  
   localization: {
     timezone: 'Europe/Vienna', // Austria
     locale: 'de-AT',

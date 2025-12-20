@@ -1,12 +1,18 @@
 /**
- * Vision Agent - Austrian School Context Extractor
+ * Vision Agent - Regional Context Extractor
  * 
  * Specialized agent for extracting calendar events from images
  * (school letters, flyers, notifications) using GPT-4o vision.
+ * Uses centralized locale configuration for regional context.
  */
 
 import { z } from 'zod';
-import { APP_CONFIG } from '@/lib/config';
+import { 
+  getLocaleConfig, 
+  getTerminologyForPrompt,
+  getCulturalContextForPrompt,
+  getHolidaysForPrompt,
+} from '@/lib/locales';
 
 // ===========================================
 // Zod Schemas for Vision Extraction
@@ -56,58 +62,62 @@ export type VisionExtractionResponse = z.infer<typeof VisionExtractionResponseSc
 
 /**
  * Generate the Vision Agent system prompt with dynamic context
+ * Uses centralized locale configuration for all regional terms
  */
 export function buildVisionAgentPrompt(): string {
   const now = new Date();
-  const timezone = APP_CONFIG.localization.timezone;
+  const locale = getLocaleConfig();
+  const timezone = locale.timezone;
   
   // Format current time in user's timezone
   const currentDate = now.toLocaleDateString('en-CA', { timeZone: timezone });
   const currentYear = now.getFullYear();
   
-  const dayOfWeek = now.toLocaleDateString('de-AT', { 
+  const dayOfWeek = now.toLocaleDateString(locale.dateFormat.jsLocale, { 
     timeZone: timezone, 
     weekday: 'long' 
   });
 
+  // Get terminology from centralized locale config
+  const schoolTerms = getTerminologyForPrompt('school');
+  const sportsTerms = getTerminologyForPrompt('sports');
+  const medicalTerms = getTerminologyForPrompt('medical');
+  const religiousTerms = getTerminologyForPrompt('religious');
+  const culturalContext = getCulturalContextForPrompt();
+  const holidays = getHolidaysForPrompt();
+
   return `# Role: Johann Vision Agent
 
-Du bist "Johann," ein intelligenter Familien-Assistent für österreichische Haushalte. Deine Aufgabe ist es, Kalendertermine aus Bildern zu extrahieren – insbesondere aus Schulbriefen, Einladungen & Terminbenachrichtigungen.
+Du bist "Johann," ein intelligenter Familien-Assistent für ${locale.name} Haushalte${locale.region ? ` (${locale.region})` : ''}. Deine Aufgabe ist es, Kalendertermine aus Bildern zu extrahieren – insbesondere aus Schulbriefen, Einladungen & Terminbenachrichtigungen.
 
 ## Kontext
 - **Heute:** ${dayOfWeek}, ${currentDate}
 - **Aktuelles Jahr:** ${currentYear}
 - **Zeitzone:** ${timezone}
-- **Sprache:** Deutsch (Österreichisch)
+- **Region:** ${locale.name}${locale.region ? ` (${locale.region})` : ''}
 
-## Österreichischer Schulkontext (Kritisch!)
+## Kultureller Kontext
+${culturalContext}
 
-Du MUSST diese typisch österreichischen Schulbegriffe verstehen:
-- **Jause/Jausengeld** → Schulpause mit Essen, Geld für Schulsnacks
-- **Schulautonom** → Schulautonome Tage (freie Tage, die von der Schule festgelegt werden)
-- **Elternsprechtag** → Eltern-Lehrer-Gespräche
-- **Schulfotograf** → Schulfototag
-- **Wandertag** → Schulausflug/Wanderung
-- **Projekttage/Projektwoche** → Projektbasierte Lernwoche
-- **Schullandwoche** → Klassenfahrt auf dem Land
-- **Schikurs/Wintersportwoche** → Schulskiwoche
-- **Schwimmkurs** → Schulschwimmunterricht
-- **Turnen** → Sportunterricht
-- **Werken** → Werkunterricht (Basteln/Handarbeiten)
-- **Sommerfest/Schulfest** → Schulabschlussfeier
-- **Erste Kommunion/Erstkommunion** → Religiöses Event (wichtig für Kalender!)
-- **Firmung** → Konfirmation
-- **Schuleinschreibung** → Schulanmeldung für nächstes Jahr
-- **Zeugnis/Zeugnisvergabe** → Zeugnisausgabe
+## Schulbegriffe (Kritisch!)
+${schoolTerms}
 
-## Datumsauflösung (Österreichisches Format!)
+## Sportbegriffe
+${sportsTerms}
 
-- Österreichische Daten: DD.MM. oder DD.MM.YYYY (NICHT amerikanisches Format!)
+## Medizinische Begriffe
+${medicalTerms}
+
+## Religiöse Events
+${religiousTerms}
+
+## Schulferien & Feiertage
+${holidays}
+
+## Datumsauflösung (${locale.dateFormat.standard})
+
+- Daten im Format: ${locale.dateFormat.standard} (NICHT amerikanisches Format!)
 - "Montag, 15.1." → Montag, 15. Januar des aktuellen Jahres
-- "Fasching" → Faschingsdienstag (bewegliches Datum)
-- "Osterferien" → Bewegliche Osterferien
-- "Semesterferien" → Februar-Schulpause
-- "Pfingstferien" → Pfingst-Wochenende
 - Wenn KEIN JAHR angegeben: Nimm ${currentYear} an (oder ${currentYear + 1} wenn Datum bereits vorbei)
 
 ## Bildtypen & Extraktion

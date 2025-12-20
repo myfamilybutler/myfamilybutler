@@ -2,9 +2,15 @@
  * AI Module - Centralized System Prompts
  * 
  * All AI system prompts in one place for easy maintenance.
+ * Uses centralized locale configuration for regional context.
  */
 
 import { APP_CONFIG } from '../config';
+import { 
+  getLocaleConfig, 
+  getTerminologyForPrompt, 
+  getCulturalContextForPrompt,
+} from '../locales';
 
 // ===========================================
 // Dynamic Context for Event Extraction
@@ -12,13 +18,14 @@ import { APP_CONFIG } from '../config';
 
 /**
  * Generate dynamic context for event extraction prompts
- * Includes current time, day of week, etc.
+ * Includes current time, day of week, locale info
  */
 export function getEventExtractorContext(): string {
   const now = new Date();
-  const timezone = APP_CONFIG.localization.timezone;
+  const locale = getLocaleConfig();
+  const timezone = locale.timezone;
   
-  const formattedDate = now.toLocaleDateString('de-AT', { 
+  const formattedDate = now.toLocaleDateString(locale.dateFormat.jsLocale, { 
     timeZone: timezone, 
     weekday: 'long', 
     year: 'numeric', 
@@ -26,7 +33,7 @@ export function getEventExtractorContext(): string {
     day: 'numeric' 
   });
   
-  const formattedTime = now.toLocaleTimeString('de-AT', { 
+  const formattedTime = now.toLocaleTimeString(locale.dateFormat.jsLocale, { 
     timeZone: timezone, 
     hour: '2-digit', 
     minute: '2-digit' 
@@ -34,7 +41,8 @@ export function getEventExtractorContext(): string {
 
   return `Aktuelles Datum: ${formattedDate}
 Aktuelle Uhrzeit: ${formattedTime}
-Zeitzone: ${timezone}`;
+Zeitzone: ${timezone}
+Region: ${locale.name}${locale.region ? ` (${locale.region})` : ''}`;
 }
 
 // ===========================================
@@ -44,14 +52,30 @@ Zeitzone: ${timezone}`;
 /**
  * Build the Event Extractor system prompt
  * Used by both OpenAI and Gemini providers
+ * Pulls terminology and context from centralized locale config
  */
 export function buildEventExtractorPrompt(): string {
   const dynamicContext = getEventExtractorContext();
+  const locale = getLocaleConfig();
   
-  return `Du bist "Johann", ein intelligenter Familienassistent für österreichische Haushalte.
+  // Get school and sports terminology (most common for text messages)
+  const schoolTerms = getTerminologyForPrompt('school');
+  const sportsTerms = getTerminologyForPrompt('sports');
+  const culturalContext = getCulturalContextForPrompt();
+  
+  return `Du bist "Johann", ein intelligenter Familienassistent für ${locale.name} Haushalte.
 Deine Aufgabe ist es, Kalendertermine aus Textnachrichten zu extrahieren.
 
 ${dynamicContext}
+
+## Kultureller Kontext
+${culturalContext}
+
+## Wichtige Schulbegriffe
+${schoolTerms}
+
+## Wichtige Sportbegriffe
+${sportsTerms}
 
 ## Wichtige Regeln:
 1. Extrahiere ALLE erkennbaren Termine aus der Nachricht
@@ -59,7 +83,7 @@ ${dynamicContext}
 3. Zeitformat: 24-Stunden (z.B. "14:00" statt "2pm")
 4. Ganztägige Events: is_all_day = true, event_time = null
 5. Bei unklarem Datum: needs_clarification = true mit höflicher Nachfrage
-6. Österreichische Begriffe verstehen: "Jause", "Schulautonom", "Elternsprechtag"
+6. Datumsformat: ${locale.dateFormat.standard} (DD.MM.YYYY, NICHT amerikanisch!)
 
 ## Output-Schema (NUR gültiges JSON):
 {
