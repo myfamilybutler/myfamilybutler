@@ -92,7 +92,90 @@ async function downloadWhatsAppMedia(mediaId: string): Promise<Buffer> {
 }
 
 // ===========================================
-// OpenAI Vision Processing
+// Gemini Vision Processing (Primary)
+// ===========================================
+
+let geminiModule: typeof import('@google/generative-ai') | null = null;
+
+async function getGeminiModel() {
+  if (!geminiModule) {
+    geminiModule = await import('@google/generative-ai');
+  }
+  
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+  
+  const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
+  return genAI.getGenerativeModel({ 
+    model: 'gemini-1.5-flash',
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 4000,
+    },
+  });
+}
+
+/**
+ * Process image with Gemini 1.5 Flash Vision (Primary - Free/Cheap)
+ */
+async function extractEventsWithGemini(
+  imageBuffer: Buffer,
+  mimeType: string = 'image/jpeg'
+): Promise<VisionExtractionResponse | null> {
+  const model = await getGeminiModel();
+  
+  if (!model) {
+    console.log('[VisionAgent] Gemini not available, skipping');
+    return null;
+  }
+
+  const base64Image = imageBuffer.toString('base64');
+  const systemPrompt = buildVisionAgentPrompt();
+
+  try {
+    const result = await model.generateContent([
+      systemPrompt + '\n\nBitte analysiere dieses Bild und extrahiere alle Kalendertermine. Antworte NUR mit JSON.',
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Image,
+        },
+      },
+    ]);
+
+    const response = await result.response;
+    let content = response.text();
+
+    if (!content) {
+      console.error('[VisionAgent] No response from Gemini');
+      return null;
+    }
+
+    console.log('[VisionAgent] Gemini raw response:', content);
+
+    // Clean up response (remove markdown code blocks if present)
+    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    const parsed = JSON.parse(content);
+    const validated = VisionExtractionResponseSchema.safeParse(parsed);
+
+    if (validated.success) {
+      console.log(`[VisionAgent] Gemini extracted ${validated.data.events.length} events with confidence ${validated.data.confidence}`);
+      return validated.data;
+    }
+
+    console.error('[VisionAgent] Gemini schema validation failed:', validated.error);
+    return null;
+  } catch (error) {
+    console.error('[VisionAgent] Gemini processing error:', error);
+    return null;
+  }
+}
+
+// ===========================================
+// OpenAI Vision Processing (Fallback)
 // ===========================================
 
 let openaiInstance: OpenAI | null = null;
@@ -107,9 +190,9 @@ function getOpenAI(): OpenAI {
 }
 
 /**
- * Process image with GPT-4o Vision
+ * Process image with OpenAI GPT-4o-mini Vision (Fallback - Cheap)
  */
-async function extractEventsFromImage(
+async function extractEventsWithOpenAI(
   imageBuffer: Buffer,
   mimeType: string = 'image/jpeg'
 ): Promise<VisionExtractionResponse> {
@@ -119,7 +202,7 @@ async function extractEventsFromImage(
   const systemPrompt = buildVisionAgentPrompt();
 
   const response = await getOpenAI().chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini', // Cheapest OpenAI vision model
     messages: [
       {
         role: 'system',
@@ -136,7 +219,7 @@ async function extractEventsFromImage(
             type: 'image_url',
             image_url: {
               url: dataUri,
-              detail: 'high', // High detail for text extraction
+              detail: 'high',
             },
           },
         ],
@@ -154,24 +237,48 @@ async function extractEventsFromImage(
     return NO_EVENTS_RESPONSE;
   }
 
-  console.log('[VisionAgent] Raw response:', content);
+  console.log('[VisionAgent] OpenAI raw response:', content);
 
-  // Parse and validate with Zod
   try {
     const parsed = JSON.parse(content);
     const validated = VisionExtractionResponseSchema.safeParse(parsed);
 
     if (validated.success) {
-      console.log(`[VisionAgent] Extracted ${validated.data.events.length} events with confidence ${validated.data.confidence}`);
+      console.log(`[VisionAgent] OpenAI extracted ${validated.data.events.length} events with confidence ${validated.data.confidence}`);
       return validated.data;
     }
 
-    console.error('[VisionAgent] Schema validation failed:', validated.error);
+    console.error('[VisionAgent] OpenAI schema validation failed:', validated.error);
     return NO_EVENTS_RESPONSE;
   } catch (parseError) {
     console.error('[VisionAgent] JSON parse error:', parseError);
     return NO_EVENTS_RESPONSE;
   }
+}
+
+// ===========================================
+// Unified Vision Processing with Fallback
+// ===========================================
+
+/**
+ * Extract events from image with automatic fallback
+ * Primary: Gemini 1.5 Flash | Fallback: OpenAI GPT-4o-mini
+ */
+async function extractEventsFromImage(
+  imageBuffer: Buffer,
+  mimeType: string = 'image/jpeg'
+): Promise<VisionExtractionResponse> {
+  // Try Gemini first (free/cheap)
+  console.log('[VisionAgent] Trying Gemini 1.5 Flash (primary)');
+  const geminiResult = await extractEventsWithGemini(imageBuffer, mimeType);
+  
+  if (geminiResult && (geminiResult.events.length > 0 || geminiResult.needs_clarification)) {
+    return geminiResult;
+  }
+
+  // Fallback to OpenAI
+  console.log('[VisionAgent] Falling back to OpenAI GPT-4o-mini');
+  return await extractEventsWithOpenAI(imageBuffer, mimeType);
 }
 
 // ===========================================

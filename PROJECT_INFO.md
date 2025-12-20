@@ -6,14 +6,53 @@
 | --------------------------- | ---------------- | ------------------------------------------------------------------- |
 | **Next.js 16 (App Router)** | Core Framework   | `src/app` directory. Uses Server Actions, Middleware, and React 19. |
 | **Vitest**                  | Unit Testing     | `vitest.config.ts`. Run via `npm test`.                             |
-| **Supabase**                | Backend & RLS    | DB (`src/lib/supabase.ts`) + SQL Policies (`supabase/migrations`).  |
+| **Supabase**                | Backend & RLS    | DB (`src/lib/supabase/`) + SQL Policies (`supabase/migrations`).    |
 | **Firebase**                | Phone Auth       | `src/lib/firebase.ts`. Verifies OTPs.                               |
-| **OpenAI (GPT-4o)**         | AI Intelligence  | `src/lib/openai.ts`. Validated via **Zod**.                         |
-| **WaSenderAPI**             | WhatsApp         | `src/lib/whatsapp.ts`. Webhook at `/api/webhook/whatsapp`.          |
+| **Gemini 1.5 Flash**        | AI (Primary)     | `src/lib/ai/providers/gemini.ts`. Free tier, text + vision.         |
+| **OpenAI GPT-4o-mini**      | AI (Fallback)    | `src/lib/ai/providers/openai.ts`. Cheapest OpenAI model.            |
+| **WhatsApp Cloud API**      | Messaging        | `src/lib/channels/whatsapp.ts`. Webhook at `/api/webhook/whatsapp`. |
+| **Telegram Bot API**        | Messaging        | `src/lib/channels/telegram.ts`. Webhook at `/api/webhook/telegram`. |
 | **Zustand**                 | State Management | `src/stores/auth-store.ts`.                                         |
-| **Zod**                     | Validation       | Used for API inputs and AI Parsing.                                 |
+| **Zod**                     | Validation       | Used for API inputs and AI parsing in `src/lib/ai/schemas.ts`.      |
 
 ## 2. Architecture & Logic
+
+### Directory Structure
+
+The `src/lib` folder is organized by domain:
+
+```
+src/lib/
+├── ai/           # AI providers (Gemini primary, OpenAI fallback)
+├── agents/       # Vision agent for image processing
+├── auth/         # Authentication helpers & Vault
+├── channels/     # WhatsApp, Telegram, message processor
+├── supabase/     # Database operations
+├── sync/         # Google Calendar sync
+├── utils/        # Shared utilities
+└── config.ts     # App configuration
+```
+
+### AI Provider Strategy (Cost Optimized)
+
+**Primary: Gemini 1.5 Flash** (Free tier)
+
+- Text parsing: Event extraction, reminders
+- Vision: School letters, appointment cards
+- Response generation
+
+**Fallback: OpenAI GPT-4o-mini** ($0.15/1M tokens)
+
+- When Gemini fails or is unavailable
+- Automatic fallback with retry logic
+
+```typescript
+// Usage - automatically handles fallback
+import { generateResponseWithFallback, parseEventWithFallback } from "@/lib/ai";
+
+const events = await parseEventWithFallback(message, history);
+const response = await generateResponseWithFallback(history, message);
+```
 
 ### Core Data Flow
 
@@ -28,66 +67,72 @@
      `magic_tokens` table
    - Token exchanged for session cookie at `/api/auth/magic`
    - Single-use tokens with 15-minute expiry
-   - NO proxy emails - clean architecture
 
-3. **App**:
-   - **Dashboard**: Protected by `src/middleware.ts`. Data fetching via
-     Client/Server patterns.
-   - **Mutations**: Moving towards **Server Actions** (see
-     `src/actions/reminders.ts`).
-
-4. **WhatsApp/Telegram**:
+3. **Message Processing**:
    - Webhook receives message → Deduplicates → Handles commands
-     (Dashboard/Start/Help)
-   - If not command: AI parses intent (Reminder/Event) → DB Update → Response
-     sent
+   - If image: Vision Agent extracts events (Gemini → OpenAI fallback)
+   - If text: AI parses intent (Reminder/Event) → DB Update → Response sent
 
 ### Key Patterns
 
-- **Implicit Authentication**: Trusts WhatsApp/Telegram verified identity via
-  webhook signatures
-- **Custom Token Authentication**: Messaging users authenticated via secure
-  tokens (no proxy emails)
-- **Server Actions**: `src/actions/*` contain server-side logic, replacing API
-  routes for mutations
-- **Error Handling**:
-  - **Global/Layout**: `src/app/dashboard/error.tsx` catches React render errors
-  - **API/AI**: Zod validation prevents bad data from crashing the app
-- **Configuration**:
-  - `src/lib/config.ts` holds all hardcoded "Business Logic" (Timezones,
-    Prompts)
+- **AI Fallback**: Gemini first (free), OpenAI second (cheap)
+- **Domain-Based Structure**: Code organized by feature, not by type
+- **Server Actions**: `src/actions/*` contain server-side logic
+- **Zod Validation**: All AI responses validated via schemas
+- **Centralized Prompts**: `src/lib/ai/prompts.ts` for all system prompts
 
 ## 3. Project Status
 
 - ✅ **Authentication**: Full hybrid flow + Middleware protection.
-- ✅ **Testing Infrastructure**: Vitest configured + Example tests
-  (`src/lib/config.test.ts`).
-- ✅ **Security**: RLS Policies defined (`supabase/migrations`) + Zod
-  Validation.
-- ✅ **Stability**: Error Boundaries + Server Actions pattern established.
+- ✅ **Testing Infrastructure**: Vitest configured + Example tests.
+- ✅ **Security**: RLS Policies defined + Zod Validation.
+- ✅ **AI Integration**: Gemini + OpenAI with automatic fallback.
+- ✅ **Vision Processing**: Image → Event extraction (school letters, etc).
 - ✅ **WhatsApp Integration**: Functional with AI.
-- 🚧 **Feature Parity**: Dashboard supports Reminders/Events, but
-  Settings/Profile pages are basic.
-- 🚧 **Type Safety**: `package.json` has `refresh-types` script, but it needs to
-  be run against a real Supabase Project ID.
+- ✅ **Telegram Integration**: Functional with AI + image processing.
+- ✅ **Google Calendar Sync**: OAuth + bidirectional sync.
+- 🚧 **Feature Parity**: Dashboard supports Reminders/Events, Settings basic.
 
-## 4. Next Steps & Recommendations
+## 4. Environment Variables
 
-1. **Deployment Pipeline (CI/CD)**
-   - _Why:_ To ensure tests pass before merging.
-   - _Action:_ Set up GitHub Actions to run `npm test` and `npm run lint`.
-2. **Expand Unit Coverage**
-   - _Why:_ Only basic config tests exist.
-   - _Action:_ Write tests for `openai.ts` parsing logic (mocking the OpenAI
-     API).
-3. **Execute SQL Migrations**
-   - _Why:_ `20241217_initial_rls.sql` is created but needs to be applied to the
-     Supabase instance.
-   - _Action:_ Run the SQL in Supabase SQL Editor.
-4. **Complete Server Action Migration**
-   - _Why:_ Only `reminders` uses Server Actions.
-   - _Action:_ Migrate Event creation and User updates to Server Actions.
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# AI Providers
+GOOGLE_GEMINI_API_KEY=      # Primary (free tier)
+OPENAI_API_KEY=             # Fallback
+
+# Messaging
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_NUMBER_ID=
+TELEGRAM_BOT_TOKEN=
+
+# Google Calendar
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# App
+NEXT_PUBLIC_APP_URL=
+```
+
+## 5. Common Tasks
+
+### Adding a new AI feature
+
+1. Add schema to `src/lib/ai/schemas.ts`
+2. Add prompt to `src/lib/ai/prompts.ts`
+3. Add function to appropriate provider
+4. Export via `src/lib/ai/index.ts` with fallback
+
+### Adding a new channel
+
+1. Create handler in `src/lib/channels/`
+2. Update `message-processor.ts` if needed
+3. Create webhook route in `src/app/api/webhook/`
 
 ---
 
-_Generated by AI Audit on 2024-12-17_
+_Last updated: 2024-12-20_

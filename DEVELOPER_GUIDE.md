@@ -1,49 +1,125 @@
 # Developer Guide & Usage Manual
 
-This guide explains the new architectural features implemented in
-`MyFamilyButler` and how to use them in your daily development.
+This guide explains the architectural features implemented in `MyFamilyButler`
+and how to use them in your daily development.
 
-## 1. Automated Testing (Vitest)
+## 1. AI Integration
 
-We have added a unit testing framework to ensure code stability.
+### Provider Strategy (Cost Optimized)
+
+The app uses a **dual-provider strategy** to minimize costs:
+
+**Primary: Gemini 1.5 Flash** (Free tier / $0.075 per 1M tokens)
+**Fallback: OpenAI GPT-4o-mini** ($0.15 per 1M tokens)
+
+```typescript
+// Automatic fallback - just import from @/lib/ai
+import {
+  generateResponseWithFallback, // Chat responses
+  parseEventWithFallback, // Event extraction
+} from "@/lib/ai";
+
+// For vision/image processing
+import { processLocalImage } from "@/actions/process-vision";
+```
+
+### AI Directory Structure
+
+```
+src/lib/ai/
+├── index.ts          # Main entry - exports fallback functions
+├── schemas.ts        # Shared Zod schemas for validation
+├── prompts.ts        # Centralized system prompts
+├── types.ts          # TypeScript types
+└── providers/
+    ├── gemini.ts     # Gemini 1.5 Flash (primary)
+    └── openai.ts     # GPT-4o-mini (fallback)
+```
+
+### Adding New AI Features
+
+1. **Add Zod schema** to `src/lib/ai/schemas.ts`
+2. **Add system prompt** to `src/lib/ai/prompts.ts`
+3. **Implement in both providers** or just the primary
+4. **Export with fallback** in `src/lib/ai/index.ts`
+
+## 2. Vision Agent (Image Processing)
+
+Extracts calendar events from images (school letters, appointment cards).
+
+```typescript
+import { processLocalImage } from "@/actions/process-vision";
+
+const result = await processLocalImage(
+  imageBuffer, // Buffer
+  userId, // User ID
+  householdId, // Household ID for events
+  "image/jpeg", // MIME type
+);
+
+// result.events - extracted events
+// result.eventsCreated - count saved to DB
+```
+
+### Supported Image Types
+
+- School letters (Elternbrief)
+- Event flyers
+- Appointment cards
+- Calendar screenshots
+- Schedules
+
+## 3. Directory Structure
+
+### src/lib/ (Post-Refactoring)
+
+| Directory   | Purpose                | Key Files                                            |
+| ----------- | ---------------------- | ---------------------------------------------------- |
+| `ai/`       | AI providers & parsing | `index.ts`, `schemas.ts`, `prompts.ts`               |
+| `agents/`   | Specialized agents     | `vision-agent.ts`                                    |
+| `auth/`     | Authentication         | `helpers.ts`, `vault.ts`                             |
+| `channels/` | Messaging              | `telegram.ts`, `whatsapp.ts`, `message-processor.ts` |
+| `supabase/` | Database ops           | `client.ts`, `db-*.ts`                               |
+| `sync/`     | External sync          | `google.ts` (Calendar)                               |
+| `utils/`    | Utilities              | `fetch.ts`, `phone.ts`, `logger.ts`                  |
+
+## 4. Automated Testing (Vitest)
 
 - **Location**: `vitest.config.ts`, `src/**/*.test.ts`
 - **How to Run**:
   ```bash
   npm test
   ```
-- **How to Add Tests**: Create a file ending in `.test.ts` or `.test.tsx` next
-  to the file you want to test.
-  ```typescript
-  // src/lib/example.test.ts
-  import { describe, expect, it } from "vitest";
-  import { myFunction } from "./example";
+- **How to Add Tests**: Create a file ending in `.test.ts` or `.test.tsx`
 
-  describe("myFunction", () => {
-    it("should return true", () => {
-      expect(myFunction()).toBe(true);
-    });
-  });
-  ```
+## 5. Server Actions
 
-## 2. Server Actions
-
-We are moving away from `/api/` routes for data mutations (creates/updates) in
-favor of Next.js Server Actions. This provides better type safety and cleaner
-code.
+We use Next.js Server Actions for data mutations.
 
 - **Location**: `src/actions/`
-- **Example**: `src/actions/reminders.ts`
-- **How to Use**:
-  1. Define a Zod schema for your input.
-  2. Create an async function with `'use server'` at the top.
-  3. Call this function directly from your Client Components (e.g., in a
-     `<form action={myAction}>`). _Tip: See `src/actions/reminders.ts` for a
-     complete reference implementation including validation and error handling._
+- **Examples**: `reminders.ts`, `process-vision.ts`
 
-## 3. Configuration & Localization
+```typescript
+// src/actions/example.ts
+"use server";
 
-Stop hardcoding "Austria" or specific prompts in your components.
+import { z } from "zod";
+
+const InputSchema = z.object({
+  title: z.string().min(1),
+});
+
+export async function createExample(formData: FormData) {
+  const input = InputSchema.parse({
+    title: formData.get("title"),
+  });
+  // ... implementation
+}
+```
+
+## 6. Configuration & Localization
+
+Stop hardcoding values in your components.
 
 - **Location**: `src/lib/config.ts`
 - **Usage**:
@@ -51,58 +127,14 @@ Stop hardcoding "Austria" or specific prompts in your components.
   import { APP_CONFIG } from "@/lib/config";
 
   console.log(APP_CONFIG.localization.timezone); // 'Europe/Vienna'
-  console.log(APP_CONFIG.ai.systemPrompts.butlerPersona);
+  console.log(APP_CONFIG.localization.locale); // 'de-AT'
   ```
-- **When to Update**: If you need to change the AI's personality or support a
-  new country, edit this file only.
-
-## 4. Input Validation (Zod)
-
-Never trust AI output or User input blindly.
-
-- **Usage**: We use `zod` to validate JSON from OpenAI.
-  ```typescript
-  import { z } from "zod";
-
-  const MySchema = z.object({
-    title: z.string(),
-    date: z.string().datetime(),
-  });
-
-  // safeParse doesn't throw!
-  const result = MySchema.safeParse(data);
-  if (!result.success) {
-    console.error(result.error);
-  }
-  ```
-
-## 5. Row Level Security (RLS)
-
-We created a SQL migration file to secure your Database.
-
-- **Location**: `supabase/migrations/20241217_initial_rls.sql`
-- **Action Required**:
-  1. Go to your Supabase Dashboard -> SQL Editor.
-  2. Open or Copy/Paste the contents of the migration file.
-  3. Run it. _This will enable security policies so users can only see their own
-     data._
-
-## 6. Type Generation
-
-Keep your TypeScript types in sync with your Database schema.
-
-- **Script**: `npm run refresh-types`
-- **Setup**: You need to edit `package.json` to replace `<your-project-id>` with
-  your actual Supabase Project Reference ID.
-- **When to run**: Every time you change your Database Schema (add columns,
-  tables).
 
 ## 7. Middleware & Auth
 
 ### Route Protection
 
-`src/middleware.ts` protects `/dashboard/*` and `/onboarding/*` routes. It
-checks for Supabase session cookies (`sb-access-token`, `sb-refresh-token`).
+`src/middleware.ts` protects `/dashboard/*` and `/onboarding/*` routes.
 
 ### Multi-Provider Authentication
 
@@ -110,30 +142,68 @@ checks for Supabase session cookies (`sb-access-token`, `sb-refresh-token`).
 
 1. User registers at `/register` with email/password
 2. Supabase Auth creates user → redirect to `/onboarding`
-3. User adds phone number (optional) during onboarding
-4. Session cookie set
+3. Session cookie set
 
 **WhatsApp/Telegram Users (Custom Token):**
 
 1. User sends message → webhook creates user by phone
 2. User sends "Dashboard" command
-3. `generateDashboardLink()` creates cryptographic token in `magic_tokens` table
+3. `generateDashboardLink()` creates token in `magic_tokens`
 4. Link sent: `/api/auth/magic?token=xxx`
 5. User clicks → token validated → session cookie set
-
-### Dashboard Link Generation
-
-```typescript
-import { generateDashboardLink } from "@/lib/supabase";
-
-const result = await generateDashboardLink(phoneNumber, "telegram");
-if (result.success) {
-  // Send result.link to user
-}
-```
 
 ### Commands (Available in WhatsApp & Telegram)
 
 - `dashboard` / `link` / `login` - Get dashboard magic link
 - `start` / `hi` / `hello` - Welcome message
 - `help` / `hilfe` - Show help
+
+## 8. Import Paths
+
+Use the barrel exports for cleaner imports:
+
+```typescript
+// AI - automatic fallback
+import { parseEventWithFallback } from "@/lib/ai";
+
+// Channels
+import { sendTelegramMessage } from "@/lib/channels/telegram";
+import { sendWhatsAppMessage } from "@/lib/channels/whatsapp";
+
+// Auth
+import { validateSession } from "@/lib/auth/helpers";
+import { getValidGoogleToken } from "@/lib/auth/vault";
+
+// Database
+import { createEvent, getEventsForHousehold } from "@/lib/supabase";
+
+// Utils
+import { cn } from "@/lib/utils";
+```
+
+## 9. Environment Variables
+
+Required for development:
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# AI (at least one required)
+GOOGLE_GEMINI_API_KEY=      # Primary (free tier recommended)
+OPENAI_API_KEY=             # Fallback
+
+# Messaging (as needed)
+WHATSAPP_ACCESS_TOKEN=
+TELEGRAM_BOT_TOKEN=
+
+# Google Calendar (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+---
+
+_Last updated: 2024-12-20_
