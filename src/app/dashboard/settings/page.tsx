@@ -12,6 +12,7 @@ import {
   Crown,
   UserMinus,
   Plus,
+  Calendar,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
 import { AccountSecurityCard } from '@/components/settings/account-security-card';
+import { GoogleCalendarConnectButton } from '@/components/settings/google-calendar-connect';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -252,6 +254,22 @@ export default function SettingsPage() {
                   Leave Family
                 </Button>
               )}
+            </CardContent>
+          </Card>
+          
+          {/* Calendar Integrations */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Calendar Sync
+              </CardTitle>
+              <CardDescription>
+                Connect your calendar to automatically sync events
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <GoogleCalendarConnectButton />
             </CardContent>
           </Card>
           

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
-import { validateSession } from '@/lib/auth-helpers';
+import { validateSession } from '@/lib/auth/helpers';
 
 /**
  * GET - Export user data (GDPR: Right to data portability)

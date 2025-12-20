@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { log } from '@/lib/logger';
+import { log } from '@/lib/utils/logger';
 
 const PROTECTED_PATHS = ['/dashboard', '/onboarding'];
 

@@ -15,7 +15,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getMemberColor } from '@/lib/events';
+import { getMemberColor } from '@/lib/utils/ui-helpers';
 import { DayDetailDialog } from './day-detail-dialog';
 import type { CalendarEvent } from '@/types/calendar';
 

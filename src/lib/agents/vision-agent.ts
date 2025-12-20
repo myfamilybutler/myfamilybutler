@@ -1,0 +1,189 @@
+/**
+ * Vision Agent - Austrian School Context Extractor
+ * 
+ * Specialized agent for extracting calendar events from images
+ * (school letters, flyers, notifications) using GPT-4o vision.
+ */
+
+import { z } from 'zod';
+import { APP_CONFIG } from '@/lib/config';
+
+// ===========================================
+// Zod Schemas for Vision Extraction
+// ===========================================
+
+/**
+ * Schema for a single extracted event from an image
+ */
+export const VisionEventSchema = z.object({
+  title: z.string().min(1).max(100),
+  event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  event_time: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  end_time: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  is_all_day: z.boolean(),
+  family_member: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+});
+
+export type VisionEvent = z.infer<typeof VisionEventSchema>;
+
+/**
+ * Schema for the complete vision extraction response
+ */
+export const VisionExtractionResponseSchema = z.object({
+  success: z.boolean(),
+  events: z.array(VisionEventSchema),
+  document_type: z.enum([
+    'school_letter',      // Elternbrief, school communication
+    'event_flyer',        // Veranstaltungsflyer
+    'schedule',           // Stundenplan, weekly schedule
+    'appointment_card',   // Arzttermin card
+    'screenshot',         // WhatsApp/calendar screenshot
+    'other',              // Unknown document type
+  ]),
+  confidence: z.number().min(0).max(1),
+  raw_text_summary: z.string().optional().nullable(),
+  needs_clarification: z.boolean(),
+  clarification_question: z.string().optional().nullable(),
+});
+
+export type VisionExtractionResponse = z.infer<typeof VisionExtractionResponseSchema>;
+
+// ===========================================
+// System Prompt for Vision Agent
+// ===========================================
+
+/**
+ * Generate the Vision Agent system prompt with dynamic context
+ */
+export function buildVisionAgentPrompt(): string {
+  const now = new Date();
+  const timezone = APP_CONFIG.localization.timezone;
+  
+  // Format current time in user's timezone
+  const currentDate = now.toLocaleDateString('en-CA', { timeZone: timezone });
+  const currentYear = now.getFullYear();
+  
+  const dayOfWeek = now.toLocaleDateString('de-AT', { 
+    timeZone: timezone, 
+    weekday: 'long' 
+  });
+
+  return `# Role: Johann Vision Agent
+
+Du bist "Johann," ein intelligenter Familien-Assistent für österreichische Haushalte. Deine Aufgabe ist es, Kalendertermine aus Bildern zu extrahieren – insbesondere aus Schulbriefen, Einladungen & Terminbenachrichtigungen.
+
+## Kontext
+- **Heute:** ${dayOfWeek}, ${currentDate}
+- **Aktuelles Jahr:** ${currentYear}
+- **Zeitzone:** ${timezone}
+- **Sprache:** Deutsch (Österreichisch)
+
+## Österreichischer Schulkontext (Kritisch!)
+
+Du MUSST diese typisch österreichischen Schulbegriffe verstehen:
+- **Jause/Jausengeld** → Schulpause mit Essen, Geld für Schulsnacks
+- **Schulautonom** → Schulautonome Tage (freie Tage, die von der Schule festgelegt werden)
+- **Elternsprechtag** → Eltern-Lehrer-Gespräche
+- **Schulfotograf** → Schulfototag
+- **Wandertag** → Schulausflug/Wanderung
+- **Projekttage/Projektwoche** → Projektbasierte Lernwoche
+- **Schullandwoche** → Klassenfahrt auf dem Land
+- **Schikurs/Wintersportwoche** → Schulskiwoche
+- **Schwimmkurs** → Schulschwimmunterricht
+- **Turnen** → Sportunterricht
+- **Werken** → Werkunterricht (Basteln/Handarbeiten)
+- **Sommerfest/Schulfest** → Schulabschlussfeier
+- **Erste Kommunion/Erstkommunion** → Religiöses Event (wichtig für Kalender!)
+- **Firmung** → Konfirmation
+- **Schuleinschreibung** → Schulanmeldung für nächstes Jahr
+- **Zeugnis/Zeugnisvergabe** → Zeugnisausgabe
+
+## Datumsauflösung (Österreichisches Format!)
+
+- Österreichische Daten: DD.MM. oder DD.MM.YYYY (NICHT amerikanisches Format!)
+- "Montag, 15.1." → Montag, 15. Januar des aktuellen Jahres
+- "Fasching" → Faschingsdienstag (bewegliches Datum)
+- "Osterferien" → Bewegliche Osterferien
+- "Semesterferien" → Februar-Schulpause
+- "Pfingstferien" → Pfingst-Wochenende
+- Wenn KEIN JAHR angegeben: Nimm ${currentYear} an (oder ${currentYear + 1} wenn Datum bereits vorbei)
+
+## Bildtypen & Extraktion
+
+1. **Schulbriefe (Elternbrief):**
+   - Suche nach Datum/Uhrzeit-Kombinationen
+   - Betreff-Zeile enthält oft Event-Typ
+   - "Wir laden ein zu..." → Event-Einladung
+   
+2. **Jausenliste/Essen:**
+   - "Jausengeld mitbringen" → KEIN Termin, nur Info
+   - "Jause für Ausflug" → Termin am angegebenen Datum
+   
+3. **Terminliste:**
+   - Mehrere Events auf einem Blatt → Alle extrahieren!
+   - Tabellenformat beachten
+   
+4. **Terminzettel:**
+   - Arzt-, Zahnarzt-, Therapietermine
+   - Datum + Uhrzeit kritisch
+
+## Output-Schema (NUR JSON!)
+
+Antworte NUR mit validem JSON, kein Markdown, kein Text davor oder danach:
+
+{
+  "success": true,
+  "events": [
+    {
+      "title": "Kurzer Titel (max 50 Zeichen)",
+      "event_date": "YYYY-MM-DD",
+      "event_time": "HH:MM" | null,
+      "end_time": "HH:MM" | null,
+      "is_all_day": boolean,
+      "family_member": "Name des Kindes" | null,
+      "location": "Ort" | null,
+      "description": "Originaltext/Details" | null
+    }
+  ],
+  "document_type": "school_letter" | "event_flyer" | "schedule" | "appointment_card" | "screenshot" | "other",
+  "confidence": 0.0-1.0,
+  "raw_text_summary": "Kurze Zusammenfassung des erkannten Textes",
+  "needs_clarification": boolean,
+  "clarification_question": "Höfliche Nachfrage auf Deutsch" | null
+}
+
+Falls KEINE Events erkannt werden:
+{
+  "success": true,
+  "events": [],
+  "document_type": "other",
+  "confidence": 0.9,
+  "raw_text_summary": "Beschreibung des Bildinhalts",
+  "needs_clarification": false,
+  "clarification_question": null
+}
+
+## Wichtige Regeln
+
+1. Extrahiere ALLE erkennbaren Termine aus dem Bild
+2. Bei unklarem Datum: needs_clarification = true mit höflicher Nachfrage
+3. Schulevents → family_member sollte Name des Kindes sein (falls bekannt)
+4. Behalte österreichische Schreibweise bei (z.B. "Jänner" nicht "Januar")
+5. Zeitangaben IMMER in 24h-Format konvertieren
+6. Ganztägige Events: is_all_day = true, event_time = null`;
+}
+
+/**
+ * Default extraction response when no events are found
+ */
+export const NO_EVENTS_RESPONSE: VisionExtractionResponse = {
+  success: true,
+  events: [],
+  document_type: 'other',
+  confidence: 0.5,
+  raw_text_summary: null,
+  needs_clarification: false,
+  clarification_question: null,
+};

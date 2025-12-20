@@ -12,12 +12,12 @@ import {
   acceptInvite,
   createReminder,
   createEvent,
+  getAdminClient,
 } from '@/lib/supabase';
-import { getAdminClient } from '@/lib/supabase';
-import { parseReminderIntent } from '@/lib/openai';
-import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai-router';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
-import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from '@/lib/telegram';
+import { parseReminderIntent } from '@/lib/ai/providers/openai';
+import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
+import { sendWhatsAppMessage } from './whatsapp';
+import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from './telegram';
 import { APP_CONFIG } from '@/lib/config';
 
 // ===========================================

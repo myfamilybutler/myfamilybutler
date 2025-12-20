@@ -11,8 +11,8 @@ import {
   acceptInvite 
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
-import { generateAIResponse, parseReminderIntent, parseEventIntent } from '@/lib/openai';
-import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/whatsapp';
+import { generateAIResponse, parseReminderIntent, parseEventIntent } from '@/lib/ai';
+import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/channels/whatsapp';
 import { createReminder, createEvent } from '@/lib/supabase';
 import { APP_CONFIG } from '@/lib/config';
 

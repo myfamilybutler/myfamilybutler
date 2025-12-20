@@ -3,6 +3,7 @@
  */
 import type { Event, Reminder } from '@/types';
 import { getAdminClient } from './client';
+import { syncEventToGoogle } from '../sync/google';
 
 /**
  * Create a new event
@@ -47,7 +48,17 @@ export async function createEvent(
     return null;
   }
   
-  return data as Event;
+  const event = data as Event;
+
+  // Sync to Google Calendar (non-blocking)
+  // Only sync if createdBy is a valid user ID
+  if (createdBy) {
+    syncEventToGoogle(createdBy, event).catch((syncError) => {
+      console.log('[GoogleSync] Sync skipped or failed:', syncError);
+    });
+  }
+  
+  return event;
 }
 
 /**

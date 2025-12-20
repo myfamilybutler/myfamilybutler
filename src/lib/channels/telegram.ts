@@ -3,7 +3,7 @@
 // ===========================================
 // Documentation: https://core.telegram.org/bots/api
 
-import { fetchWithTimeout } from './fetch-utils';
+import { fetchWithTimeout } from '../utils/fetch';
 
 const BASE_URL = 'https://api.telegram.org';
 
@@ -230,6 +230,58 @@ export async function getTelegramWebhookInfo(): Promise<{
     return null;
   } catch (error) {
     console.debug('[Telegram] getWebhookInfo failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Download a file from Telegram servers
+ * Uses the Bot API to get file path, then downloads the actual file
+ */
+export async function downloadTelegramFile(fileId: string): Promise<Buffer | null> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!botToken) {
+    console.error('[Telegram] Missing TELEGRAM_BOT_TOKEN');
+    return null;
+  }
+
+  try {
+    // Step 1: Get file path from Telegram
+    const fileInfoResponse = await fetchWithTimeout(
+      `${BASE_URL}/bot${botToken}/getFile`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_id: fileId }),
+      }
+    );
+
+    const fileInfo = await fileInfoResponse.json();
+
+    if (!fileInfo.ok || !fileInfo.result?.file_path) {
+      console.error('[Telegram] Failed to get file info:', fileInfo);
+      return null;
+    }
+
+    const filePath = fileInfo.result.file_path;
+
+    // Step 2: Download the actual file
+    const fileResponse = await fetchWithTimeout(
+      `${BASE_URL}/file/bot${botToken}/${filePath}`,
+      { method: 'GET' }
+    );
+
+    if (!fileResponse.ok) {
+      console.error('[Telegram] Failed to download file:', fileResponse.status);
+      return null;
+    }
+
+    const arrayBuffer = await fileResponse.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+
+  } catch (error) {
+    console.error('[Telegram] Error downloading file:', error);
     return null;
   }
 }

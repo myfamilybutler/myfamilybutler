@@ -1,3 +1,9 @@
+/**
+ * UI Helper Utilities
+ * 
+ * Helper functions for UI display (colors, initials, etc.)
+ */
+
 export const MEMBER_COLORS: Record<string, string> = {
   default: 'bg-emerald-500',
   mom: 'bg-blue-500',
@@ -5,6 +11,9 @@ export const MEMBER_COLORS: Record<string, string> = {
   kids: 'bg-orange-500',
 };
 
+/**
+ * Get color class for a family member based on role/name
+ */
 export function getMemberColor(member?: string): string {
   if (!member) return MEMBER_COLORS.default;
   const lowerMember = member.toLowerCase();
@@ -35,4 +44,3 @@ export function getInitials(name: string): string {
   // Multiple words: first letter of first and last word
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
-

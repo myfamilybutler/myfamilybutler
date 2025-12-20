@@ -6,7 +6,7 @@ import {
   getPendingInvites 
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
-import { validateSession } from '@/lib/auth-helpers';
+import { validateSession } from '@/lib/auth/helpers';
 
 /**
  * GET - Get family members and pending invites

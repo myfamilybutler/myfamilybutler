@@ -27,7 +27,7 @@ interface DayDetailDialogProps {
   onEventsChanged?: () => void;
 }
 
-import { getMemberColor, getInitials } from '@/lib/events';
+import { getMemberColor, getInitials } from '@/lib/utils/ui-helpers';
 
 export function DayDetailDialog({ 
   date, 

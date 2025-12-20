@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient, updateEvent, deleteEvent, createEventReminder } from '@/lib/supabase';
-import { validateSession } from '@/lib/auth-helpers';
+import { validateSession } from '@/lib/auth/helpers';
 
 export async function GET() {
   try {

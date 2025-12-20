@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
-import { validateSession } from '@/lib/auth-helpers';
+import { validateSession } from '@/lib/auth/helpers';
 
 /**
  * GET - Fetch user account data for settings page

@@ -8,7 +8,7 @@ import { cn, formatTime } from '@/lib/utils';
 import type { CalendarEvent } from '@/types/calendar';
 import { EditEventDialog } from './edit-event-dialog';
 
-import { getMemberColor } from '@/lib/events';
+import { getMemberColor } from '@/lib/utils/ui-helpers';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];

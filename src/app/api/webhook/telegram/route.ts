@@ -4,12 +4,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { TelegramUpdate } from '@/types';
 import { getAdminClient } from '@/lib/supabase';
-import { processIncomingMessage, handleTelegramPhoneReceived } from '@/lib/message-processor';
-import { requestPhoneNumber, sendTelegramMessage } from '@/lib/telegram';
+import { processIncomingMessage, handleTelegramPhoneReceived } from '@/lib/channels/message-processor';
+import { requestPhoneNumber, sendTelegramMessage, downloadTelegramFile } from '@/lib/channels/telegram';
+import { processLocalImage } from '@/actions/process-vision';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
 // ===========================================
+// NOTE: In-memory Maps don't persist across serverless cold starts.
+// This provides "best effort" deduplication within a single instance.
+// Worst case = duplicate processing (handled gracefully by the app).
+// For scale, consider Redis-based deduplication.
 const PROCESSED_MESSAGES = new Map<string, number>();
 const MESSAGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const CLEANUP_INTERVAL_MS = 60 * 1000;
@@ -148,7 +153,61 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     // Extract message content
-    const { text, type } = extractMessageContent(message);
+    const { text, type, photoFileId } = extractMessageContent(message);
+    
+    // ===========================================
+    // Handle Image Messages with Vision Agent
+    // ===========================================
+    if (type === 'image' && photoFileId && linkedUser.household_id) {
+      console.log(`[Telegram Webhook] Processing image from ${chatId}`);
+      
+      try {
+        // Download image from Telegram
+        const imageBuffer = await downloadTelegramFile(photoFileId);
+        
+        if (imageBuffer) {
+          // Process with Vision Agent
+          const result = await processLocalImage(
+            imageBuffer,
+            linkedUser.id,
+            linkedUser.household_id,
+            'image/jpeg'
+          );
+          
+          if (result.success && result.eventsCreated > 0) {
+            const eventList = result.events
+              .map(e => `• ${e.title} (${e.event_date})`)
+              .join('\n');
+            
+            await sendTelegramMessage(
+              chatId,
+              `📅 *${result.eventsCreated} Termin(e) erkannt und gespeichert!*\n\n${eventList}\n\n✅ Check dein Dashboard für Details.`,
+              { parseMode: 'Markdown' }
+            );
+          } else if (result.clarificationNeeded && result.clarificationQuestion) {
+            await sendTelegramMessage(
+              chatId,
+              `🤔 ${result.clarificationQuestion}`,
+              { parseMode: 'Markdown' }
+            );
+          } else {
+            await sendTelegramMessage(
+              chatId,
+              `📷 Bild erhalten! Ich konnte leider keine Termine daraus extrahieren.\n\nTipp: Schick mir Fotos von Schulbriefen, Terminzetteln oder Einladungen.`
+            );
+          }
+          
+          return NextResponse.json({ ok: true });
+        }
+      } catch (visionError) {
+        console.error('[Telegram Webhook] Vision processing error:', visionError);
+        await sendTelegramMessage(
+          chatId,
+          `❌ Fehler bei der Bildverarbeitung. Bitte versuche es später erneut.`
+        );
+        return NextResponse.json({ ok: true });
+      }
+    }
     
     if (!text) {
       console.warn('[Telegram Webhook] Empty message content');
@@ -276,6 +335,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 function extractMessageContent(message: TelegramUpdate['message']): {
   text: string;
   type: 'text' | 'image' | 'voice';
+  photoFileId?: string;
 } {
   if (!message) {
     return { text: '', type: 'text' };
@@ -286,9 +346,12 @@ function extractMessageContent(message: TelegramUpdate['message']): {
   }
   
   if (message.photo && message.photo.length > 0) {
+    // Get the largest photo (best quality, last in array)
+    const largestPhoto = message.photo[message.photo.length - 1];
     return { 
       text: message.caption || '[Image received]', 
-      type: 'image' 
+      type: 'image',
+      photoFileId: largestPhoto.file_id,
     };
   }
   

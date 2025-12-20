@@ -3,7 +3,7 @@
 // ===========================================
 // Documentation: https://developers.facebook.com/docs/whatsapp/cloud-api
 
-import { fetchWithTimeout } from './fetch-utils';
+import { fetchWithTimeout } from '../utils/fetch';
 
 const GRAPH_API_VERSION = 'v21.0';
 const BASE_URL = 'https://graph.facebook.com';

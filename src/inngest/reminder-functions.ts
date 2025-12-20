@@ -3,8 +3,8 @@
 // ===========================================
 import { inngest } from '@/lib/inngest';
 import { getPendingReminders, updateReminderStatus, getAdminClient } from '@/lib/supabase';
-import { sendTelegramMessage } from '@/lib/telegram';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendTelegramMessage } from '@/lib/channels/telegram';
+import { sendWhatsAppMessage } from '@/lib/channels/whatsapp';
 
 /**
  * Cron job: Check for due reminders every 5 minutes

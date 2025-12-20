@@ -1,7 +1,7 @@
 // ===========================================
 // Test OpenAI Directly (No WhatsApp)
 // ===========================================
-import { generateAIResponse, parseReminderIntent } from '@/lib/openai';
+import { generateAIResponse, parseReminderIntent } from '@/lib/ai';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';

@@ -12,7 +12,11 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const { setUser, setLoading, setOnboardingCompleted } = useAuthStore();
 
-  const checkAuthStatus = useCallback(async (supabaseUserIdParam: string, email: string | undefined) => {
+  const checkAuthStatus = useCallback(async (
+    supabaseUserIdParam: string, 
+    email: string | undefined,
+    signal?: AbortSignal
+  ) => {
     try {
       const response = await fetch('/api/auth/status', {
         method: 'POST',
@@ -21,6 +25,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           supabaseUserId: supabaseUserIdParam,
           email: email || '' 
         }),
+        signal,
       });
       
       if (response.ok) {
@@ -29,6 +34,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Note: userId is now derived from user?.id in the store
       }
     } catch (error) {
+      // Ignore aborted requests
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Error checking auth status:', error);
     } finally {
       setLoading(false);
@@ -37,6 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const supabase = getSupabase();
+    const abortController = new AbortController();
     
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
@@ -45,7 +53,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (user) {
         // Check onboarding status from API
-        checkAuthStatus(user.id, user.email);
+        checkAuthStatus(user.id, user.email, abortController.signal);
       } else {
         setLoading(false);
       }
@@ -66,7 +74,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      abortController.abort();
+      subscription.unsubscribe();
+    };
   }, [setUser, setLoading, setOnboardingCompleted, checkAuthStatus]);
 
   return <>{children}</>;

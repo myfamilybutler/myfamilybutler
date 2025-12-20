@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
-import { validateSession } from '@/lib/auth-helpers';
+import { validateSession } from '@/lib/auth/helpers';
 
 /**
  * GET - Fetch user by supabaseUserId (for login flow)
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     // SECURITY: Validate session first.
     let session;
