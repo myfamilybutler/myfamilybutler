@@ -15,13 +15,13 @@ export interface Family {
 export interface User {
   id: string;
   phone_number?: string;
-  email?: string;
+  linked_email?: string;  // Email for desktop magic link login
   household_id?: string;
   display_name?: string;
   is_admin: boolean;
-  supabase_user_id?: string;
   telegram_chat_id?: string;
-  onboarding_completed: boolean;
+  onboarding_modal_shown?: boolean;  // Has user seen the dashboard modal?
+  onboarding_source?: 'whatsapp' | 'telegram' | 'invite';  // How they first registered
   subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';
   stripe_customer_id?: string;
   created_at: string;

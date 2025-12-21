@@ -18,45 +18,53 @@
 export { getSupabase, getAdminClient } from './supabase/client';
 
 // Users
-export { 
-  findOrCreateUser, 
-  findOrCreateUserBySupabaseId, 
-  updateOnboardingCompleted 
+export {
+  findOrCreateUser,
+  findUserById,
+  updateUserDisplayName,
+  type FindOrCreateUserResult,
 } from './supabase/db-users';
 
 // Messages
 export { logMessage, getMessageHistory } from './supabase/db-messages';
 
 // Reminders
-export { 
-  createReminder, 
-  getPendingReminders, 
-  updateReminderStatus 
+export {
+  createReminder,
+  getPendingReminders,
+  updateReminderStatus
 } from './supabase/db-reminders';
 
 // Events
-export { 
-  createEvent, 
-  getEventsForHousehold, 
-  updateEvent, 
-  deleteEvent, 
-  createEventReminder 
+export {
+  createEvent,
+  getEventsForHousehold,
+  updateEvent,
+  deleteEvent,
+  createEventReminder
 } from './supabase/db-events';
 
 // Families
-export { 
-  createFamilyForUser, 
-  checkPendingInvite, 
-  acceptInvite, 
-  createFamilyInvite, 
-  addFamilyMember, 
-  getFamilyMembers, 
-  getPendingInvites 
+export {
+  createFamilyForUser,
+  checkPendingInvite,
+  acceptInvite,
+  createFamilyInvite,
+  addFamilyMember,
+  getFamilyMembers,
+  getPendingInvites
 } from './supabase/db-families';
 
 // Magic Tokens (Auth)
-export { 
-  generateDashboardLink, 
-  validateMagicToken, 
-  cleanupExpiredTokens 
+export {
+  generateDashboardLink,
+  validateMagicToken,
+  cleanupExpiredTokens
 } from './supabase/magic-tokens';
+
+// Email Tokens (Auth)
+export {
+  generateEmailLoginToken,
+  validateEmailLoginToken,
+  cleanupExpiredEmailTokens,
+} from './supabase/email-tokens';

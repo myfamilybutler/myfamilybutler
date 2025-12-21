@@ -7,10 +7,9 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requireOnboarding?: boolean; // If true, redirects to dashboard if onboarding is complete
 }
 
-// Custom hook to check session status
+// Custom hook to check session status (cookie-based auth for WhatsApp/email magic link users)
 function useSessionStatus() {
   const [status, setStatus] = useState<{
     checked: boolean;
@@ -20,12 +19,12 @@ function useSessionStatus() {
 
   useEffect(() => {
     let cancelled = false;
-    
+
     async function check() {
       try {
         const res = await fetch('/api/auth/status');
         const data = await res.json();
-        
+
         if (!cancelled) {
           if (data.authenticated && data.userId) {
             setStatus({ checked: true, valid: true, userId: data.userId });
@@ -50,45 +49,22 @@ function useSessionStatus() {
   return status;
 }
 
-export function ProtectedRoute({ children, requireOnboarding = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
-  const { user, loading, onboardingCompleted } = useAuthStore();
+  const { user, loading } = useAuthStore();
   const customSession = useSessionStatus();
 
   // Determine authentication status
   const isAuthenticated = user || customSession.valid;
-  // For Supabase users, we don't need to wait for custom session check
   const isLoading = loading || (!user && !customSession.checked);
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      // Not authenticated, redirect to login
       router.replace('/login');
-      return;
     }
-
-    // For custom session users, skip onboarding checks
-    // The userId is available via customSession.userId for any code that needs it
-    if (customSession.valid && customSession.userId && !user) {
-      console.log('[ProtectedRoute] Custom session valid, userId:', customSession.userId);
-      // Custom session users bypass onboarding flow
-      return;
-    }
-
-    if (requireOnboarding && onboardingCompleted) {
-      // User is on onboarding page but already completed, redirect to dashboard
-      router.replace('/dashboard');
-      return;
-    }
-
-    if (!requireOnboarding && !onboardingCompleted) {
-      // User is on dashboard but hasn't completed onboarding, redirect to onboarding
-      router.replace('/onboarding');
-      return;
-    }
-  }, [isAuthenticated, isLoading, onboardingCompleted, requireOnboarding, router, customSession, user]);
+  }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
     return (

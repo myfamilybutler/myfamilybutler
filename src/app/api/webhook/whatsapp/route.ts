@@ -3,12 +3,12 @@
 // ===========================================
 import { NextRequest, NextResponse } from 'next/server';
 import type { MetaWebhookBody, MetaMessage, ChatMessage } from '@/types';
-import { 
-  findOrCreateUser, 
-  logMessage, 
+import {
+  findOrCreateUser,
+  logMessage,
   getMessageHistory,
   checkPendingInvite,
-  acceptInvite 
+  acceptInvite
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
 import { generateAIResponse, parseReminderIntent, parseEventIntent } from '@/lib/ai';
@@ -55,15 +55,15 @@ function isDuplicateMessage(messageId: string): boolean {
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const searchParams = request.nextUrl.searchParams;
-  
+
   const mode = searchParams.get('hub.mode');
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
-  
+
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
-  
+
   console.log('[Webhook] GET verification request:', { mode, token: token?.slice(0, 10) + '...', challenge });
-  
+
   // Verify the token matches
   if (mode === 'subscribe' && token === verifyToken) {
     console.log('[Webhook] Verification successful!');
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       headers: { 'Content-Type': 'text/plain' },
     });
   }
-  
+
   console.log('[Webhook] Verification failed - token mismatch');
   return NextResponse.json({ error: 'Verification failed' }, { status: 403 });
 }
@@ -84,22 +84,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body: MetaWebhookBody = await request.json();
-    
+
     console.log('[Webhook] Received:', JSON.stringify(body, null, 2));
-    
+
     // Validate this is from WhatsApp
     if (body.object !== 'whatsapp_business_account') {
       console.log('[Webhook] Not a WhatsApp event, ignoring');
       return NextResponse.json({ success: true });
     }
-    
+
     // Process each entry (usually just one)
     for (const entry of body.entry) {
       for (const change of entry.changes) {
         if (change.field !== 'messages') continue;
-        
+
         const value = change.value;
-        
+
         // Handle status updates (delivery receipts)
         if (value.statuses) {
           for (const status of value.statuses) {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }
           continue;
         }
-        
+
         // Handle incoming messages
         if (value.messages) {
           for (const message of value.messages) {
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
     }
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[Webhook] POST error:', error);
@@ -136,31 +136,31 @@ async function processMessage(
     const phoneNumber = message.from;
     const messageId = message.id;
     const contactName = contact?.profile?.name;
-    
+
     console.log(`[Webhook] Processing message from ${phoneNumber} (${contactName || 'Unknown'})`);
-    
+
     // Deduplication check
     if (isDuplicateMessage(messageId)) {
       console.log(`[Webhook] Duplicate message ignored: ${messageId}`);
       return;
     }
-    
+
     // Mark message as read (async, don't wait)
-    markMessageAsRead(messageId).catch(() => {});
-    
+    markMessageAsRead(messageId).catch(() => { });
+
     // Extract message content
     const { text: userMessage, type: messageType } = extractMessageContent(message);
-    
+
     if (!userMessage) {
       console.warn('[Webhook] Empty message content');
       return;
     }
-    
+
     console.log(`[Webhook] Message content: "${userMessage}" (${messageType})`);
-    
+
     // Find or create user
-    const user = await findOrCreateUser(phoneNumber);
-    
+    const { user, isNewUser } = await findOrCreateUser(phoneNumber, 'whatsapp');
+
     if (!user) {
       console.error(`[Webhook] Failed to find/create user: ${phoneNumber}`);
       await sendWhatsAppMessage(
@@ -169,54 +169,73 @@ async function processMessage(
       );
       return;
     }
-    
+
+    // Send welcome message to brand new users
+    if (isNewUser) {
+      console.log(`[Webhook] New user detected, sending welcome message`);
+      const welcomeMessage =
+        '🎉 Willkommen bei My Family Butler!\n\n' +
+        'Ich bin dein Familienkalender-Assistent.\n' +
+        'Schick mir Termine, Erinnerungen, oder Fotos von Briefen!\n\n' +
+        '📅 "Zahnarzt am Montag um 10"\n' +
+        '⏰ "Erinnere mich morgen an..."\n' +
+        '📸 Foto von Schulbrief senden\n\n' +
+        '💡 Tippe "dashboard" für dein Online-Dashboard!';
+
+      await sendWhatsAppMessage(phoneNumber, welcomeMessage);
+      await logMessage(user.id, 'assistant', welcomeMessage, 'text');
+      // Log and return - don't process initial message as command
+      await logMessage(user.id, 'user', userMessage, messageType, messageId);
+      return;
+    }
+
     // Check for pending invite and auto-link to family
     if (!user.household_id) {
       const pendingInvite = await checkPendingInvite(phoneNumber);
       if (pendingInvite) {
         console.log(`[Webhook] Auto-linking user ${phoneNumber} to family`);
         await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
-        
+
         const admin = getAdminClient();
         const { data: updatedUser } = await admin
           .from('users')
           .select('household_id')
           .eq('id', user.id)
           .single();
-        
+
         if (updatedUser) {
           user.household_id = updatedUser.household_id;
         }
-        
+
         await sendWhatsAppMessage(
           phoneNumber,
           '🎉 Willkommen bei My Family Butler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!'
         );
       }
     }
-    
+
     // Log user message
     await logMessage(user.id, 'user', userMessage, messageType, messageId);
-    
+
     // ===========================================
     // Handle Special Commands
     // ===========================================
     const lowerMessage = userMessage.toLowerCase().trim();
-    
+
     // Dashboard/Login command - generate magic link
     if (['dashboard', 'link', 'login'].includes(lowerMessage)) {
       console.log(`[Webhook] Dashboard command from ${phoneNumber}`);
-      
+
       const { generateDashboardLink } = await import('@/lib/supabase');
       const result = await generateDashboardLink(phoneNumber, 'whatsapp');
-      
+
       if (result.success && result.link) {
-        const dashboardMessage = 
+        const dashboardMessage =
           `🔗 *Dein sicherer Dashboard-Link*\n\n` +
           `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
           `${result.link}\n\n` +
           `⏱️ Der Link ist 15 Minuten gültig.`;
-        
+
         await sendWhatsAppMessage(phoneNumber, dashboardMessage);
         await logMessage(user.id, 'assistant', dashboardMessage, 'text');
       } else {
@@ -226,25 +245,25 @@ async function processMessage(
       }
       return;
     }
-    
+
     // Start command - welcome message
     if (['start', 'hallo', 'hi', 'hello'].includes(lowerMessage)) {
-      const welcomeMessage = 
+      const welcomeMessage =
         `👋 *Willkommen bei My Family Butler!*\n\n` +
         `Ich bin dein persönlicher Familienassistent. Ich kann dir helfen mit:\n\n` +
         `📅 *Termine erstellen* - "Zahnarzt am Montag um 10 Uhr"\n` +
         `⏰ *Erinnerungen* - "Erinnere mich morgen an Milch kaufen"\n` +
         `🔗 *Dashboard öffnen* - "Dashboard" oder "Link"\n\n` +
         `Probiere es aus! Schreib mir einfach eine Nachricht.`;
-      
+
       await sendWhatsAppMessage(phoneNumber, welcomeMessage);
       await logMessage(user.id, 'assistant', welcomeMessage, 'text');
       return;
     }
-    
+
     // Help command
     if (['help', 'hilfe', '?'].includes(lowerMessage)) {
-      const helpMessage = 
+      const helpMessage =
         `ℹ️ *My Family Butler Hilfe*\n\n` +
         `*Termine:*\n` +
         `• "Zahnarzt am Montag um 10 Uhr"\n` +
@@ -255,26 +274,26 @@ async function processMessage(
         `*Befehle:*\n` +
         `• dashboard - Dashboard öffnen\n` +
         `• help - Diese Hilfe anzeigen`;
-      
+
       await sendWhatsAppMessage(phoneNumber, helpMessage);
       await logMessage(user.id, 'assistant', helpMessage, 'text');
       return;
     }
-    
+
     // ===========================================
     // Parse for Intents (Reminders/Events)
     // ===========================================
-    
+
     // Check for reminder intent
     const reminderIntent = await parseReminderIntent(userMessage);
-    
+
     if (reminderIntent) {
       const reminder = await createReminder(
         user.id,
         reminderIntent.task,
         reminderIntent.datetime
       );
-      
+
       if (reminder) {
         const formattedDate = reminderIntent.datetime.toLocaleDateString('de-AT', {
           weekday: 'long',
@@ -283,14 +302,14 @@ async function processMessage(
           hour: '2-digit',
           minute: '2-digit',
         });
-        
+
         const confirmationMessage = `✅ Erinnerung erstellt!\n\n📋 *${reminderIntent.task}*\n📅 ${formattedDate}`;
         await sendWhatsAppMessage(phoneNumber, confirmationMessage);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text');
         return;
       }
     }
-    
+
     // Check for event intent (if user has a family)
     // Get message history for context (needed for multi-turn understanding)
     const history = await getMessageHistory(user.id, 10);
@@ -298,11 +317,11 @@ async function processMessage(
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
     }));
-    
+
     const eventIntents = await parseEventIntent(userMessage, chatHistory);
     if (user.household_id && eventIntents && eventIntents.length > 0) {
       console.log(`[Webhook] Creating ${eventIntents.length} event(s)`);
-      
+
       const createdEvents = [];
       for (const eventIntent of eventIntents) {
         const event = await createEvent(
@@ -320,7 +339,7 @@ async function processMessage(
 
       if (createdEvents.length > 0) {
         let confirmationMessage: string;
-        
+
         if (createdEvents.length === 1) {
           // Single event - detailed message
           const event = createdEvents[0];
@@ -348,22 +367,22 @@ async function processMessage(
             const timeStr = event.event_time ? ` ${event.event_time}` : '';
             return `• ${formattedDate}${timeStr} - ${event.title}`;
           }).join('\n');
-          
+
           confirmationMessage = `📅 ${createdEvents.length} Termine erstellt!\n\n${eventList}\n\n✅ Alle Termine wurden in deinem Kalender gespeichert!`;
         }
-        
+
         await sendWhatsAppMessage(phoneNumber, confirmationMessage);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text');
         return;
       }
     }
-    
+
     // Generate AI response (using already-fetched history)
     const aiResponse = await generateAIResponse(chatHistory, userMessage);
-    
+
     // Send response
     const sendResult = await sendWhatsAppMessage(phoneNumber, aiResponse);
-    
+
     if (sendResult.success) {
       await logMessage(user.id, 'assistant', aiResponse, 'text', sendResult.messageId);
       console.log('[Webhook] Response sent successfully');
@@ -385,28 +404,28 @@ function extractMessageContent(message: MetaMessage): {
   switch (message.type) {
     case 'text':
       return { text: message.text?.body || '', type: 'text' };
-      
+
     case 'image':
-      return { 
-        text: message.image?.caption || '[Image received]', 
-        type: 'image' 
+      return {
+        text: message.image?.caption || '[Image received]',
+        type: 'image'
       };
-      
+
     case 'audio':
       return { text: '[Voice message received]', type: 'voice' };
-      
+
     case 'video':
-      return { 
-        text: message.video?.caption || '[Video received]', 
-        type: 'text' 
+      return {
+        text: message.video?.caption || '[Video received]',
+        type: 'text'
       };
-      
+
     case 'document':
-      return { 
-        text: `[Document received: ${message.document?.filename || 'file'}]`, 
-        type: 'text' 
+      return {
+        text: `[Document received: ${message.document?.filename || 'file'}]`,
+        type: 'text'
       };
-      
+
     default:
       return { text: '', type: 'text' };
   }

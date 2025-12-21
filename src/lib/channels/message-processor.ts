@@ -4,9 +4,9 @@
 // Used by both WhatsApp and Telegram webhooks
 
 import type { ChatMessage, MessageChannel } from '@/types';
-import { 
-  findOrCreateUser, 
-  logMessage, 
+import {
+  findOrCreateUser,
+  logMessage,
   getMessageHistory,
   checkPendingInvite,
   acceptInvite,
@@ -76,8 +76,8 @@ export async function processIncomingMessage(
     console.log(`[${channel.toUpperCase()}] Processing message from ${phoneNumber} (${contactName || 'Unknown'})`);
     console.log(`[${channel.toUpperCase()}] Message content: "${userMessage}" (${messageType})`);
 
-    // Find or create user
-    const user = await findOrCreateUser(phoneNumber);
+    // Find or create user (returns isNewUser flag for welcome message)
+    const { user, isNewUser } = await findOrCreateUser(phoneNumber, channel);
 
     if (!user) {
       console.error(`[${channel.toUpperCase()}] Failed to find/create user: ${phoneNumber}`);
@@ -87,6 +87,29 @@ export async function processIncomingMessage(
         channel,
         telegramChatId
       );
+      return;
+    }
+
+    // Send welcome message to brand new users (before any other processing)
+    if (isNewUser) {
+      console.log(`[${channel.toUpperCase()}] New user detected, sending welcome message`);
+      const welcomeMessage =
+        '🎉 Willkommen bei My Family Butler!\n\n' +
+        'Ich bin dein Familienkalender-Assistent.\n' +
+        'Schick mir Termine, Erinnerungen, oder Fotos von Briefen!\n\n' +
+        '📅 "Zahnarzt am Montag um 10"\n' +
+        '⏰ "Erinnere mich morgen an..."\n' +
+        '📸 Foto von Schulbrief senden\n\n' +
+        '💡 Tippe "dashboard" für dein Online-Dashboard!';
+
+      await sendResponse(phoneNumber, welcomeMessage, channel, telegramChatId);
+
+      // Log welcome message
+      await logMessage(user.id, 'assistant', welcomeMessage, 'text', undefined, channel);
+
+      // Don't process the initial message as a command - they're just saying hi
+      // Log the user message and return
+      await logMessage(user.id, 'user', userMessage, messageType, messageId, channel);
       return;
     }
 
@@ -154,24 +177,24 @@ export async function processIncomingMessage(
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
     }));
-    
+
     // Use AI router with fallback and clarification support
     const extractionResult = await parseEventWithFallback(userMessage, chatHistory);
-    
+
     // Handle clarification requests from AI
     if (extractionResult.needs_clarification && extractionResult.clarification_question) {
       console.log(`[${channel.toUpperCase()}] AI needs clarification: ${extractionResult.clarification_question}`);
-      
+
       const clarificationMessage = `🤔 ${extractionResult.clarification_question}`;
       await sendResponse(phoneNumber, clarificationMessage, channel, telegramChatId);
       await logMessage(user.id, 'assistant', clarificationMessage, 'text', undefined, channel);
       return;
     }
-    
+
     // Process detected events
     if (currentHouseholdId && extractionResult.events.length > 0) {
       console.log(`[${channel.toUpperCase()}] Creating ${extractionResult.events.length} event(s)`);
-      
+
       const createdEvents = [];
       for (const eventIntent of extractionResult.events) {
         const event = await createEvent(
@@ -189,7 +212,7 @@ export async function processIncomingMessage(
 
       if (createdEvents.length > 0) {
         let confirmationMessage: string;
-        
+
         if (createdEvents.length === 1) {
           // Single event - detailed message
           const event = createdEvents[0];
@@ -217,10 +240,10 @@ export async function processIncomingMessage(
             const timeStr = event.event_time ? ` ${event.event_time}` : '';
             return `• ${formattedDate}${timeStr} - ${event.title}`;
           }).join('\n');
-          
+
           confirmationMessage = `📅 ${createdEvents.length} Termine erstellt!\n\n${eventList}\n\n✅ Alle Termine wurden in deinem Kalender gespeichert!`;
         }
-        
+
         await sendResponse(phoneNumber, confirmationMessage, channel, telegramChatId);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text', undefined, channel);
         return;

@@ -109,7 +109,7 @@ async function getGeminiModel() {
   
   const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
   return genAI.getGenerativeModel({ 
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3-flash-preview',
     generationConfig: {
       temperature: 0,
       maxOutputTokens: 4000,

@@ -29,7 +29,7 @@ export function Navbar() {
   };
 
   // Use dbUser (raw DB) for display, fallback to user (Supabase) for email
-  const displayIdentifier = dbUser?.display_name || dbUser?.email || dbUser?.phone_number || user?.email || 'Account';
+  const displayIdentifier = dbUser?.display_name || dbUser?.linked_email || dbUser?.phone_number || user?.email || 'Account';
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">

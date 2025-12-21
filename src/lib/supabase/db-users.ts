@@ -1,127 +1,110 @@
 /**
  * User Database Operations
+ * 
+ * Primary pattern: Phone-first via WhatsApp/Telegram
+ * Users are created when they first message us.
  */
-import type { User } from '@/types';
+import type { User, MessageChannel } from '@/types';
 import { getAdminClient } from './client';
 
 /**
- * Find or create user by phone number (for messaging apps)
+ * Result of findOrCreateUser operation
  */
-export async function findOrCreateUser(phoneNumber: string): Promise<User | null> {
+export interface FindOrCreateUserResult {
+  user: User | null;
+  isNewUser: boolean;
+}
+
+/**
+ * Find or create user by phone number (for messaging apps)
+ * This is the PRIMARY way users are created in the phone-first architecture.
+ * 
+ * @param phoneNumber - The phone number to find or create user for
+ * @param channel - The channel (whatsapp/telegram) for tracking source
+ * @returns User object and whether this was a new user (for welcome message)
+ */
+export async function findOrCreateUser(
+  phoneNumber: string,
+  channel: MessageChannel = 'whatsapp'
+): Promise<FindOrCreateUserResult> {
   const admin = getAdminClient();
   const normalized = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-  
-  // 1. Try to find existing user
+
+  // 1. Try to find existing user (single query)
   const { data: existing } = await admin
     .from('users')
     .select('*')
     .eq('phone_number', normalized)
     .maybeSingle();
-  
-  if (existing) return existing as User;
-  
-  // 2. Create new (UNIQUE constraint on phone_number prevents duplicates)
+
+  if (existing) {
+    return { user: existing as User, isNewUser: false };
+  }
+
+  // 2. Create new user with onboarding_source
   const { data: newUser, error } = await admin
     .from('users')
-    .insert({ phone_number: normalized, subscription_status: 'free' })
-    .select()
-    .single();
-  
-  // 3. Race condition: another request created user first
-  if (error?.code === '23505') {
-    const { data } = await admin.from('users').select('*').eq('phone_number', normalized).single();
-    return data as User | null;
-  }
-  
-  if (error) {
-    console.error('Error creating user:', error);
-    return null;
-  }
-  
-  return newUser as User;
-}
-
-/**
- * Find or create user by Supabase Auth ID (for email/OAuth users)
- */
-export async function findOrCreateUserBySupabaseId(
-  supabaseUserId: string,
-  email: string
-): Promise<User | null> {
-  const admin = getAdminClient();
-  
-  // Try to find existing user by supabase_user_id
-  const { data: existingUser, error: findError } = await admin
-    .from('users')
-    .select('*')
-    .eq('supabase_user_id', supabaseUserId)
-    .single();
-  
-  if (existingUser && !findError) {
-    return existingUser as User;
-  }
-  
-  // Check if user exists by email (migration case)
-  const { data: emailUser } = await admin
-    .from('users')
-    .select('*')
-    .eq('email', email)
-    .single();
-  
-  if (emailUser) {
-    // Update existing user with supabase_user_id
-    const { data: updatedUser, error: updateError } = await admin
-      .from('users')
-      .update({ supabase_user_id: supabaseUserId })
-      .eq('id', emailUser.id)
-      .select()
-      .single();
-    
-    if (updateError) {
-      console.error('Error updating user with supabase_user_id:', updateError);
-      return emailUser as User;
-    }
-    
-    return updatedUser as User;
-  }
-  
-  // Create new user
-  const { data: newUser, error: createError } = await admin
-    .from('users')
-    .insert({ 
-      email: email,
-      supabase_user_id: supabaseUserId,
+    .insert({
+      phone_number: normalized,
       subscription_status: 'free',
-      onboarding_completed: false,
+      onboarding_source: channel,
+      onboarding_modal_shown: false,
     })
     .select()
     .single();
-  
-  if (createError) {
-    console.error('Error creating user:', createError);
-    return null;
+
+  // 3. Handle race condition: another request created user first
+  if (error?.code === '23505') {
+    const { data } = await admin
+      .from('users')
+      .select('*')
+      .eq('phone_number', normalized)
+      .single();
+    return { user: data as User | null, isNewUser: false };
   }
-  
-  return newUser as User;
+
+  if (error) {
+    console.error('Error creating user:', error);
+    return { user: null, isNewUser: false };
+  }
+
+  return { user: newUser as User, isNewUser: true };
 }
 
 /**
- * Update user's onboarding status
+ * Find user by ID
  */
-export async function updateOnboardingCompleted(
-  supabaseUserId: string
+export async function findUserById(userId: string): Promise<User | null> {
+  const admin = getAdminClient();
+
+  const { data, error } = await admin
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error || !data) return null;
+  return data as User;
+}
+
+/**
+ * Update user's display name
+ */
+export async function updateUserDisplayName(
+  userId: string,
+  displayName: string
 ): Promise<boolean> {
   const admin = getAdminClient();
-  
+
   const { error } = await admin
     .from('users')
-    .update({ onboarding_completed: true })
-    .eq('supabase_user_id', supabaseUserId);
-  
+    .update({ display_name: displayName })
+    .eq('id', userId);
+
   if (error) {
-    console.error('Error updating onboarding status:', error);
+    console.error('Error updating display name:', error);
     return false;
   }
-  
+
   return true;
 }

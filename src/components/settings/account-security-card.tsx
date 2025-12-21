@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Mail, 
-  Phone, 
-  MessageCircle, 
-  Check, 
-  Plus, 
+import {
+  Mail,
+  Phone,
+  MessageCircle,
+  Check,
+  Plus,
   Pencil,
   Loader2,
   Shield,
@@ -38,16 +38,16 @@ interface AccountSecurityCardProps {
 export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: AccountSecurityCardProps) {
   // Get email directly from Supabase Auth user (most reliable source)
   const { user } = useAuthStore();
-  const email = user?.email || dbUser?.email || null;
-  
+  const email = user?.email || dbUser?.linked_email || null;
+
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState(dbUser?.display_name || '');
-  
+
   // Sync displayName with dbUser prop changes
   useEffect(() => {
     setDisplayName(dbUser?.display_name || '');
   }, [dbUser?.display_name]);
-  
+
   // Dialog states
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
   const [newPhone, setNewPhone] = useState('');
@@ -218,8 +218,8 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 )}
               </div>
             </div>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={() => {
                 setNewPhone(dbUser?.phone_number || '');
