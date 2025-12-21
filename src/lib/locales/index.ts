@@ -96,7 +96,7 @@ export function getAllTerminology(): Record<string, TermDefinition> {
  */
 export function getTerminologyForPrompt(category?: TermCategory): string {
   const terms = category ? getTerminology(category) : getAllTerminology();
-  
+
   return Object.entries(terms)
     .map(([term, def]) => `- **${term}**: ${def.meaning}`)
     .join('\n');
@@ -147,6 +147,52 @@ export function getExamplesByType(type: string) {
   return getExamples().filter(ex => ex.type === type);
 }
 
+/**
+ * Format examples for few-shot prompting in AI
+ * Creates input→output pairs that teach the AI by example
+ */
+export function getExamplesForPrompt(maxExamples: number = 3): string {
+  const examples = getExamples().slice(0, maxExamples);
+
+  if (examples.length === 0) {
+    return '';
+  }
+
+  const formatted = examples.map((ex, index) => {
+    // Format the expected output as JSON
+    const expectedOutput = {
+      intent_type: 'calendar_event',
+      events: ex.expectedEvents.map(e => ({
+        title: e.title,
+        event_date: e.date,
+        event_time: e.time || null,
+        end_time: e.endTime || null,
+        is_all_day: e.isAllDay || !e.time,
+        location: e.location || null,
+      })),
+      needs_clarification: false,
+      confidence: 0.95,
+    };
+
+    // Truncate long input texts for prompt efficiency
+    const inputText = ex.text.length > 300
+      ? ex.text.substring(0, 300) + '...'
+      : ex.text;
+
+    return `### Beispiel ${index + 1}: ${ex.description}
+**Input:**
+\`\`\`
+${inputText}
+\`\`\`
+**Output:**
+\`\`\`json
+${JSON.stringify(expectedOutput, null, 2)}
+\`\`\``;
+  });
+
+  return `## Lernbeispiele (Few-Shot)\n\n${formatted.join('\n\n')}`;
+}
+
 // ===========================================
 // Date Format Helpers
 // ===========================================
@@ -189,10 +235,10 @@ export function getHolidaysForPrompt(): string {
 // Re-exports
 // ===========================================
 
-export type { 
-  LocaleConfig, 
-  LocaleId, 
-  TermDefinition, 
+export type {
+  LocaleConfig,
+  LocaleId,
+  TermDefinition,
   TerminologyConfig,
   InputExample,
   HolidayConfig,

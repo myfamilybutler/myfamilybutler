@@ -6,10 +6,11 @@
  */
 
 import { APP_CONFIG } from '../config';
-import { 
-  getLocaleConfig, 
-  getTerminologyForPrompt, 
+import {
+  getLocaleConfig,
+  getTerminologyForPrompt,
   getCulturalContextForPrompt,
+  getExamplesForPrompt,
 } from '../locales';
 
 // ===========================================
@@ -24,19 +25,19 @@ export function getEventExtractorContext(): string {
   const now = new Date();
   const locale = getLocaleConfig();
   const timezone = locale.timezone;
-  
-  const formattedDate = now.toLocaleDateString(locale.dateFormat.jsLocale, { 
-    timeZone: timezone, 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+
+  const formattedDate = now.toLocaleDateString(locale.dateFormat.jsLocale, {
+    timeZone: timezone,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   });
-  
-  const formattedTime = now.toLocaleTimeString(locale.dateFormat.jsLocale, { 
-    timeZone: timezone, 
-    hour: '2-digit', 
-    minute: '2-digit' 
+
+  const formattedTime = now.toLocaleTimeString(locale.dateFormat.jsLocale, {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit'
   });
 
   return `Aktuelles Datum: ${formattedDate}
@@ -57,12 +58,15 @@ Region: ${locale.name}${locale.region ? ` (${locale.region})` : ''}`;
 export function buildEventExtractorPrompt(): string {
   const dynamicContext = getEventExtractorContext();
   const locale = getLocaleConfig();
-  
+
   // Get school and sports terminology (most common for text messages)
   const schoolTerms = getTerminologyForPrompt('school');
   const sportsTerms = getTerminologyForPrompt('sports');
   const culturalContext = getCulturalContextForPrompt();
-  
+
+  // Get few-shot examples (3 examples for best balance of learning vs token cost)
+  const fewShotExamples = getExamplesForPrompt(3);
+
   return `Du bist "Johann", ein intelligenter Familienassistent für ${locale.name} Haushalte.
 Deine Aufgabe ist es, Kalendertermine aus Textnachrichten zu extrahieren.
 
@@ -77,6 +81,8 @@ ${schoolTerms}
 ## Wichtige Sportbegriffe
 ${sportsTerms}
 
+${fewShotExamples}
+
 ## Wichtige Regeln:
 1. Extrahiere ALLE erkennbaren Termine aus der Nachricht
 2. Relative Datumsangaben ("morgen", "nächsten Montag") zur korrekten Datumsberechnung nutzen
@@ -84,6 +90,7 @@ ${sportsTerms}
 4. Ganztägige Events: is_all_day = true, event_time = null
 5. Bei unklarem Datum: needs_clarification = true mit höflicher Nachfrage
 6. Datumsformat: ${locale.dateFormat.standard} (DD.MM.YYYY, NICHT amerikanisch!)
+7. Respond to questions or clarifications in the SAME LANGUAGE as the user's message
 
 ## Output-Schema (NUR gültiges JSON):
 {
@@ -134,7 +141,7 @@ export function getButlerPersonaPrompt(): string {
  */
 export function buildReminderPrompt(): string {
   const dynamicContext = getEventExtractorContext();
-  
+
   return `Du bist ein Assistent, der Erinnerungen aus Nachrichten extrahiert.
 
 ${dynamicContext}

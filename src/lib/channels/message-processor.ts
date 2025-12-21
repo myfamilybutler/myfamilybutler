@@ -18,7 +18,12 @@ import { parseReminderIntent } from '@/lib/ai/providers/openai';
 import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
 import { sendWhatsAppMessage } from './whatsapp';
 import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from './telegram';
-import { APP_CONFIG } from '@/lib/config';
+import {
+  detectLanguage,
+  getTemplate,
+  formatDateForLanguage,
+  formatDateTimeForLanguage,
+} from '@/lib/ai/response-templates';
 
 // ===========================================
 // Types
@@ -93,14 +98,9 @@ export async function processIncomingMessage(
     // Send welcome message to brand new users (before any other processing)
     if (isNewUser) {
       console.log(`[${channel.toUpperCase()}] New user detected, sending welcome message`);
-      const welcomeMessage =
-        '🎉 Willkommen bei My Family Butler!\n\n' +
-        'Ich bin dein Familienkalender-Assistent.\n' +
-        'Schick mir Termine, Erinnerungen, oder Fotos von Briefen!\n\n' +
-        '📅 "Zahnarzt am Montag um 10"\n' +
-        '⏰ "Erinnere mich morgen an..."\n' +
-        '📸 Foto von Schulbrief senden\n\n' +
-        '💡 Tippe "dashboard" für dein Online-Dashboard!';
+      // Detect language from first message for welcome
+      const lang = detectLanguage(userMessage);
+      const welcomeMessage = getTemplate('welcome', lang);
 
       await sendResponse(phoneNumber, welcomeMessage, channel, telegramChatId);
 
@@ -132,9 +132,10 @@ export async function processIncomingMessage(
           currentHouseholdId = updatedUser.household_id;
         }
 
+        const lang = detectLanguage(userMessage);
         await sendResponse(
           phoneNumber,
-          '🎉 Willkommen bei My Family Butler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!',
+          getTemplate('linkedToFamily', lang),
           channel,
           telegramChatId
         );
@@ -155,15 +156,13 @@ export async function processIncomingMessage(
       );
 
       if (reminder) {
-        const formattedDate = reminderIntent.datetime.toLocaleDateString('de-AT', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+        const lang = detectLanguage(userMessage);
+        const formattedDate = formatDateTimeForLanguage(reminderIntent.datetime, lang);
 
-        const confirmationMessage = `✅ Erinnerung erstellt!\n\n📋 *${reminderIntent.task}*\n📅 ${formattedDate}`;
+        const template = getTemplate('reminderCreated', lang);
+        const confirmationMessage = template
+          .replace('{task}', reminderIntent.task)
+          .replace('{datetime}', formattedDate);
         await sendResponse(phoneNumber, confirmationMessage, channel, telegramChatId);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text', undefined, channel);
         return;
@@ -212,27 +211,35 @@ export async function processIncomingMessage(
 
       if (createdEvents.length > 0) {
         let confirmationMessage: string;
+        const lang = detectLanguage(userMessage);
 
         if (createdEvents.length === 1) {
           // Single event - detailed message
           const event = createdEvents[0];
           const dateObj = new Date(event.event_date);
-          const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-          });
+          const formattedDate = formatDateForLanguage(dateObj, lang);
 
-          const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
-          const memberStr = event.family_member ? ` für ${event.family_member}` : '';
+          const timeStr = event.event_time
+            ? (lang === 'de' ? ` um ${event.event_time}` : ` at ${event.event_time}`)
+            : (lang === 'de' ? ' (ganztägig)' : ' (all day)');
+          const memberStr = event.family_member
+            ? (lang === 'de' ? ` für ${event.family_member}` : ` for ${event.family_member}`)
+            : '';
           const locationStr = event.location ? `\n📍 ${event.location}` : '';
 
-          confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
+          const template = getTemplate('eventCreatedSingle', lang);
+          confirmationMessage = template
+            .replace('{title}', event.title)
+            .replace('{memberStr}', memberStr)
+            .replace('{date}', formattedDate)
+            .replace('{timeStr}', timeStr)
+            .replace('{locationStr}', locationStr);
         } else {
           // Multiple events - summary message
+          const locale = lang === 'de' ? 'de-AT' : 'en-US';
           const eventList = createdEvents.map(event => {
             const dateObj = new Date(event.event_date);
-            const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
+            const formattedDate = dateObj.toLocaleDateString(locale, {
               weekday: 'short',
               day: 'numeric',
               month: 'short',
@@ -241,7 +248,10 @@ export async function processIncomingMessage(
             return `• ${formattedDate}${timeStr} - ${event.title}`;
           }).join('\n');
 
-          confirmationMessage = `📅 ${createdEvents.length} Termine erstellt!\n\n${eventList}\n\n✅ Alle Termine wurden in deinem Kalender gespeichert!`;
+          const template = getTemplate('eventCreatedMultiple', lang);
+          confirmationMessage = template
+            .replace('{count}', String(createdEvents.length))
+            .replace('{eventList}', eventList);
         }
 
         await sendResponse(phoneNumber, confirmationMessage, channel, telegramChatId);
