@@ -7,7 +7,7 @@
 // Session validation helpers
 export { validateSession } from './helpers';
 
-// Secure token storage (Supabase Vault)
+// Secure OAuth token storage (database with RLS)
 export { 
   storeGoogleToken,
   getGoogleToken,

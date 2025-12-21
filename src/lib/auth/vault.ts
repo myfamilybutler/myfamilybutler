@@ -1,10 +1,8 @@
 /**
- * Supabase Vault - Secure Token Storage
+ * OAuth Token Storage
  * 
- * Uses Supabase Vault RPC functions to securely store and retrieve
- * sensitive tokens like Google OAuth refresh tokens.
- * 
- * @see https://supabase.com/docs/guides/database/vault
+ * Securely stores and retrieves OAuth tokens using a database table
+ * with Row Level Security (service_role only access).
  */
 
 import { getAdminClient } from '../supabase/client';
@@ -21,77 +19,81 @@ export interface GoogleToken {
   scope: string;
 }
 
+interface OAuthTokenRow {
+  id: string;
+  user_id: string;
+  provider: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_at: number;
+  scope: string;
+}
+
 // ===========================================
-// Vault Operations
+// Token Storage Operations
 // ===========================================
 
 /**
- * Store Google OAuth tokens securely in Supabase Vault
+ * Store Google OAuth tokens in the database
  */
 export async function storeGoogleToken(
   userId: string,
   token: GoogleToken
 ): Promise<boolean> {
   const admin = getAdminClient();
-  const secretName = `google_token_${userId}`;
-  const secretValue = JSON.stringify(token);
 
   try {
-    // Check if secret already exists
-    const existing = await getGoogleToken(userId);
-    
-    if (existing) {
-      // Update existing secret using vault.update_secret
-      const { error } = await admin.rpc('vault_update_secret', {
-        secret_name: secretName,
-        new_secret: secretValue,
+    // Upsert: insert or update if exists
+    const { error } = await admin
+      .from('user_oauth_tokens')
+      .upsert({
+        user_id: userId,
+        provider: 'google',
+        access_token: token.access_token,
+        refresh_token: token.refresh_token,
+        token_type: token.token_type,
+        expires_at: token.expires_at,
+        scope: token.scope,
+      }, {
+        onConflict: 'user_id,provider',
       });
 
-      if (error) {
-        console.error('[Vault] Error updating Google token:', error);
-        return false;
-      }
-    } else {
-      // Create new secret using vault.create_secret
-      const { error } = await admin.rpc('vault_create_secret', {
-        secret_name: secretName,
-        secret_value: secretValue,
-      });
-
-      if (error) {
-        console.error('[Vault] Error storing Google token:', error);
-        return false;
-      }
+    if (error) {
+      console.error('[OAuth] Error storing Google token:', error);
+      return false;
     }
 
-    console.log(`[Vault] Successfully stored Google token for user ${userId}`);
+    console.log(`[OAuth] Successfully stored Google token for user ${userId}`);
     return true;
   } catch (error) {
-    console.error('[Vault] Unexpected error storing token:', error);
+    console.error('[OAuth] Unexpected error storing token:', error);
     return false;
   }
 }
 
 /**
- * Retrieve Google OAuth tokens from Supabase Vault
+ * Retrieve Google OAuth tokens from the database
  */
 export async function getGoogleToken(
   userId: string
 ): Promise<GoogleToken | null> {
   const admin = getAdminClient();
-  const secretName = `google_token_${userId}`;
 
   try {
-    const { data, error } = await admin.rpc('vault_read_secret', {
-      secret_name: secretName,
-    });
+    const { data, error } = await admin
+      .from('user_oauth_tokens')
+      .select('access_token, refresh_token, token_type, expires_at, scope')
+      .eq('user_id', userId)
+      .eq('provider', 'google')
+      .single();
 
     if (error) {
-      // Secret not found is not an error condition
-      if (error.code === 'PGRST116' || error.message?.includes('not found')) {
+      // Not found is not an error
+      if (error.code === 'PGRST116') {
         return null;
       }
-      console.error('[Vault] Error reading Google token:', error);
+      console.error('[OAuth] Error reading Google token:', error);
       return null;
     }
 
@@ -99,36 +101,42 @@ export async function getGoogleToken(
       return null;
     }
 
-    // Parse the stored JSON token
-    const token = JSON.parse(data as string) as GoogleToken;
-    return token;
+    const row = data as OAuthTokenRow;
+    return {
+      access_token: row.access_token,
+      refresh_token: row.refresh_token,
+      token_type: row.token_type,
+      expires_at: row.expires_at,
+      scope: row.scope,
+    };
   } catch (error) {
-    console.error('[Vault] Unexpected error reading token:', error);
+    console.error('[OAuth] Unexpected error reading token:', error);
     return null;
   }
 }
 
 /**
- * Delete Google OAuth tokens from Supabase Vault
+ * Delete Google OAuth tokens from the database
  */
 export async function deleteGoogleToken(userId: string): Promise<boolean> {
   const admin = getAdminClient();
-  const secretName = `google_token_${userId}`;
 
   try {
-    const { error } = await admin.rpc('vault_delete_secret', {
-      secret_name: secretName,
-    });
+    const { error } = await admin
+      .from('user_oauth_tokens')
+      .delete()
+      .eq('user_id', userId)
+      .eq('provider', 'google');
 
     if (error) {
-      console.error('[Vault] Error deleting Google token:', error);
+      console.error('[OAuth] Error deleting Google token:', error);
       return false;
     }
 
-    console.log(`[Vault] Successfully deleted Google token for user ${userId}`);
+    console.log(`[OAuth] Successfully deleted Google token for user ${userId}`);
     return true;
   } catch (error) {
-    console.error('[Vault] Unexpected error deleting token:', error);
+    console.error('[OAuth] Unexpected error deleting token:', error);
     return false;
   }
 }
@@ -162,7 +170,7 @@ export async function refreshGoogleToken(
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.error('[Vault] Missing Google OAuth credentials');
+    console.error('[OAuth] Missing Google OAuth credentials');
     return null;
   }
 
@@ -182,7 +190,7 @@ export async function refreshGoogleToken(
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('[Vault] Failed to refresh Google token:', errorData);
+      console.error('[OAuth] Failed to refresh Google token:', errorData);
       return null;
     }
 
@@ -206,7 +214,7 @@ export async function refreshGoogleToken(
 
     return newToken;
   } catch (error) {
-    console.error('[Vault] Error refreshing Google token:', error);
+    console.error('[OAuth] Error refreshing Google token:', error);
     return null;
   }
 }
@@ -231,12 +239,12 @@ export async function getValidGoogleToken(
   }
 
   if (isTokenExpired(token)) {
-    console.log(`[Vault] Token expired for user ${userId}, refreshing...`);
+    console.log(`[OAuth] Token expired for user ${userId}, refreshing...`);
     
     // Check if refresh is already in progress for this user
     const existingRefresh = refreshInFlight.get(userId);
     if (existingRefresh) {
-      console.log(`[Vault] Waiting for existing refresh for user ${userId}`);
+      console.log(`[OAuth] Waiting for existing refresh for user ${userId}`);
       token = await existingRefresh;
     } else {
       // Start new refresh and track it
