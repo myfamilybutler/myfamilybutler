@@ -59,7 +59,7 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                 const data = await res.json();
                 setError(data.error || 'Something went wrong');
             }
-        } catch (_err) {
+        } catch {
             setError('Network error. Please try again.');
         } finally {
             setLoading(false);
@@ -74,7 +74,7 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ skipped: true }),
             });
-        } catch (_err) {
+        } catch {
             // Ignore error on skip
         }
         onSkip();

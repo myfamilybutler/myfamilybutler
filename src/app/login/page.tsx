@@ -49,7 +49,7 @@ function LoginContent() {
       } else {
         setError(data.error || 'Failed to send login link');
       }
-    } catch (_err) {
+    } catch {
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);

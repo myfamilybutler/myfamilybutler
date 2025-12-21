@@ -20,7 +20,19 @@ export default function LandingPage() {
             </div>
             <span className="text-xl font-bold text-gray-900">My Family Butler</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/privacy"
+              className="hidden sm:block text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Privacy
+            </Link>
+            <Link
+              href="/terms"
+              className="hidden sm:block text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Terms
+            </Link>
             <Link
               href="/login"
               className="hidden sm:flex items-center gap-2 text-gray-600 hover:text-gray-900 px-4 py-2.5 font-medium transition-colors"
