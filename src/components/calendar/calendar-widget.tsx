@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   format,
   startOfMonth,
@@ -12,6 +12,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,8 @@ export interface CalendarWidgetProps {
 export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [direction, setDirection] = useState<'left' | 'right'>('right');
+  const isDragging = useRef(false);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -47,24 +50,73 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
     return events.filter((event) => event.event_date === dayStr);
   }, [events]);
 
-  const handlePrevMonth = () => {
-    setCurrentMonth(subMonths(currentMonth, 1));
-  };
+  const handlePrevMonth = useCallback(() => {
+    setDirection('left');
+    setCurrentMonth(prev => subMonths(prev, 1));
+  }, []);
 
-  const handleNextMonth = () => {
-    setCurrentMonth(addMonths(currentMonth, 1));
-  };
+  const handleNextMonth = useCallback(() => {
+    setDirection('right');
+    setCurrentMonth(prev => addMonths(prev, 1));
+  }, []);
 
   const handleToday = () => {
-    setCurrentMonth(new Date());
+    const now = new Date();
+    const currentMonthStr = format(currentMonth, 'yyyy-MM');
+    const nowMonthStr = format(now, 'yyyy-MM');
+    
+    if (currentMonthStr !== nowMonthStr) {
+      setDirection(currentMonthStr > nowMonthStr ? 'left' : 'right');
+      setCurrentMonth(now);
+    }
   };
 
   const handleDayClick = (day: Date) => {
-    setSelectedDate(day);
+    if (!isDragging.current) {
+      setSelectedDate(day);
+    }
+  };
+
+  const handleDragStart = () => {
+    isDragging.current = true;
+  };
+
+  const handleDragEnd = (_: unknown, info: PanInfo) => {
+    const threshold = 50;
+    const velocity = info.velocity.x;
+    const offset = info.offset.x;
+    
+    // Use velocity or offset to determine navigation
+    if (velocity > 200 || offset > threshold) {
+      handlePrevMonth();
+    } else if (velocity < -200 || offset < -threshold) {
+      handleNextMonth();
+    }
+    
+    // Reset dragging state after a brief delay to prevent click
+    setTimeout(() => {
+      isDragging.current = false;
+    }, 100);
   };
 
   const selectedDayEvents = selectedDate ? getEventsForDay(selectedDate) : [];
   const isTodayVisible = format(currentMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
+
+  // Animation variants for month transitions
+  const variants = {
+    enter: (dir: 'left' | 'right') => ({
+      x: dir === 'right' ? 300 : -300,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (dir: 'left' | 'right') => ({
+      x: dir === 'right' ? -300 : 300,
+      opacity: 0,
+    }),
+  };
 
   return (
     <>
@@ -110,7 +162,7 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="p-2 sm:p-4">
+        <CardContent className="p-2 sm:p-4 overflow-hidden">
           {/* Week day headers */}
           <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1">
             {weekDays.map((day) => (
@@ -124,62 +176,93 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
             ))}
           </div>
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
-              {calendarDays.map((day) => {
-                const dayEvents = getEventsForDay(day);
-                const isCurrentMonth = isSameMonth(day, currentMonth);
-                const isTodayDate = isToday(day);
-                const visibleEvents = dayEvents.slice(0, MAX_VISIBLE_EVENTS);
-                const overflowCount = dayEvents.length - MAX_VISIBLE_EVENTS;
+          {/* Swipeable calendar grid */}
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.2}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            className="touch-pan-y"
+          >
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={format(currentMonth, 'yyyy-MM')}
+                custom={direction}
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ 
+                  type: 'spring', 
+                  stiffness: 300, 
+                  damping: 30,
+                  duration: 0.3 
+                }}
+              >
+                <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+                  {calendarDays.map((day) => {
+                    const dayEvents = getEventsForDay(day);
+                    const isCurrentMonth = isSameMonth(day, currentMonth);
+                    const isTodayDate = isToday(day);
+                    const visibleEvents = dayEvents.slice(0, MAX_VISIBLE_EVENTS);
+                    const overflowCount = dayEvents.length - MAX_VISIBLE_EVENTS;
 
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => handleDayClick(day)}
-                    className={cn(
-                      'relative min-h-[52px] sm:min-h-[72px] p-0.5 sm:p-1 rounded-lg text-sm transition-colors flex flex-col items-start text-left',
-                      'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1',
-                      !isCurrentMonth && 'opacity-30 bg-slate-50/50',
-                      isTodayDate && 'bg-emerald-50/50 ring-1 ring-emerald-200'
-                    )}
-                  >
-                    {/* Day number */}
-                    <span
-                      className={cn(
-                        'text-[11px] sm:text-xs font-medium self-center mb-0.5',
-                        isTodayDate ? 'text-emerald-700 font-bold' : 'text-gray-700',
-                      )}
-                    >
-                      {format(day, 'd')}
-                    </span>
-
-                    {/* Event strips */}
-                    <div className="w-full space-y-0.5 overflow-hidden">
-                      {visibleEvents.map((event) => (
-                        <div
-                          key={event.id}
+                    return (
+                      <button
+                        key={day.toISOString()}
+                        onClick={() => handleDayClick(day)}
+                        className={cn(
+                          'relative min-h-[52px] sm:min-h-[72px] p-0.5 sm:p-1 rounded-lg text-sm transition-colors flex flex-col items-start text-left',
+                          'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1',
+                          !isCurrentMonth && 'opacity-30 bg-slate-50/50',
+                          isTodayDate && 'bg-emerald-50/50 ring-1 ring-emerald-200'
+                        )}
+                      >
+                        {/* Day number */}
+                        <span
                           className={cn(
-                            'h-[14px] sm:h-4 rounded px-1 flex items-center w-full',
-                            getMemberColor(event.family_member)
+                            'text-[11px] sm:text-xs font-medium self-center mb-0.5',
+                            isTodayDate ? 'text-emerald-700 font-bold' : 'text-gray-700',
                           )}
                         >
-                          <span className="text-[8px] sm:text-[10px] font-medium text-white truncate leading-none w-full">
-                            {event.title}
-                          </span>
+                          {format(day, 'd')}
+                        </span>
+
+                        {/* Event strips */}
+                        <div className="w-full space-y-0.5 overflow-hidden">
+                          {visibleEvents.map((event) => (
+                            <div
+                              key={event.id}
+                              className={cn(
+                                'h-[14px] sm:h-4 rounded px-1 flex items-center w-full',
+                                getMemberColor(event.family_member)
+                              )}
+                            >
+                              <span className="text-[8px] sm:text-[10px] font-medium text-white truncate leading-none w-full">
+                                {event.title}
+                              </span>
+                            </div>
+                          ))}
+                          
+                          {/* Overflow indicator */}
+                          {overflowCount > 0 && (
+                            <div className="text-[9px] sm:text-[10px] text-gray-400 font-medium px-1">
+                              +{overflowCount} more
+                            </div>
+                          )}
                         </div>
-                      ))}
-                      
-                      {/* Overflow indicator */}
-                      {overflowCount > 0 && (
-                        <div className="text-[9px] sm:text-[10px] text-gray-400 font-medium px-1">
-                          +{overflowCount} more
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Swipe hint */}
+          <div className="flex justify-center mt-2">
+            <span className="text-[10px] text-gray-400">Swipe to change month</span>
           </div>
         </CardContent>
       </Card>
