@@ -13,9 +13,15 @@ import { Card, CardContent } from '@/components/ui/card';
 
 import type { CalendarEvent } from '@/components/calendar/calendar-widget';
 
+interface FamilyMember {
+  id: string;
+  name: string;
+}
+
 export default function DashboardPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [modalDismissed, setModalDismissed] = useState(false);
   const dbUser = useAuthStore((state) => state.dbUser);
 
@@ -39,7 +45,6 @@ export default function DashboardPage() {
   // Fetch Google Calendar events
   const fetchGoogleEvents = useCallback(async () => {
     try {
-      // Fetch events for current month +/- 1 month
       const now = new Date();
       const start = startOfMonth(addMonths(now, -1)).toISOString();
       const end = endOfMonth(addMonths(now, 2)).toISOString();
@@ -51,7 +56,6 @@ export default function DashboardPage() {
         return [];
       }
 
-      // Add source marker to Google events
       return result.events.map((e: CalendarEvent) => ({
         ...e,
         source: 'google' as const,
@@ -62,16 +66,31 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Initial fetch - simple pattern
+  // Fetch family members from API (single source of truth)
+  const fetchFamilyMembers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/family');
+      const result = await response.json();
+
+      if (response.ok && result.success && result.data.familyMembers) {
+        return result.data.familyMembers as FamilyMember[];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Initial fetch
   useEffect(() => {
-    const loadAllEvents = async () => {
-      const [appEvents, gEvents] = await Promise.all([
+    const loadAllData = async () => {
+      const [appEvents, gEvents, members] = await Promise.all([
         fetchEventsData(),
         fetchGoogleEvents(),
+        fetchFamilyMembers(),
       ]);
 
       if (appEvents) {
-        // Mark app events with source
         const markedAppEvents = appEvents.map((e: CalendarEvent) => ({
           ...e,
           source: 'app' as const,
@@ -80,10 +99,11 @@ export default function DashboardPage() {
       }
 
       setGoogleEvents(gEvents);
+      setFamilyMembers(members);
     };
 
-    loadAllEvents();
-  }, [fetchEventsData, fetchGoogleEvents]);
+    loadAllData();
+  }, [fetchEventsData, fetchGoogleEvents, fetchFamilyMembers]);
 
   // Refresh data after changes
   const handleEventsChanged = useCallback(async () => {
@@ -101,10 +121,15 @@ export default function DashboardPage() {
     setGoogleEvents(gEvents);
   }, [fetchEventsData, fetchGoogleEvents]);
 
-  // Merge all events (filtering now handled by UpcomingEvents internally)
+  // Merge all events
   const allEvents = useMemo(() => {
     return [...events, ...googleEvents];
   }, [events, googleEvents]);
+
+  // Extract family member names for filtering
+  const familyMemberNames = useMemo(() => {
+    return familyMembers.map(m => m.name);
+  }, [familyMembers]);
 
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
 
@@ -126,6 +151,7 @@ export default function DashboardPage() {
               <CardContent className="p-4">
                 <UpcomingEvents
                   events={allEvents}
+                  familyMembers={familyMemberNames}
                   pageSize={5}
                   onEventsChanged={handleEventsChanged}
                 />

@@ -13,6 +13,7 @@ import {
   createReminder,
   createEvent,
   getAdminClient,
+  getFamilyMembers,
 } from '@/lib/supabase';
 import { parseReminderIntent } from '@/lib/ai/providers/openai';
 import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
@@ -169,16 +170,23 @@ export async function processIncomingMessage(
       }
     }
 
-    // Check for event intent (if user has a family)
-    // Get message history for context (needed for multi-turn understanding)
-    const history = await getMessageHistory(user.id, 10);
+    // Get message history and family members in parallel for efficiency
+    const [history, familyMemberData] = await Promise.all([
+      getMessageHistory(user.id, 10),
+      currentHouseholdId 
+        ? getFamilyMembers(currentHouseholdId) 
+        : Promise.resolve({ familyMembers: [], users: [] })
+    ]);
+
     const chatHistory: ChatMessage[] = history.map((msg) => ({
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
     }));
 
+    const familyMemberNames = familyMemberData.familyMembers.map(m => m.name);
+
     // Use AI router with fallback and clarification support
-    const extractionResult = await parseEventWithFallback(userMessage, chatHistory);
+    const extractionResult = await parseEventWithFallback(userMessage, chatHistory, familyMemberNames);
 
     // Handle clarification requests from AI
     if (extractionResult.needs_clarification && extractionResult.clarification_question) {

@@ -58,13 +58,15 @@ export function isGeminiAvailable(): boolean {
 /**
  * Parse events using Gemini 1.5 Flash
  * Full extraction result with clarification support
+ * @param familyMembers - Optional list of known family members for matching
  */
 export async function parseEventWithGemini(
   message: string,
-  conversationHistory?: ChatMessage[]
+  conversationHistory?: ChatMessage[],
+  familyMembers?: string[]
 ): Promise<EventExtractionResult> {
   const model = await getGemini();
-  const systemPrompt = buildEventExtractorPrompt();
+  const systemPrompt = buildEventExtractorPrompt(familyMembers);
 
   // Build conversation context
   let fullPrompt = systemPrompt + '\n\n';

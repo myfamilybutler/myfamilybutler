@@ -34,10 +34,12 @@ const AI_CONFIG = {
 /**
  * Parse events with automatic fallback
  * Primary: Gemini 1.5 Flash | Fallback: OpenAI GPT-4o-mini
+ * @param familyMembers - Optional list of known family members for matching
  */
 export async function parseEventWithFallback(
   message: string,
-  conversationHistory?: ChatMessage[]
+  conversationHistory?: ChatMessage[],
+  familyMembers?: string[]
 ): Promise<EventExtractionResult> {
   // Try primary provider (Gemini - free/cheap)
   if (isGeminiAvailable()) {
@@ -45,7 +47,7 @@ export async function parseEventWithFallback(
       try {
         console.log('[AI] Parsing with Gemini (primary)');
         const result = await Promise.race([
-          parseEventWithGemini(message, conversationHistory),
+          parseEventWithGemini(message, conversationHistory, familyMembers),
           new Promise<never>((_, reject) => 
             setTimeout(() => reject(new Error('timeout')), AI_CONFIG.timeoutMs)
           )
@@ -71,7 +73,7 @@ export async function parseEventWithFallback(
   if (AI_CONFIG.enableFallback) {
     try {
       console.log('[AI] Falling back to OpenAI GPT-4o-mini');
-      return await parseEventWithClarification(message, conversationHistory);
+      return await parseEventWithClarification(message, conversationHistory, familyMembers);
     } catch (error) {
       console.error('[AI] OpenAI fallback failed:', error);
     }

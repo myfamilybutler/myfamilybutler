@@ -19,6 +19,8 @@ import {
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
+  /** Family members from family_members table - single source of truth */
+  familyMembers?: string[];
   pageSize?: number;
   maxEvents?: number;
   onEventsChanged?: () => void;
@@ -158,7 +160,8 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
 }
 
 export function UpcomingEvents({ 
-  events, 
+  events,
+  familyMembers = [],
   pageSize = 5, 
   maxEvents = 20, 
   onEventsChanged 
@@ -170,16 +173,8 @@ export function UpcomingEvents({
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Extract unique family members from events
-  const familyMembers = useMemo(() => {
-    const members = new Set<string>();
-    events.forEach((event) => {
-      if (event.family_member) {
-        members.add(event.family_member);
-      }
-    });
-    return Array.from(members).sort();
-  }, [events]);
+  // Family members from props (single source of truth from family_members table)
+  // No longer extracting from events
 
   const handleEditClick = (event: CalendarEvent) => {
     setEditingEvent(event);

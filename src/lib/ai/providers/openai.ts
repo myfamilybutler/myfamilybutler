@@ -117,13 +117,15 @@ export async function parseReminderIntent(
 /**
  * Parse event with clarification support
  * Full extraction result including clarification questions
+ * @param familyMembers - Optional list of known family members for matching
  */
 export async function parseEventWithClarification(
   message: string,
-  conversationHistory?: ChatMessage[]
+  conversationHistory?: ChatMessage[],
+  familyMembers?: string[]
 ): Promise<EventExtractionResult> {
   const openai = getOpenAI();
-  const systemPrompt = buildEventExtractorPrompt();
+  const systemPrompt = buildEventExtractorPrompt(familyMembers);
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },

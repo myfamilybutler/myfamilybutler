@@ -20,8 +20,9 @@ import {
 /**
  * Generate dynamic context for event extraction prompts
  * Includes current time, day of week, locale info
+ * @param familyMembers - Optional list of known family members for matching
  */
-export function getEventExtractorContext(): string {
+export function getEventExtractorContext(familyMembers?: string[]): string {
   const now = new Date();
   const locale = getLocaleConfig();
   const timezone = locale.timezone;
@@ -40,10 +41,17 @@ export function getEventExtractorContext(): string {
     minute: '2-digit'
   });
 
-  return `Aktuelles Datum: ${formattedDate}
+  let context = `Aktuelles Datum: ${formattedDate}
 Aktuelle Uhrzeit: ${formattedTime}
 Zeitzone: ${timezone}
 Region: ${locale.name}${locale.region ? ` (${locale.region})` : ''}`;
+
+  // Add family members if available
+  if (familyMembers && familyMembers.length > 0) {
+    context += `\n\nBekannte Familienmitglieder: ${familyMembers.join(', ')}`;
+  }
+
+  return context;
 }
 
 // ===========================================
@@ -54,9 +62,10 @@ Region: ${locale.name}${locale.region ? ` (${locale.region})` : ''}`;
  * Build the Event Extractor system prompt
  * Used by both OpenAI and Gemini providers
  * Pulls terminology and context from centralized locale config
+ * @param familyMembers - Optional list of known family members for matching
  */
-export function buildEventExtractorPrompt(): string {
-  const dynamicContext = getEventExtractorContext();
+export function buildEventExtractorPrompt(familyMembers?: string[]): string {
+  const dynamicContext = getEventExtractorContext(familyMembers);
   const locale = getLocaleConfig();
 
   // Get school and sports terminology (most common for text messages)
@@ -91,6 +100,8 @@ ${fewShotExamples}
 5. Bei unklarem Datum: needs_clarification = true mit höflicher Nachfrage
 6. Datumsformat: ${locale.dateFormat.standard} (DD.MM.YYYY, NICHT amerikanisch!)
 7. Respond to questions or clarifications in the SAME LANGUAGE as the user's message
+8. family_member: NUR setzen wenn ein Name aus der Liste "Bekannte Familienmitglieder" erkannt wird.
+   Bei unbekannten Namen: family_member = null (NICHT raten/erfinden!)
 
 ## Output-Schema (NUR gültiges JSON):
 {
