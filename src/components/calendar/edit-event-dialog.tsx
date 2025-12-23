@@ -1,8 +1,14 @@
 'use client';
 
+/**
+ * Edit Event Dialog
+ * 
+ * Dialog for editing calendar events with form fields for all event properties.
+ * Uses extracted subcomponents for better organization.
+ */
+
 import { useState, useEffect, useMemo } from 'react';
-import { format, addHours, addDays, setHours, setMinutes } from 'date-fns';
-import { Pencil, Trash2, Bell, Clock, MapPin, User, Loader2, X } from 'lucide-react';
+import { Pencil, Trash2, Clock, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -14,15 +20,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
 import type { CalendarEvent } from '@/types/calendar';
+import { EventReminderSection } from './event-reminder-section';
+import { FamilyMemberSelector } from './family-member-selector';
 
 interface EditEventDialogProps {
   event: CalendarEvent | null;
@@ -30,22 +30,7 @@ interface EditEventDialogProps {
   onOpenChange: (open: boolean) => void;
   onEventUpdated?: () => void;
   onEventDeleted?: () => void;
-  /** Optional list of available family members for badge selection */
   availableFamilyMembers?: string[];
-}
-
-// Color mapping for family members
-const MEMBER_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  default: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700' },
-  mom: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
-  dad: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700' },
-  kids: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700' },
-};
-
-function getMemberStyles(member?: string) {
-  if (!member) return MEMBER_COLORS.default;
-  const lowerMember = member.toLowerCase();
-  return MEMBER_COLORS[lowerMember] || MEMBER_COLORS.default;
 }
 
 export function EditEventDialog({
@@ -59,7 +44,6 @@ export function EditEventDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showReminderForm, setShowReminderForm] = useState(false);
   const [fetchedMembers, setFetchedMembers] = useState<string[]>([]);
   
   // Form state
@@ -71,12 +55,6 @@ export function EditEventDialog({
   const [familyMember, setFamilyMember] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
-  const [customMember, setCustomMember] = useState('');
-  
-  // Reminder state
-  const [reminderType, setReminderType] = useState<'1h' | '1d' | 'custom'>('1h');
-  const [customReminderDate, setCustomReminderDate] = useState('');
-  const [customReminderTime, setCustomReminderTime] = useState('');
 
   // Fetch family members if not provided
   useEffect(() => {
@@ -99,7 +77,6 @@ export function EditEventDialog({
   // Combine provided and fetched members
   const allMembers = useMemo(() => {
     const combined = new Set([...availableFamilyMembers, ...fetchedMembers]);
-    // Add current event's family member if it exists
     if (event?.family_member) {
       combined.add(event.family_member);
     }
@@ -118,8 +95,6 @@ export function EditEventDialog({
       setLocation(event.location || '');
       setDescription(event.description || '');
       setShowDeleteConfirm(false);
-      setShowReminderForm(false);
-      setCustomMember('');
     }
   }, [open, event]);
 
@@ -186,70 +161,6 @@ export function EditEventDialog({
       toast.error('Failed to delete event');
     } finally {
       setIsDeleting(false);
-    }
-  };
-
-  const handleAddReminder = async () => {
-    if (!event) return;
-    
-    let remindAt: Date;
-    const eventDateTime = new Date(`${eventDate}T${eventTime || '09:00'}`);
-    
-    switch (reminderType) {
-      case '1h':
-        remindAt = addHours(eventDateTime, -1);
-        break;
-      case '1d':
-        remindAt = addDays(eventDateTime, -1);
-        break;
-      case 'custom':
-        if (!customReminderDate || !customReminderTime) {
-          toast.error('Please select a date and time for the reminder');
-          return;
-        }
-        const [hours, minutes] = customReminderTime.split(':').map(Number);
-        remindAt = setMinutes(setHours(new Date(customReminderDate), hours), minutes);
-        break;
-      default:
-        remindAt = addHours(eventDateTime, -1);
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventId: event.id,
-          eventTitle: title,
-          remindAt: remindAt.toISOString(),
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to create reminder');
-      }
-
-      toast.success(`Reminder set for ${format(remindAt, 'PPp')}`);
-      setShowReminderForm(false);
-    } catch (error) {
-      console.error('Error creating reminder:', error);
-      toast.error('Failed to create reminder');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSelectMember = (member: string) => {
-    setFamilyMember(prev => prev === member ? '' : member);
-  };
-
-  const handleAddCustomMember = () => {
-    if (customMember.trim()) {
-      setFamilyMember(customMember.trim());
-      setCustomMember('');
     }
   };
 
@@ -328,77 +239,12 @@ export function EditEventDialog({
             </div>
           )}
 
-          {/* Family Member - Badge Selection */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <User className="w-3 h-3" /> Family Member
-            </Label>
-            
-            {/* Member badges */}
-            {allMembers.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {allMembers.map((member) => {
-                  const isSelected = familyMember === member;
-                  const styles = getMemberStyles(member);
-                  
-                  return (
-                    <button
-                      key={member}
-                      type="button"
-                      onClick={() => handleSelectMember(member)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all',
-                        isSelected
-                          ? `${styles.bg} ${styles.border} ${styles.text}`
-                          : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                      )}
-                    >
-                      {member}
-                      {isSelected && (
-                        <X className="w-3 h-3 ml-1.5 inline-block" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            
-            {/* Custom member input */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Or type a name..."
-                value={customMember}
-                onChange={(e) => setCustomMember(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddCustomMember();
-                  }
-                }}
-                className="flex-1"
-              />
-              {customMember && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddCustomMember}
-                >
-                  Add
-                </Button>
-              )}
-            </div>
-            
-            {/* Current selection indicator */}
-            {familyMember && !allMembers.includes(familyMember) && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span>Selected:</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
-                  {familyMember}
-                </span>
-              </div>
-            )}
-          </div>
+          {/* Family Member Selection */}
+          <FamilyMemberSelector
+            value={familyMember}
+            onChange={setFamilyMember}
+            availableMembers={allMembers}
+          />
 
           {/* Location */}
           <div className="space-y-2">
@@ -425,67 +271,12 @@ export function EditEventDialog({
           </div>
 
           {/* Reminder Section */}
-          <div className="border-t border-gray-200 pt-4">
-            {!showReminderForm ? (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setShowReminderForm(true)}
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                Add Reminder
-              </Button>
-            ) : (
-              <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                <Label>Remind me</Label>
-                <Select
-                  value={reminderType}
-                  onValueChange={(v) => setReminderType(v as '1h' | '1d' | 'custom')}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1h">1 hour before</SelectItem>
-                    <SelectItem value="1d">1 day before</SelectItem>
-                    <SelectItem value="custom">Custom time</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {reminderType === 'custom' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="date"
-                      value={customReminderDate}
-                      onChange={(e) => setCustomReminderDate(e.target.value)}
-                    />
-                    <Input
-                      type="time"
-                      value={customReminderTime}
-                      onChange={(e) => setCustomReminderTime(e.target.value)}
-                    />
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleAddReminder}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Set Reminder'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowReminderForm(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
+          <EventReminderSection
+            eventId={event.id}
+            eventTitle={title}
+            eventDate={eventDate}
+            eventTime={eventTime}
+          />
         </div>
 
         <DialogFooter className="flex-shrink-0 flex-col sm:flex-row gap-2 border-t pt-4">

@@ -2,19 +2,17 @@
 // Meta WhatsApp Cloud API Webhook Handler
 // ===========================================
 import { NextRequest, NextResponse } from 'next/server';
-import type { MetaWebhookBody, MetaMessage, ChatMessage } from '@/types';
+import type { MetaWebhookBody, MetaMessage } from '@/types';
 import {
   findOrCreateUser,
   logMessage,
-  getMessageHistory,
   checkPendingInvite,
   acceptInvite
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
-import { generateAIResponse, parseReminderIntent, parseEventIntent } from '@/lib/ai';
 import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/channels/whatsapp';
-import { createReminder, createEvent } from '@/lib/supabase';
-import { APP_CONFIG } from '@/lib/config';
+import { handleCommand } from '@/lib/channels/whatsapp-commands';
+import { processIntents } from '@/lib/channels/whatsapp-intents';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -51,7 +49,6 @@ function isDuplicateMessage(messageId: string): boolean {
 
 /**
  * GET - Meta Webhook Verification
- * Meta sends a GET request to verify the webhook URL
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const searchParams = request.nextUrl.searchParams;
@@ -64,10 +61,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   console.log('[Webhook] GET verification request:', { mode, token: token?.slice(0, 10) + '...', challenge });
 
-  // Verify the token matches
   if (mode === 'subscribe' && token === verifyToken) {
     console.log('[Webhook] Verification successful!');
-    // Must return ONLY the challenge value
     return new NextResponse(challenge, {
       status: 200,
       headers: { 'Content-Type': 'text/plain' },
@@ -87,20 +82,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     console.log('[Webhook] Received:', JSON.stringify(body, null, 2));
 
-    // Validate this is from WhatsApp
     if (body.object !== 'whatsapp_business_account') {
       console.log('[Webhook] Not a WhatsApp event, ignoring');
       return NextResponse.json({ success: true });
     }
 
-    // Process each entry (usually just one)
     for (const entry of body.entry) {
       for (const change of entry.changes) {
         if (change.field !== 'messages') continue;
 
         const value = change.value;
 
-        // Handle status updates (delivery receipts)
+        // Handle status updates
         if (value.statuses) {
           for (const status of value.statuses) {
             console.log(`[Webhook] Status update: ${status.id} -> ${status.status}`);
@@ -120,7 +113,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[Webhook] POST error:', error);
-    // Return 200 to prevent Meta from retrying
     return NextResponse.json({ success: true, error: 'Processing error' });
   }
 }
@@ -172,227 +164,94 @@ async function processMessage(
 
     // Send welcome message to brand new users
     if (isNewUser) {
-      console.log(`[Webhook] New user detected, sending welcome message`);
-      const welcomeMessage =
-        '🎉 Willkommen bei My Family Butler!\n\n' +
-        'Ich bin dein Familienkalender-Assistent.\n' +
-        'Schick mir Termine, Erinnerungen, oder Fotos von Briefen!\n\n' +
-        '📅 "Zahnarzt am Montag um 10"\n' +
-        '⏰ "Erinnere mich morgen an..."\n' +
-        '📸 Foto von Schulbrief senden\n\n' +
-        '💡 Tippe "dashboard" für dein Online-Dashboard!\n\n' +
-        '📌 *Tipp:* Speichere den Dashboard-Link als Lesezeichen – du bleibst 90 Tage eingeloggt!';
-
-      await sendWhatsAppMessage(phoneNumber, welcomeMessage);
-      await logMessage(user.id, 'assistant', welcomeMessage, 'text');
-      // Log and return - don't process initial message as command
-      await logMessage(user.id, 'user', userMessage, messageType, messageId);
+      await handleNewUser(user.id, phoneNumber, userMessage, messageType, messageId);
       return;
     }
 
     // Check for pending invite and auto-link to family
     if (!user.household_id) {
-      const pendingInvite = await checkPendingInvite(phoneNumber);
-      if (pendingInvite) {
-        console.log(`[Webhook] Auto-linking user ${phoneNumber} to family`);
-        await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
-
-        const admin = getAdminClient();
-        const { data: updatedUser } = await admin
-          .from('users')
-          .select('household_id')
-          .eq('id', user.id)
-          .single();
-
-        if (updatedUser) {
-          user.household_id = updatedUser.household_id;
-        }
-
-        await sendWhatsAppMessage(
-          phoneNumber,
-          '🎉 Willkommen bei My Family Butler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!'
-        );
-      }
+      await checkAndAcceptInvite(user, phoneNumber);
     }
 
     // Log user message
     await logMessage(user.id, 'user', userMessage, messageType, messageId);
 
-    // ===========================================
-    // Handle Special Commands
-    // ===========================================
-    const lowerMessage = userMessage.toLowerCase().trim();
+    // Handle special commands
+    const commandResult = await handleCommand(userMessage, {
+      userId: user.id,
+      phoneNumber,
+    });
 
-    // Dashboard/Login command - generate magic link
-    if (['dashboard', 'link', 'login'].includes(lowerMessage)) {
-      console.log(`[Webhook] Dashboard command from ${phoneNumber}`);
-
-      const { generateDashboardLink } = await import('@/lib/supabase');
-      const result = await generateDashboardLink(phoneNumber, 'whatsapp');
-
-      if (result.success && result.link) {
-        const dashboardMessage =
-          `🔗 *Dein sicherer Dashboard-Link*\n\n` +
-          `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
-          `${result.link}\n\n` +
-          `⏱️ Der Link ist 15 Minuten gültig.`;
-
-        await sendWhatsAppMessage(phoneNumber, dashboardMessage);
-        await logMessage(user.id, 'assistant', dashboardMessage, 'text');
-      } else {
-        const errorMessage = `❌ Fehler: ${result.error || 'Unbekannter Fehler'}`;
-        await sendWhatsAppMessage(phoneNumber, errorMessage);
-        await logMessage(user.id, 'assistant', errorMessage, 'text');
-      }
+    if (commandResult.handled) {
       return;
     }
 
-    // Start command - welcome message
-    if (['start', 'hallo', 'hi', 'hello'].includes(lowerMessage)) {
-      const welcomeMessage =
-        `👋 *Willkommen bei My Family Butler!*\n\n` +
-        `Ich bin dein persönlicher Familienassistent. Ich kann dir helfen mit:\n\n` +
-        `📅 *Termine erstellen* - "Zahnarzt am Montag um 10 Uhr"\n` +
-        `⏰ *Erinnerungen* - "Erinnere mich morgen an Milch kaufen"\n` +
-        `🔗 *Dashboard öffnen* - "Dashboard" oder "Link"\n\n` +
-        `Probiere es aus! Schreib mir einfach eine Nachricht.`;
-
-      await sendWhatsAppMessage(phoneNumber, welcomeMessage);
-      await logMessage(user.id, 'assistant', welcomeMessage, 'text');
-      return;
-    }
-
-    // Help command
-    if (['help', 'hilfe', '?'].includes(lowerMessage)) {
-      const helpMessage =
-        `ℹ️ *My Family Butler Hilfe*\n\n` +
-        `*Termine:*\n` +
-        `• "Zahnarzt am Montag um 10 Uhr"\n` +
-        `• "Meeting morgen 14:00"\n\n` +
-        `*Erinnerungen:*\n` +
-        `• "Erinnere mich in 1 Stunde an..."\n` +
-        `• "Reminder: Milch kaufen morgen"\n\n` +
-        `*Befehle:*\n` +
-        `• dashboard - Dashboard öffnen\n` +
-        `• help - Diese Hilfe anzeigen`;
-
-      await sendWhatsAppMessage(phoneNumber, helpMessage);
-      await logMessage(user.id, 'assistant', helpMessage, 'text');
-      return;
-    }
-
-    // ===========================================
-    // Parse for Intents (Reminders/Events)
-    // ===========================================
-
-    // Check for reminder intent
-    const reminderIntent = await parseReminderIntent(userMessage);
-
-    if (reminderIntent) {
-      const reminder = await createReminder(
-        user.id,
-        reminderIntent.task,
-        reminderIntent.datetime
-      );
-
-      if (reminder) {
-        const formattedDate = reminderIntent.datetime.toLocaleDateString('de-AT', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-
-        const confirmationMessage = `✅ Erinnerung erstellt!\n\n📋 *${reminderIntent.task}*\n📅 ${formattedDate}`;
-        await sendWhatsAppMessage(phoneNumber, confirmationMessage);
-        await logMessage(user.id, 'assistant', confirmationMessage, 'text');
-        return;
-      }
-    }
-
-    // Check for event intent (if user has a family)
-    // Get message history for context (needed for multi-turn understanding)
-    const history = await getMessageHistory(user.id, 10);
-    const chatHistory: ChatMessage[] = history.map((msg) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }));
-
-    const eventIntents = await parseEventIntent(userMessage, chatHistory);
-    if (user.household_id && eventIntents && eventIntents.length > 0) {
-      console.log(`[Webhook] Creating ${eventIntents.length} event(s)`);
-
-      const createdEvents = [];
-      for (const eventIntent of eventIntents) {
-        const event = await createEvent(
-          user.household_id,
-          user.id,
-          {
-            ...eventIntent,
-            source_message_id: messageId
-          }
-        );
-        if (event) {
-          createdEvents.push(event);
-        }
-      }
-
-      if (createdEvents.length > 0) {
-        let confirmationMessage: string;
-
-        if (createdEvents.length === 1) {
-          // Single event - detailed message
-          const event = createdEvents[0];
-          const dateObj = new Date(event.event_date);
-          const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-          });
-
-          const timeStr = event.event_time ? ` um ${event.event_time}` : ' (ganztägig)';
-          const memberStr = event.family_member ? ` für ${event.family_member}` : '';
-          const locationStr = event.location ? `\n📍 ${event.location}` : '';
-
-          confirmationMessage = `📅 Termin erstellt!\n\n*${event.title}*${memberStr}\n🗓️ ${formattedDate}${timeStr}${locationStr}`;
-        } else {
-          // Multiple events - summary message
-          const eventList = createdEvents.map(event => {
-            const dateObj = new Date(event.event_date);
-            const formattedDate = dateObj.toLocaleDateString(APP_CONFIG.localization.locale, {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-            });
-            const timeStr = event.event_time ? ` ${event.event_time}` : '';
-            return `• ${formattedDate}${timeStr} - ${event.title}`;
-          }).join('\n');
-
-          confirmationMessage = `📅 ${createdEvents.length} Termine erstellt!\n\n${eventList}\n\n✅ Alle Termine wurden in deinem Kalender gespeichert!`;
-        }
-
-        await sendWhatsAppMessage(phoneNumber, confirmationMessage);
-        await logMessage(user.id, 'assistant', confirmationMessage, 'text');
-        return;
-      }
-    }
-
-    // Generate AI response (using already-fetched history)
-    const aiResponse = await generateAIResponse(chatHistory, userMessage);
-
-    // Send response
-    const sendResult = await sendWhatsAppMessage(phoneNumber, aiResponse);
-
-    if (sendResult.success) {
-      await logMessage(user.id, 'assistant', aiResponse, 'text', sendResult.messageId);
-      console.log('[Webhook] Response sent successfully');
-    } else {
-      console.error('[Webhook] Failed to send response:', sendResult.error);
-    }
+    // Process intents (reminders, events, or AI fallback)
+    await processIntents(userMessage, {
+      userId: user.id,
+      phoneNumber,
+      householdId: user.household_id ?? null,
+      messageId,
+    });
   } catch (err) {
     console.error('[Webhook] Critical error processing message:', err);
   }
+}
+
+/**
+ * Handle new user registration
+ */
+async function handleNewUser(
+  userId: string,
+  phoneNumber: string,
+  userMessage: string,
+  messageType: 'text' | 'image' | 'voice',
+  messageId: string
+): Promise<void> {
+  console.log(`[Webhook] New user detected, sending welcome message`);
+  const welcomeMessage =
+    '🎉 Willkommen bei My Family Butler!\n\n' +
+    'Ich bin dein Familienkalender-Assistent.\n' +
+    'Schick mir Termine, Erinnerungen, oder Fotos von Briefen!\n\n' +
+    '📅 "Zahnarzt am Montag um 10"\n' +
+    '⏰ "Erinnere mich morgen an..."\n' +
+    '📸 Foto von Schulbrief senden\n\n' +
+    '💡 Tippe "dashboard" für dein Online-Dashboard!\n\n' +
+    '📌 *Tipp:* Speichere den Dashboard-Link als Lesezeichen – du bleibst 90 Tage eingeloggt!';
+
+  await sendWhatsAppMessage(phoneNumber, welcomeMessage);
+  await logMessage(userId, 'assistant', welcomeMessage, 'text');
+  await logMessage(userId, 'user', userMessage, messageType, messageId);
+}
+
+/**
+ * Check for pending invite and auto-link user to family
+ */
+async function checkAndAcceptInvite(
+  user: { id: string; household_id?: string | null },
+  phoneNumber: string
+): Promise<void> {
+  const pendingInvite = await checkPendingInvite(phoneNumber);
+  if (!pendingInvite) return;
+
+  console.log(`[Webhook] Auto-linking user ${phoneNumber} to family`);
+  await acceptInvite(user.id, pendingInvite.inviteId, pendingInvite.householdId);
+
+  const admin = getAdminClient();
+  const { data: updatedUser } = await admin
+    .from('users')
+    .select('household_id')
+    .eq('id', user.id)
+    .single();
+
+  if (updatedUser) {
+    user.household_id = updatedUser.household_id;
+  }
+
+  await sendWhatsAppMessage(
+    phoneNumber,
+    '🎉 Willkommen bei My Family Butler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!'
+  );
 }
 
 /**
