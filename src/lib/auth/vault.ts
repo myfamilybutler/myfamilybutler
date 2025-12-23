@@ -327,3 +327,79 @@ export async function getSyncToken(userId: string): Promise<string | null> {
   }
 }
 
+// ===========================================
+// Calendar Selection Operations
+// ===========================================
+
+export interface CalendarSelection {
+  calendarId: string;
+  calendarName: string | null;
+}
+
+/**
+ * Get the selected Google Calendar ID for sync
+ * Defaults to 'primary' if not set
+ */
+export async function getSelectedCalendar(
+  userId: string
+): Promise<CalendarSelection> {
+  const admin = getAdminClient();
+
+  try {
+    const { data, error } = await admin
+      .from('user_oauth_tokens')
+      .select('calendar_id, calendar_name')
+      .eq('user_id', userId)
+      .eq('provider', 'google')
+      .single();
+
+    if (error || !data) {
+      return { calendarId: 'primary', calendarName: null };
+    }
+
+    const row = data as { calendar_id: string | null; calendar_name: string | null };
+    return {
+      calendarId: row.calendar_id || 'primary',
+      calendarName: row.calendar_name,
+    };
+  } catch (error) {
+    console.error('[OAuth] Error getting selected calendar:', error);
+    return { calendarId: 'primary', calendarName: null };
+  }
+}
+
+/**
+ * Set the selected Google Calendar for sync
+ * Also clears sync_token to force a fresh sync
+ */
+export async function setSelectedCalendar(
+  userId: string,
+  calendarId: string,
+  calendarName: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+
+  try {
+    const { error } = await admin
+      .from('user_oauth_tokens')
+      .update({
+        calendar_id: calendarId,
+        calendar_name: calendarName,
+        sync_token: null, // Clear sync token to force fresh sync
+      })
+      .eq('user_id', userId)
+      .eq('provider', 'google');
+
+    if (error) {
+      console.error('[OAuth] Error setting selected calendar:', error);
+      return false;
+    }
+
+    console.log(`[OAuth] Set calendar for user ${userId}: ${calendarName} (${calendarId})`);
+    return true;
+  } catch (error) {
+    console.error('[OAuth] Unexpected error setting calendar:', error);
+    return false;
+  }
+}
+

@@ -4,9 +4,18 @@
  * Handles syncing events to Google Calendar API.
  */
 
-import { getValidGoogleToken, storeGoogleToken, type GoogleToken } from '../auth/vault';
+import { getValidGoogleToken, storeGoogleToken, getSelectedCalendar, type GoogleToken } from '../auth/vault';
 import { getAdminClient } from '../supabase/client';
 import type { Event } from '@/types';
+
+/**
+ * Build the calendar events URL using user's selected calendar
+ */
+function getCalendarEventsUrl(calendarId: string, eventId?: string): string {
+  const encodedCalendarId = encodeURIComponent(calendarId);
+  const baseUrl = `${GOOGLE_CALENDAR_API}/calendars/${encodedCalendarId}/events`;
+  return eventId ? `${baseUrl}/${eventId}` : baseUrl;
+}
 
 // ===========================================
 // Types
@@ -58,10 +67,11 @@ export async function syncEventToGoogle(
   }
 
   try {
+    const { calendarId } = await getSelectedCalendar(userId);
     const googleEvent = convertToGoogleEvent(event);
 
     const response = await fetch(
-      `${GOOGLE_CALENDAR_API}/calendars/primary/events`,
+      getCalendarEventsUrl(calendarId),
       {
         method: 'POST',
         headers: {
@@ -106,10 +116,11 @@ export async function updateGoogleEvent(
   }
 
   try {
+    const { calendarId } = await getSelectedCalendar(userId);
     const googleEvent = convertToGoogleEvent(event);
 
     const response = await fetch(
-      `${GOOGLE_CALENDAR_API}/calendars/primary/events/${googleEventId}`,
+      getCalendarEventsUrl(calendarId, googleEventId),
       {
         method: 'PUT',
         headers: {
@@ -148,8 +159,9 @@ export async function deleteGoogleEvent(
   }
 
   try {
+    const { calendarId } = await getSelectedCalendar(userId);
     const response = await fetch(
-      `${GOOGLE_CALENDAR_API}/calendars/primary/events/${googleEventId}`,
+      getCalendarEventsUrl(calendarId, googleEventId),
       {
         method: 'DELETE',
         headers: {
@@ -188,6 +200,7 @@ export async function fetchGoogleEvents(
   }
 
   try {
+    const { calendarId } = await getSelectedCalendar(userId);
     const params = new URLSearchParams({
       timeMin,
       timeMax,
@@ -197,7 +210,7 @@ export async function fetchGoogleEvents(
     });
 
     const response = await fetch(
-      `${GOOGLE_CALENDAR_API}/calendars/primary/events?${params}`,
+      `${getCalendarEventsUrl(calendarId)}?${params}`,
       {
         method: 'GET',
         headers: {
@@ -281,6 +294,7 @@ export async function fetchGoogleEventsIncremental(
   }
 
   try {
+    const { calendarId } = await getSelectedCalendar(userId);
     const params = new URLSearchParams({
       maxResults: '250',
       showDeleted: 'true',  // Include deleted events for sync
@@ -303,7 +317,7 @@ export async function fetchGoogleEventsIncremental(
     }
 
     const response = await fetch(
-      `${GOOGLE_CALENDAR_API}/calendars/primary/events?${params}`,
+      `${getCalendarEventsUrl(calendarId)}?${params}`,
       {
         method: 'GET',
         headers: {
