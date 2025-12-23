@@ -141,7 +141,7 @@ export default function DashboardPage() {
               <CardContent className="p-4">
                 <UpcomingEvents
                   events={filteredEvents}
-                  maxItems={5}
+                  pageSize={5}
                   onEventsChanged={handleEventsChanged}
                 />
               </CardContent>

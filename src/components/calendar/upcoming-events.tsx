@@ -2,17 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import { format, parseISO, isAfter, startOfDay, addDays } from 'date-fns';
-import { Clock, Pencil, Trash2, Loader2 } from 'lucide-react';
-import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion';
+import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, useMotionValue, useTransform, animate, PanInfo, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, formatTime } from '@/lib/utils';
 import type { CalendarEvent } from '@/types/calendar';
 import { EditEventDialog } from './edit-event-dialog';
 import { getMemberColor } from '@/lib/utils/ui-helpers';
+import { Button } from '@/components/ui/button';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
-  maxItems?: number;
+  pageSize?: number;
+  maxEvents?: number;
   onEventsChanged?: () => void;
 }
 
@@ -61,7 +63,13 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="relative overflow-hidden rounded-xl"
+    >
       {/* Action buttons (revealed on swipe) */}
       <motion.div 
         className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2"
@@ -133,14 +141,20 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
           </div>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
-export function UpcomingEvents({ events, maxItems = 5, onEventsChanged }: UpcomingEventsProps) {
+export function UpcomingEvents({ 
+  events, 
+  pageSize = 5, 
+  maxEvents = 20, 
+  onEventsChanged 
+}: UpcomingEventsProps) {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(pageSize);
 
   const handleEditClick = (event: CalendarEvent) => {
     setEditingEvent(event);
@@ -171,7 +185,7 @@ export function UpcomingEvents({ events, maxItems = 5, onEventsChanged }: Upcomi
   };
 
   // Filter, sort, and process upcoming events with date labels
-  const upcomingEvents = useMemo(() => {
+  const allUpcomingEvents = useMemo(() => {
     const today = startOfDay(new Date());
     const tomorrow = addDays(today, 1);
     const todayStr = format(today, 'yyyy-MM-dd');
@@ -195,7 +209,7 @@ export function UpcomingEvents({ events, maxItems = 5, onEventsChanged }: Upcomi
         }
         return 0;
       })
-      .slice(0, maxItems)
+      .slice(0, maxEvents)
       .map((event): ProcessedEvent => {
         let dateLabel: string;
         if (event.event_date === todayStr) {
@@ -207,9 +221,27 @@ export function UpcomingEvents({ events, maxItems = 5, onEventsChanged }: Upcomi
         }
         return { ...event, dateLabel };
       });
-  }, [events, maxItems]);
+  }, [events, maxEvents]);
 
-  if (upcomingEvents.length === 0) {
+  // Visible events based on current page
+  const visibleEvents = useMemo(() => {
+    return allUpcomingEvents.slice(0, visibleCount);
+  }, [allUpcomingEvents, visibleCount]);
+
+  const totalEvents = allUpcomingEvents.length;
+  const remainingEvents = totalEvents - visibleCount;
+  const canShowMore = remainingEvents > 0;
+  const canShowLess = visibleCount > pageSize;
+
+  const handleShowMore = () => {
+    setVisibleCount(prev => Math.min(prev + pageSize, maxEvents));
+  };
+
+  const handleShowLess = () => {
+    setVisibleCount(pageSize);
+  };
+
+  if (allUpcomingEvents.length === 0) {
     return (
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-900">Upcoming</h3>
@@ -228,19 +260,65 @@ export function UpcomingEvents({ events, maxItems = 5, onEventsChanged }: Upcomi
     <>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Upcoming</h3>
+          <h3 className="text-sm font-semibold text-gray-900">
+            Upcoming
+            <span className="ml-2 text-xs font-normal text-gray-400">
+              ({totalEvents} events)
+            </span>
+          </h3>
           <span className="text-xs text-gray-400">← Swipe to edit/delete</span>
         </div>
+        
+        {/* Event list with animations */}
         <div className="space-y-2">
-          {upcomingEvents.map((event) => (
-            <SwipeableEventCard
-              key={event.id}
-              event={event}
-              onEdit={handleEditClick}
-              onDelete={handleDelete}
-              isDeleting={deletingEventId === event.id}
-            />
-          ))}
+          <AnimatePresence mode="popLayout">
+            {visibleEvents.map((event) => (
+              <SwipeableEventCard
+                key={event.id}
+                event={event}
+                onEdit={handleEditClick}
+                onDelete={handleDelete}
+                isDeleting={deletingEventId === event.id}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Pagination controls */}
+        <div className="flex flex-col items-center gap-2 pt-2">
+          {canShowMore && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleShowMore}
+              className="w-full text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            >
+              <ChevronDown className="w-4 h-4 mr-1" />
+              Show {Math.min(pageSize, remainingEvents)} more
+              <span className="ml-1 text-gray-400">
+                ({remainingEvents} remaining)
+              </span>
+            </Button>
+          )}
+          
+          {canShowLess && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleShowLess}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <ChevronUp className="w-4 h-4 mr-1" />
+              Show less
+            </Button>
+          )}
+
+          {/* Max events reached hint */}
+          {visibleCount >= maxEvents && totalEvents >= maxEvents && (
+            <p className="text-xs text-gray-400 text-center">
+              Showing max {maxEvents} events. View calendar for more.
+            </p>
+          )}
         </div>
       </div>
 
