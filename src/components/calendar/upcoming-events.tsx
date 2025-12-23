@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { format, parseISO, isAfter, startOfDay, addDays } from 'date-fns';
-import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, PanInfo, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, formatTime } from '@/lib/utils';
@@ -10,6 +10,12 @@ import type { CalendarEvent } from '@/types/calendar';
 import { EditEventDialog } from './edit-event-dialog';
 import { getMemberColor } from '@/lib/utils/ui-helpers';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
@@ -29,21 +35,32 @@ interface SwipeableEventCardProps {
   isDeleting: boolean;
 }
 
+// Color mapping for family members
+const MEMBER_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  default: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700' },
+  mom: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
+  dad: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700' },
+  kids: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700' },
+};
+
+function getMemberStyles(member?: string) {
+  if (!member) return MEMBER_COLORS.default;
+  const lowerMember = member.toLowerCase();
+  return MEMBER_COLORS[lowerMember] || MEMBER_COLORS.default;
+}
+
 function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEventCardProps) {
   const x = useMotionValue(0);
   const [isDragging, setIsDragging] = useState(false);
   
-  // Transform x position to opacity for action buttons
   const actionsOpacity = useTransform(x, [-120, -60, 0], [1, 0.5, 0]);
   const actionsScale = useTransform(x, [-120, -60, 0], [1, 0.9, 0.8]);
   
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     const threshold = -60;
     if (info.offset.x < threshold) {
-      // Snap to reveal actions
       animate(x, -120, { type: 'spring', stiffness: 500, damping: 30 });
     } else {
-      // Snap back
       animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
     }
     setIsDragging(false);
@@ -70,7 +87,6 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
       exit={{ opacity: 0, y: -10 }}
       className="relative overflow-hidden rounded-xl"
     >
-      {/* Action buttons (revealed on swipe) */}
       <motion.div 
         className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2"
         style={{ opacity: actionsOpacity, scale: actionsScale }}
@@ -94,7 +110,6 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
         </button>
       </motion.div>
 
-      {/* Swipeable card */}
       <motion.div
         drag="x"
         dragConstraints={{ left: -120, right: 0 }}
@@ -107,7 +122,6 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
         onClick={() => !isDragging && x.get() === 0 && onEdit(event)}
       >
         <div className="flex items-start gap-3 p-3">
-          {/* Time column */}
           <div className="flex-shrink-0 w-16 text-right">
             <span className="text-sm font-semibold text-gray-900">
               {event.is_all_day ? 'All day' : formatTime(event.event_time)}
@@ -115,7 +129,6 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
             <p className="text-xs text-gray-500">{event.dateLabel}</p>
           </div>
           
-          {/* Content */}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
               {event.title}
@@ -135,7 +148,6 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
             )}
           </div>
 
-          {/* Swipe hint indicator */}
           <div className="flex-shrink-0 flex items-center text-gray-300">
             <div className="w-1 h-8 bg-gray-200 rounded-full" />
           </div>
@@ -155,6 +167,19 @@ export function UpcomingEvents({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(pageSize);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  // Extract unique family members from events
+  const familyMembers = useMemo(() => {
+    const members = new Set<string>();
+    events.forEach((event) => {
+      if (event.family_member) {
+        members.add(event.family_member);
+      }
+    });
+    return Array.from(members).sort();
+  }, [events]);
 
   const handleEditClick = (event: CalendarEvent) => {
     setEditingEvent(event);
@@ -184,6 +209,19 @@ export function UpcomingEvents({
     }
   };
 
+  const toggleMember = (member: string) => {
+    setSelectedMembers(prev => 
+      prev.includes(member) 
+        ? prev.filter(m => m !== member)
+        : [...prev, member]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedMembers([]);
+    setFilterOpen(false);
+  };
+
   // Filter, sort, and process upcoming events with date labels
   const allUpcomingEvents = useMemo(() => {
     const today = startOfDay(new Date());
@@ -194,14 +232,20 @@ export function UpcomingEvents({
     return events
       .filter((event) => {
         const eventDate = parseISO(event.event_date);
-        return isAfter(eventDate, today) || event.event_date === todayStr;
+        const isUpcoming = isAfter(eventDate, today) || event.event_date === todayStr;
+        
+        // Apply family member filter
+        if (selectedMembers.length > 0) {
+          const matchesMember = !event.family_member || selectedMembers.includes(event.family_member);
+          return isUpcoming && matchesMember;
+        }
+        
+        return isUpcoming;
       })
       .sort((a, b) => {
-        // Sort by date first
         const dateCompare = a.event_date.localeCompare(b.event_date);
         if (dateCompare !== 0) return dateCompare;
         
-        // Then by time (all-day events first)
         if (a.is_all_day && !b.is_all_day) return -1;
         if (!a.is_all_day && b.is_all_day) return 1;
         if (a.event_time && b.event_time) {
@@ -221,9 +265,8 @@ export function UpcomingEvents({
         }
         return { ...event, dateLabel };
       });
-  }, [events, maxEvents]);
+  }, [events, maxEvents, selectedMembers]);
 
-  // Visible events based on current page
   const visibleEvents = useMemo(() => {
     return allUpcomingEvents.slice(0, visibleCount);
   }, [allUpcomingEvents, visibleCount]);
@@ -232,6 +275,7 @@ export function UpcomingEvents({
   const remainingEvents = totalEvents - visibleCount;
   const canShowMore = remainingEvents > 0;
   const canShowLess = visibleCount > pageSize;
+  const hasActiveFilters = selectedMembers.length > 0;
 
   const handleShowMore = () => {
     setVisibleCount(prev => Math.min(prev + pageSize, maxEvents));
@@ -241,7 +285,7 @@ export function UpcomingEvents({
     setVisibleCount(pageSize);
   };
 
-  if (allUpcomingEvents.length === 0) {
+  if (allUpcomingEvents.length === 0 && !hasActiveFilters) {
     return (
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-900">Upcoming</h3>
@@ -263,12 +307,89 @@ export function UpcomingEvents({
           <h3 className="text-sm font-semibold text-gray-900">
             Upcoming
             <span className="ml-2 text-xs font-normal text-gray-400">
-              ({totalEvents} events)
+              ({totalEvents})
             </span>
           </h3>
-          <span className="text-xs text-gray-400">← Swipe to edit/delete</span>
+          
+          {/* Filter button */}
+          {familyMembers.length > 0 && (
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 gap-1.5",
+                    hasActiveFilters && "text-emerald-600"
+                  )}
+                >
+                  <Filter className="w-4 h-4" />
+                  {hasActiveFilters && (
+                    <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                      {selectedMembers.length}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">
+                      Filter by member
+                    </span>
+                    {hasActiveFilters && (
+                      <button
+                        onClick={clearFilters}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {familyMembers.map((member) => {
+                      const isSelected = selectedMembers.includes(member);
+                      const styles = getMemberStyles(member);
+                      
+                      return (
+                        <button
+                          key={member}
+                          onClick={() => toggleMember(member)}
+                          className={cn(
+                            'px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all',
+                            isSelected
+                              ? `${styles.bg} ${styles.border} ${styles.text}`
+                              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                          )}
+                        >
+                          {member}
+                          {isSelected && (
+                            <X className="w-3 h-3 ml-1.5 inline-block" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
         
+        {/* No results with filter */}
+        {allUpcomingEvents.length === 0 && hasActiveFilters && (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <p className="text-sm text-gray-500">No events match your filter</p>
+            <button 
+              onClick={clearFilters}
+              className="text-xs text-emerald-600 hover:text-emerald-700 mt-1"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+
         {/* Event list with animations */}
         <div className="space-y-2">
           <AnimatePresence mode="popLayout">
@@ -285,41 +406,42 @@ export function UpcomingEvents({
         </div>
 
         {/* Pagination controls */}
-        <div className="flex flex-col items-center gap-2 pt-2">
-          {canShowMore && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleShowMore}
-              className="w-full text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            >
-              <ChevronDown className="w-4 h-4 mr-1" />
-              Show {Math.min(pageSize, remainingEvents)} more
-              <span className="ml-1 text-gray-400">
-                ({remainingEvents} remaining)
-              </span>
-            </Button>
-          )}
-          
-          {canShowLess && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleShowLess}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <ChevronUp className="w-4 h-4 mr-1" />
-              Show less
-            </Button>
-          )}
+        {totalEvents > 0 && (
+          <div className="flex flex-col items-center gap-2 pt-2">
+            {canShowMore && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleShowMore}
+                className="w-full text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              >
+                <ChevronDown className="w-4 h-4 mr-1" />
+                Show {Math.min(pageSize, remainingEvents)} more
+                <span className="ml-1 text-gray-400">
+                  ({remainingEvents} remaining)
+                </span>
+              </Button>
+            )}
+            
+            {canShowLess && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleShowLess}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <ChevronUp className="w-4 h-4 mr-1" />
+                Show less
+              </Button>
+            )}
 
-          {/* Max events reached hint */}
-          {visibleCount >= maxEvents && totalEvents >= maxEvents && (
-            <p className="text-xs text-gray-400 text-center">
-              Showing max {maxEvents} events. View calendar for more.
-            </p>
-          )}
-        </div>
+            {visibleCount >= maxEvents && totalEvents >= maxEvents && (
+              <p className="text-xs text-gray-400 text-center">
+                Showing max {maxEvents} events. View calendar for more.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <EditEventDialog

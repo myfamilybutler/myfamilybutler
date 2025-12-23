@@ -6,7 +6,6 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { FamilyWidget } from '@/components/dashboard/family-widget';
 import { CalendarWidget } from '@/components/calendar/calendar-widget';
 import { UpcomingEvents } from '@/components/calendar/upcoming-events';
-import { CalendarFilter } from '@/components/calendar/calendar-filter';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
 import { useAuthStore } from '@/stores/auth-store';
@@ -17,7 +16,6 @@ import type { CalendarEvent } from '@/components/calendar/calendar-widget';
 export default function DashboardPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [modalDismissed, setModalDismissed] = useState(false);
   const dbUser = useAuthStore((state) => state.dbUser);
 
@@ -79,9 +77,6 @@ export default function DashboardPage() {
           source: 'app' as const,
         }));
         setEvents(markedAppEvents);
-        // Initialize filters with all members selected
-        const members = [...new Set(markedAppEvents.map((e: CalendarEvent) => e.family_member).filter(Boolean))];
-        setSelectedMembers(members as string[]);
       }
 
       setGoogleEvents(gEvents);
@@ -106,20 +101,10 @@ export default function DashboardPage() {
     setGoogleEvents(gEvents);
   }, [fetchEventsData, fetchGoogleEvents]);
 
-  // Merge and filter events (memoized for child components)
+  // Merge all events (filtering now handled by UpcomingEvents internally)
   const allEvents = useMemo(() => {
     return [...events, ...googleEvents];
   }, [events, googleEvents]);
-
-  const filteredEvents = useMemo(() => {
-    if (selectedMembers.length === 0) return allEvents;
-    return allEvents.filter(e => 
-      // Show all Google events (they don't have family_member)
-      e.source === 'google' || 
-      !e.family_member || 
-      selectedMembers.includes(e.family_member)
-    );
-  }, [allEvents, selectedMembers]);
 
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
 
@@ -140,24 +125,12 @@ export default function DashboardPage() {
             <Card className="border-gray-200 shadow-sm bg-white">
               <CardContent className="p-4">
                 <UpcomingEvents
-                  events={filteredEvents}
+                  events={allEvents}
                   pageSize={5}
                   onEventsChanged={handleEventsChanged}
                 />
               </CardContent>
             </Card>
-
-            {events.some((e) => e.family_member) && (
-              <Card className="border-gray-200 shadow-sm bg-white">
-                <CardContent className="p-4">
-                  <CalendarFilter
-                    events={events}
-                    selectedMembers={selectedMembers}
-                    onSelectionChange={setSelectedMembers}
-                  />
-                </CardContent>
-              </Card>
-            )}
 
             <FamilyWidget />
           </aside>
@@ -171,7 +144,7 @@ export default function DashboardPage() {
             </div>
 
             <CalendarWidget
-              events={filteredEvents}
+              events={allEvents}
               onEventsChanged={handleEventsChanged}
             />
           </main>
