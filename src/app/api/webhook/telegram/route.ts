@@ -281,7 +281,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         `📅 *Termine erstellen* - "Zahnarzt am Montag um 10 Uhr"\n` +
         `⏰ *Erinnerungen* - "Erinnere mich morgen an Milch kaufen"\n` +
         `🔗 *Dashboard öffnen* - "Dashboard" oder "Link"\n\n` +
-        `Probiere es aus! Schreib mir einfach eine Nachricht.`,
+        `Probiere es aus! Schreib mir einfach eine Nachricht.\n\n` +
+        `📌 *Tipp:* Speichere den Dashboard-Link als Lesezeichen – du bleibst 90 Tage eingeloggt!`,
         { parseMode: 'Markdown' }
       );
       

@@ -180,7 +180,8 @@ async function processMessage(
         '📅 "Zahnarzt am Montag um 10"\n' +
         '⏰ "Erinnere mich morgen an..."\n' +
         '📸 Foto von Schulbrief senden\n\n' +
-        '💡 Tippe "dashboard" für dein Online-Dashboard!';
+        '💡 Tippe "dashboard" für dein Online-Dashboard!\n\n' +
+        '📌 *Tipp:* Speichere den Dashboard-Link als Lesezeichen – du bleibst 90 Tage eingeloggt!';
 
       await sendWhatsAppMessage(phoneNumber, welcomeMessage);
       await logMessage(user.id, 'assistant', welcomeMessage, 'text');

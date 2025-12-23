@@ -12,4 +12,6 @@ export interface CalendarEvent {
   family_member?: string;
   location?: string;
   description?: string;
+  /** Source of the event: 'app' for local events, 'google' for Google Calendar */
+  source?: 'app' | 'google';
 }

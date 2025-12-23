@@ -172,6 +172,82 @@ export async function deleteGoogleEvent(
   }
 }
 
+/**
+ * Fetch events from Google Calendar within a date range
+ */
+export async function fetchGoogleEvents(
+  userId: string,
+  timeMin: string,  // ISO date string (e.g., '2024-12-01T00:00:00Z')
+  timeMax: string   // ISO date string (e.g., '2024-12-31T23:59:59Z')
+): Promise<GoogleCalendarEvent[]> {
+  const accessToken = await getValidGoogleToken(userId);
+
+  if (!accessToken) {
+    console.log(`[GoogleSync] No valid token for user ${userId}, cannot fetch events`);
+    return [];
+  }
+
+  try {
+    const params = new URLSearchParams({
+      timeMin,
+      timeMax,
+      singleEvents: 'true',  // Expand recurring events
+      orderBy: 'startTime',
+      maxResults: '250',
+    });
+
+    const response = await fetch(
+      `${GOOGLE_CALENDAR_API}/calendars/primary/events?${params}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('[GoogleSync] Failed to fetch events:', errorData);
+      return [];
+    }
+
+    const data = await response.json() as {
+      items?: Array<{
+        id: string;
+        summary?: string;
+        description?: string;
+        location?: string;
+        start?: { dateTime?: string; date?: string; timeZone?: string };
+        end?: { dateTime?: string; date?: string; timeZone?: string };
+      }>;
+    };
+
+    const events: GoogleCalendarEvent[] = (data.items || []).map((item) => ({
+      id: item.id,
+      summary: item.summary || 'Untitled Event',
+      description: item.description,
+      location: item.location,
+      start: {
+        dateTime: item.start?.dateTime,
+        date: item.start?.date,
+        timeZone: item.start?.timeZone || TIMEZONE,
+      },
+      end: {
+        dateTime: item.end?.dateTime,
+        date: item.end?.date,
+        timeZone: item.end?.timeZone || TIMEZONE,
+      },
+    }));
+
+    console.log(`[GoogleSync] Fetched ${events.length} events from Google Calendar`);
+    return events;
+  } catch (error) {
+    console.error('[GoogleSync] Error fetching events:', error);
+    return [];
+  }
+}
+
 // ===========================================
 // Google User Profile
 // ===========================================

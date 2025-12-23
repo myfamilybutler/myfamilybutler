@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     secure: process.env.NODE_ENV === 'production', 
     sameSite: 'lax' as const, 
     path: '/', 
-    maxAge: 1209600 // 14 days
+    maxAge: 7776000 // 90 days
   };
   
   res.cookies.set('session_authenticated', 'true', opts);

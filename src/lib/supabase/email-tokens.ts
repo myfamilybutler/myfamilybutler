@@ -104,7 +104,22 @@ export async function validateEmailLoginToken(
         .select('user_id')
         .single();
 
-    if (!emailToken) return null;
+    if (!emailToken) {
+        // Grace Period: Check if token was JUST used (browser prefetch protection)
+        const { data: recent } = await admin
+            .from('email_login_tokens')
+            .select('user_id, used_at')
+            .eq('token_hash', hash)
+            .single();
+
+        if (recent?.used_at && (Date.now() - new Date(recent.used_at).getTime() < 30000)) {
+            // Allow reuse within 30s window
+            const { data: user } = await admin.from('users').select('*').eq('id', recent.user_id).single();
+            return user ? { userId: user.id, user: user as User } : null;
+        }
+
+        return null;
+    }
 
     // Retrieve full user details
     const { data: user } = await admin

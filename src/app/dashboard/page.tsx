@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { FamilyWidget } from '@/components/dashboard/family-widget';
 import { CalendarWidget } from '@/components/calendar/calendar-widget';
@@ -16,6 +16,7 @@ import type { CalendarEvent } from '@/components/calendar/calendar-widget';
 
 export default function DashboardPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [modalDismissed, setModalDismissed] = useState(false);
   const dbUser = useAuthStore((state) => state.dbUser);
@@ -23,7 +24,7 @@ export default function DashboardPage() {
   // Derive modal visibility directly
   const showOnboardingModal = dbUser?.onboarding_modal_shown === false && !modalDismissed;
 
-  // Fetch events from API
+  // Fetch app events from API
   const fetchEventsData = useCallback(async () => {
     const response = await fetch('/api/dashboard');
     const result = await response.json();
@@ -37,29 +38,88 @@ export default function DashboardPage() {
     return result.events || [];
   }, []);
 
+  // Fetch Google Calendar events
+  const fetchGoogleEvents = useCallback(async () => {
+    try {
+      // Fetch events for current month +/- 1 month
+      const now = new Date();
+      const start = startOfMonth(addMonths(now, -1)).toISOString();
+      const end = endOfMonth(addMonths(now, 2)).toISOString();
+
+      const response = await fetch(`/api/calendar/google-events?start=${start}&end=${end}`);
+      const result = await response.json();
+
+      if (!response.ok || !result.events) {
+        return [];
+      }
+
+      // Add source marker to Google events
+      return result.events.map((e: CalendarEvent) => ({
+        ...e,
+        source: 'google' as const,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch Google events:', error);
+      return [];
+    }
+  }, []);
+
   // Initial fetch - simple pattern
   useEffect(() => {
-    fetchEventsData().then(loaded => {
-      if (loaded) {
-        setEvents(loaded);
+    const loadAllEvents = async () => {
+      const [appEvents, gEvents] = await Promise.all([
+        fetchEventsData(),
+        fetchGoogleEvents(),
+      ]);
+
+      if (appEvents) {
+        // Mark app events with source
+        const markedAppEvents = appEvents.map((e: CalendarEvent) => ({
+          ...e,
+          source: 'app' as const,
+        }));
+        setEvents(markedAppEvents);
         // Initialize filters with all members selected
-        const members = [...new Set(loaded.map((e: CalendarEvent) => e.family_member).filter(Boolean))];
+        const members = [...new Set(markedAppEvents.map((e: CalendarEvent) => e.family_member).filter(Boolean))];
         setSelectedMembers(members as string[]);
       }
-    });
-  }, [fetchEventsData]);
+
+      setGoogleEvents(gEvents);
+    };
+
+    loadAllEvents();
+  }, [fetchEventsData, fetchGoogleEvents]);
 
   // Refresh data after changes
   const handleEventsChanged = useCallback(async () => {
-    const loaded = await fetchEventsData();
-    if (loaded) setEvents(loaded);
-  }, [fetchEventsData]);
+    const [appEvents, gEvents] = await Promise.all([
+      fetchEventsData(),
+      fetchGoogleEvents(),
+    ]);
+    if (appEvents) {
+      const markedAppEvents = appEvents.map((e: CalendarEvent) => ({
+        ...e,
+        source: 'app' as const,
+      }));
+      setEvents(markedAppEvents);
+    }
+    setGoogleEvents(gEvents);
+  }, [fetchEventsData, fetchGoogleEvents]);
 
-  // Filtered events (memoized for child components)
+  // Merge and filter events (memoized for child components)
+  const allEvents = useMemo(() => {
+    return [...events, ...googleEvents];
+  }, [events, googleEvents]);
+
   const filteredEvents = useMemo(() => {
-    if (selectedMembers.length === 0) return events;
-    return events.filter(e => !e.family_member || selectedMembers.includes(e.family_member));
-  }, [events, selectedMembers]);
+    if (selectedMembers.length === 0) return allEvents;
+    return allEvents.filter(e => 
+      // Show all Google events (they don't have family_member)
+      e.source === 'google' || 
+      !e.family_member || 
+      selectedMembers.includes(e.family_member)
+    );
+  }, [allEvents, selectedMembers]);
 
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
 
