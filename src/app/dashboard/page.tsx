@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns';
+import { startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { FamilyWidget } from '@/components/dashboard/family-widget';
 import { CalendarWidget } from '@/components/calendar/calendar-widget';
@@ -66,14 +66,33 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Fetch family members from API (single source of truth)
+  // Fetch all family members from API (users with accounts + family_members without accounts)
   const fetchFamilyMembers = useCallback(async () => {
     try {
       const response = await fetch('/api/family');
       const result = await response.json();
 
-      if (response.ok && result.success && result.data.familyMembers) {
-        return result.data.familyMembers as FamilyMember[];
+      if (response.ok && result.success && result.data) {
+        const allMembers: FamilyMember[] = [];
+        
+        // Add users with accounts (use display_name or phone_number)
+        if (result.data.users) {
+          for (const user of result.data.users) {
+            const name = user.display_name || user.phone_number;
+            if (name) {
+              allMembers.push({ id: user.id, name });
+            }
+          }
+        }
+        
+        // Add family members without accounts
+        if (result.data.familyMembers) {
+          for (const member of result.data.familyMembers) {
+            allMembers.push({ id: member.id, name: member.name });
+          }
+        }
+        
+        return allMembers;
       }
       return [];
     } catch {
@@ -131,7 +150,6 @@ export default function DashboardPage() {
     return familyMembers.map(m => m.name);
   }, [familyMembers]);
 
-  const todayFormatted = format(new Date(), 'EEEE, MMMM d');
 
   return (
     <ProtectedRoute>
@@ -162,13 +180,6 @@ export default function DashboardPage() {
           </aside>
 
           <main className="order-1 lg:order-2 flex-1">
-            <div className="mb-4">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                Family Calendar
-              </h1>
-              <p className="text-sm text-gray-500 mt-0.5">{todayFormatted}</p>
-            </div>
-
             <CalendarWidget
               events={allEvents}
               onEventsChanged={handleEventsChanged}
