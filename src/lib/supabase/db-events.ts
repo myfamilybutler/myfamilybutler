@@ -3,10 +3,15 @@
  */
 import type { Event, Reminder } from '@/types';
 import { getAdminClient } from './client';
-import { syncEventToGoogle } from '../sync/google';
+import { generateEventFingerprint } from '../sync/event-fingerprint';
+import { pushCreateToGoogle, pushUpdateToGoogle, pushDeleteToGoogle } from '../sync/google-sync-service';
 
 /**
- * Create a new event
+ * Create a new event with deduplication and Google Calendar sync.
+ * 
+ * RACE CONDITION PROTECTION:
+ * Uses unique index on (household_id, event_fingerprint) to prevent duplicates.
+ * If race condition occurs, catches constraint violation and returns existing event.
  */
 export async function createEvent(
   householdId: string,
@@ -25,6 +30,14 @@ export async function createEvent(
 ): Promise<Event | null> {
   const admin = getAdminClient();
   
+  // Generate fingerprint for deduplication
+  const fingerprint = generateEventFingerprint({
+    title: eventData.title,
+    event_date: eventData.event_date,
+    event_time: eventData.event_time,
+  });
+
+  // Try to insert directly (relies on unique constraint for atomicity)
   const { data, error } = await admin
     .from('events')
     .insert({
@@ -39,9 +52,25 @@ export async function createEvent(
       location: eventData.location || null,
       description: eventData.description || null,
       source_message_id: eventData.source_message_id || null,
+      event_fingerprint: fingerprint,
+      sync_source: 'local',
     })
     .select()
     .single();
+  
+  // Handle duplicate (unique constraint violation)
+  if (error?.code === '23505') {
+    // Unique violation - fetch existing event
+    console.log(`[Event] Duplicate detected via constraint: "${eventData.title}"`);
+    const { data: existing } = await admin
+      .from('events')
+      .select('*')
+      .eq('event_fingerprint', fingerprint)
+      .eq('household_id', householdId)
+      .single();
+    
+    return existing as Event | null;
+  }
   
   if (error) {
     console.error('Error creating event:', error);
@@ -51,9 +80,8 @@ export async function createEvent(
   const event = data as Event;
 
   // Sync to Google Calendar (non-blocking)
-  // Only sync if createdBy is a valid user ID
   if (createdBy) {
-    syncEventToGoogle(createdBy, event).catch((syncError) => {
+    pushCreateToGoogle(createdBy, event).catch((syncError) => {
       console.log('[GoogleSync] Sync skipped or failed:', syncError);
     });
   }
@@ -96,7 +124,7 @@ export async function getEventsForHousehold(
 }
 
 /**
- * Update an existing event
+ * Update an existing event with fingerprint regeneration and Google sync.
  */
 export async function updateEvent(
   eventId: string,
@@ -110,7 +138,8 @@ export async function updateEvent(
     family_member?: string | null;
     location?: string | null;
     description?: string | null;
-  }
+  },
+  userId?: string  // Optional: needed for Google sync
 ): Promise<Event | null> {
   const admin = getAdminClient();
   
@@ -124,6 +153,25 @@ export async function updateEvent(
   if (updates.family_member !== undefined) updateData.family_member = updates.family_member;
   if (updates.location !== undefined) updateData.location = updates.location;
   if (updates.description !== undefined) updateData.description = updates.description;
+
+  // If title, date, or time changed, regenerate fingerprint
+  if (updates.title !== undefined || updates.event_date !== undefined || updates.event_time !== undefined) {
+    // Need to get current values to calculate new fingerprint
+    const { data: current } = await admin
+      .from('events')
+      .select('title, event_date, event_time')
+      .eq('id', eventId)
+      .single();
+    
+    if (current) {
+      const newFingerprint = generateEventFingerprint({
+        title: updates.title ?? current.title,
+        event_date: updates.event_date ?? current.event_date,
+        event_time: updates.event_time !== undefined ? updates.event_time : current.event_time,
+      });
+      updateData.event_fingerprint = newFingerprint;
+    }
+  }
   
   const { data, error } = await admin
     .from('events')
@@ -138,17 +186,40 @@ export async function updateEvent(
     return null;
   }
   
-  return data as Event;
+  const event = data as Event;
+
+  // Sync to Google Calendar (non-blocking)
+  if (userId) {
+    pushUpdateToGoogle(userId, event).catch((syncError) => {
+      console.log('[GoogleSync] Update sync skipped or failed:', syncError);
+    });
+  }
+  
+  return event;
 }
 
 /**
- * Delete an event
+ * Delete an event with Google Calendar sync.
  */
 export async function deleteEvent(
   eventId: string,
-  householdId: string
+  householdId: string,
+  userId?: string  // Optional: needed for Google sync
 ): Promise<boolean> {
   const admin = getAdminClient();
+  
+  // Get the google_event_id before deleting (for Google sync)
+  let googleEventId: string | null = null;
+  if (userId) {
+    const { data: existingEvent } = await admin
+      .from('events')
+      .select('google_event_id')
+      .eq('id', eventId)
+      .eq('household_id', householdId)
+      .single();
+    
+    googleEventId = existingEvent?.google_event_id || null;
+  }
   
   const { error } = await admin
     .from('events')
@@ -159,6 +230,13 @@ export async function deleteEvent(
   if (error) {
     console.error('Error deleting event:', error);
     return false;
+  }
+  
+  // Sync deletion to Google Calendar (non-blocking)
+  if (userId && googleEventId) {
+    pushDeleteToGoogle(userId, googleEventId).catch(() => {
+      console.log('[GoogleSync] Delete sync skipped or failed');
+    });
   }
   
   return true;

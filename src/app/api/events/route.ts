@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update event (security check via household_id)
-    const updatedEvent = await updateEvent(eventId, user.household_id, updates);
+    const updatedEvent = await updateEvent(eventId, user.household_id, updates, userId);
 
     if (!updatedEvent) {
       return NextResponse.json({ error: 'Failed to update event' }, { status: 500 });
@@ -142,7 +142,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete event (security check via household_id)
-    const success = await deleteEvent(eventId, user.household_id);
+    const success = await deleteEvent(eventId, user.household_id, userId);
 
     if (!success) {
       return NextResponse.json({ error: 'Failed to delete event' }, { status: 500 });

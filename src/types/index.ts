@@ -77,6 +77,11 @@ export interface Event {
   location?: string;
   description?: string;
   source_message_id?: string;
+  // Google Calendar sync fields
+  google_event_id?: string;
+  event_fingerprint?: string;
+  google_synced_at?: string;
+  sync_source?: 'local' | 'google';
   created_at: string;
 }
 

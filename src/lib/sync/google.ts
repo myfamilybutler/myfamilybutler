@@ -248,6 +248,127 @@ export async function fetchGoogleEvents(
   }
 }
 
+/**
+ * Incremental sync result
+ */
+export interface IncrementalSyncResult {
+  events: GoogleCalendarEventWithStatus[];
+  nextSyncToken: string | null;
+  isFullSync: boolean;
+}
+
+export interface GoogleCalendarEventWithStatus extends GoogleCalendarEvent {
+  status?: 'confirmed' | 'cancelled' | 'tentative';
+}
+
+/**
+ * Fetch events from Google Calendar using incremental sync.
+ * Uses syncToken to only get changes since last sync.
+ * 
+ * @param userId - The user ID
+ * @param syncToken - The sync token from previous sync (null for full sync)
+ * @returns Events changed since last sync + new syncToken
+ */
+export async function fetchGoogleEventsIncremental(
+  userId: string,
+  syncToken: string | null
+): Promise<IncrementalSyncResult> {
+  const accessToken = await getValidGoogleToken(userId);
+
+  if (!accessToken) {
+    console.log(`[GoogleSync] No valid token for user ${userId}`);
+    return { events: [], nextSyncToken: null, isFullSync: false };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      maxResults: '250',
+      showDeleted: 'true',  // Include deleted events for sync
+    });
+
+    // If we have a sync token, use it for incremental sync
+    // Otherwise, do a full sync with a date range
+    if (syncToken) {
+      params.set('syncToken', syncToken);
+    } else {
+      // Full sync: get events from 1 year ago to 1 year ahead
+      const now = new Date();
+      const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      const oneYearAhead = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+      
+      params.set('timeMin', oneYearAgo.toISOString());
+      params.set('timeMax', oneYearAhead.toISOString());
+      params.set('singleEvents', 'true');
+      params.set('orderBy', 'startTime');
+    }
+
+    const response = await fetch(
+      `${GOOGLE_CALENDAR_API}/calendars/primary/events?${params}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    // Handle 410 Gone - syncToken expired, need full sync
+    if (response.status === 410) {
+      console.log(`[GoogleSync] Sync token expired for user ${userId}, performing full sync`);
+      return fetchGoogleEventsIncremental(userId, null);
+    }
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('[GoogleSync] Failed to fetch events:', errorData);
+      return { events: [], nextSyncToken: syncToken, isFullSync: false };
+    }
+
+    const data = await response.json() as {
+      items?: Array<{
+        id: string;
+        status?: 'confirmed' | 'cancelled' | 'tentative';
+        summary?: string;
+        description?: string;
+        location?: string;
+        start?: { dateTime?: string; date?: string; timeZone?: string };
+        end?: { dateTime?: string; date?: string; timeZone?: string };
+      }>;
+      nextSyncToken?: string;
+      nextPageToken?: string;
+    };
+
+    const events: GoogleCalendarEventWithStatus[] = (data.items || []).map((item) => ({
+      id: item.id,
+      status: item.status,
+      summary: item.summary || 'Untitled Event',
+      description: item.description,
+      location: item.location,
+      start: {
+        dateTime: item.start?.dateTime,
+        date: item.start?.date,
+        timeZone: item.start?.timeZone || TIMEZONE,
+      },
+      end: {
+        dateTime: item.end?.dateTime,
+        date: item.end?.date,
+        timeZone: item.end?.timeZone || TIMEZONE,
+      },
+    }));
+
+    console.log(`[GoogleSync] Incremental sync: ${events.length} events (fullSync: ${!syncToken})`);
+    
+    return {
+      events,
+      nextSyncToken: data.nextSyncToken || null,
+      isFullSync: !syncToken,
+    };
+  } catch (error) {
+    console.error('[GoogleSync] Error in incremental sync:', error);
+    return { events: [], nextSyncToken: syncToken, isFullSync: false };
+  }
+}
+
 // ===========================================
 // Google User Profile
 // ===========================================

@@ -266,3 +266,64 @@ export async function getValidGoogleToken(
 
   return token.access_token;
 }
+
+// ===========================================
+// Sync Token Operations (for Google Calendar incremental sync)
+// ===========================================
+
+/**
+ * Store the Google Calendar sync token for incremental sync
+ */
+export async function storeSyncToken(
+  userId: string,
+  syncToken: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+
+  try {
+    const { error } = await admin
+      .from('user_oauth_tokens')
+      .update({ 
+        sync_token: syncToken,
+        last_full_sync_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('provider', 'google');
+
+    if (error) {
+      console.error('[OAuth] Error storing sync token:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[OAuth] Unexpected error storing sync token:', error);
+    return false;
+  }
+}
+
+/**
+ * Get the Google Calendar sync token for incremental sync
+ */
+export async function getSyncToken(userId: string): Promise<string | null> {
+  const admin = getAdminClient();
+
+  try {
+    const { data, error } = await admin
+      .from('user_oauth_tokens')
+      .select('sync_token')
+      .eq('user_id', userId)
+      .eq('provider', 'google')
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return (data as { sync_token: string | null }).sync_token;
+  } catch (error) {
+    console.error('[OAuth] Error getting sync token:', error);
+    return null;
+  }
+}
+
