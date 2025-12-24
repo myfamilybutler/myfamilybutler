@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { 
   createFamilyInvite, 
   addFamilyMember, 
+  editFamilyMember,
+  deleteFamilyMember,
   getFamilyMembers,
   getPendingInvites 
 } from '@/lib/supabase';
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
     
     const { userId } = session;
-    const { action, phoneNumber, name } = await request.json();
+    const { action, phoneNumber, name, memberId } = await request.json();
     
     if (!action) {
       return NextResponse.json({ error: 'Missing action' }, { status: 400 });
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
     
     if (!user.is_admin) {
-      return NextResponse.json({ error: 'Only admin can add members' }, { status: 403 });
+      return NextResponse.json({ error: 'Only admin can manage members' }, { status: 403 });
     }
     
     if (action === 'invite' && phoneNumber) {
@@ -113,6 +115,34 @@ export async function POST(request: NextRequest) {
       
       if (!success) {
         return NextResponse.json({ error: 'Failed to add family member' }, { status: 500 });
+      }
+      
+      return NextResponse.json({ success: true });
+    }
+    
+    if (action === 'edit') {
+      if (!memberId || !name) {
+        return NextResponse.json({ error: 'Missing memberId or name' }, { status: 400 });
+      }
+      
+      const success = await editFamilyMember(memberId, name, user.household_id);
+      
+      if (!success) {
+        return NextResponse.json({ error: 'Failed to edit family member' }, { status: 500 });
+      }
+      
+      return NextResponse.json({ success: true });
+    }
+    
+    if (action === 'deleteMember') {
+      if (!memberId) {
+        return NextResponse.json({ error: 'Missing memberId' }, { status: 400 });
+      }
+      
+      const success = await deleteFamilyMember(memberId, user.household_id);
+      
+      if (!success) {
+        return NextResponse.json({ error: 'Failed to delete family member' }, { status: 500 });
       }
       
       return NextResponse.json({ success: true });

@@ -51,6 +51,8 @@ export {
   acceptInvite,
   createFamilyInvite,
   addFamilyMember,
+  editFamilyMember,
+  deleteFamilyMember,
   getFamilyMembers,
   getPendingInvites
 } from './supabase/db-families';

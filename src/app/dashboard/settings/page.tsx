@@ -9,7 +9,6 @@ import {
   Trash2, 
   LogOut, 
   Download, 
-  Crown,
   UserMinus,
   Plus,
   Calendar,
@@ -17,6 +16,7 @@ import {
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
 import { AccountSecurityCard } from '@/components/settings/account-security-card';
@@ -24,17 +24,7 @@ import { GoogleCalendarConnectButton } from '@/components/settings/google-calend
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
 
-interface FamilyUser {
-  id: string;
-  display_name?: string;
-  phone_number: string;
-  is_admin: boolean;
-}
-
-interface FamilyMember {
-  id: string;
-  name: string;
-}
+import { FamilyMembersList, type FamilyUser, type FamilyMember } from '@/components/dashboard/family-members-list';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -49,6 +39,10 @@ export default function SettingsPage() {
   const [deleteFamilyDialog, setDeleteFamilyDialog] = useState(false);
   const [leaveFamilyDialog, setLeaveFamilyDialog] = useState(false);
   const [addMemberDialog, setAddMemberDialog] = useState(false);
+  const [deleteMemberDialog, setDeleteMemberDialog] = useState(false);
+  const [editMemberDialog, setEditMemberDialog] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+  const [editMemberName, setEditMemberName] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   
   // Add Member states
@@ -170,6 +164,85 @@ export default function SettingsPage() {
     }
   };
 
+  // Handle edit family member
+  const handleEditMember = async () => {
+    if (!selectedMember || !editMemberName.trim()) return;
+    
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/family', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'edit', 
+          memberId: selectedMember.id, 
+          name: editMemberName.trim() 
+        })
+      });
+      
+      if (res.ok) {
+        toast.success('Member updated!');
+        setEditMemberDialog(false);
+        setSelectedMember(null);
+        setEditMemberName('');
+        fetchData();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to update member');
+      }
+    } catch (error) {
+      console.error('Edit member error:', error);
+      toast.error('Failed to update member');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle delete family member
+  const handleDeleteMember = async () => {
+    if (!selectedMember) return;
+    
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/family', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'deleteMember', 
+          memberId: selectedMember.id 
+        })
+      });
+      
+      if (res.ok) {
+        toast.success('Member deleted!');
+        setDeleteMemberDialog(false);
+        setSelectedMember(null);
+        fetchData();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to delete member');
+      }
+    } catch (error) {
+      console.error('Delete member error:', error);
+      toast.error('Failed to delete member');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Open edit dialog
+  const openEditDialog = (member: FamilyMember) => {
+    setSelectedMember(member);
+    setEditMemberName(member.name);
+    setEditMemberDialog(true);
+  };
+
+  // Open delete dialog
+  const openDeleteDialog = (member: FamilyMember) => {
+    setSelectedMember(member);
+    setDeleteMemberDialog(true);
+  };
+
   return (
     <ProtectedRoute>
       <DashboardLayout>
@@ -208,40 +281,14 @@ export default function SettingsPage() {
                   <div className="h-10 bg-slate-100 rounded"></div>
                 </div>
               ) : (
-                <>
-                  {members.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-semibold text-emerald-700">
-                            {(member.display_name || member.phone_number).charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">{member.display_name || member.phone_number}</p>
-                          {member.is_admin && (
-                            <span className="text-xs text-emerald-600 flex items-center gap-1">
-                              <Crown className="w-3 h-3" /> Admin
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {familyMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-semibold text-slate-600">
-                            {member.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <p className="font-medium">{member.name}</p>
-                      </div>
-                    </div>
-                  ))}
-                </>
+                <FamilyMembersList
+                  users={members}
+                  familyMembers={familyMembers}
+                  isAdmin={isAdmin}
+                  showActions={true}
+                  onEditMember={openEditDialog}
+                  onDeleteMember={openDeleteDialog}
+                />
               )}
               
               {!isAdmin && (
@@ -360,6 +407,49 @@ export default function SettingsPage() {
           title="Leave Family"
           description="Are you sure you want to leave this family? You can be invited back later."
           onConfirm={handleLeaveFamily}
+          loading={actionLoading}
+        />
+        
+        {/* Edit Member Dialog */}
+        <ConfirmDialog
+          open={editMemberDialog}
+          onOpenChange={(open) => {
+            setEditMemberDialog(open);
+            if (!open) {
+              setSelectedMember(null);
+              setEditMemberName('');
+            }
+          }}
+          title="Edit Family Member"
+          description={
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Update the name for this family member.
+              </p>
+              <Input
+                value={editMemberName}
+                onChange={(e) => setEditMemberName(e.target.value)}
+                placeholder="Enter new name"
+                className="mt-2"
+              />
+            </div>
+          }
+          confirmText="Save"
+          onConfirm={handleEditMember}
+          loading={actionLoading}
+        />
+        
+        {/* Delete Member Dialog */}
+        <ConfirmDialog
+          open={deleteMemberDialog}
+          onOpenChange={(open) => {
+            setDeleteMemberDialog(open);
+            if (!open) setSelectedMember(null);
+          }}
+          title="Delete Family Member"
+          description={`Are you sure you want to remove "${selectedMember?.name}" from your family? This action cannot be undone.`}
+          confirmText="DELETE"
+          onConfirm={handleDeleteMember}
           loading={actionLoading}
         />
       </DashboardLayout>

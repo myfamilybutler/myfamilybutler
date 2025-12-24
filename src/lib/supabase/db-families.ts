@@ -176,6 +176,53 @@ export async function addFamilyMember(
 }
 
 /**
+ * Edit a family member's name
+ */
+export async function editFamilyMember(
+  memberId: string,
+  name: string,
+  familyId: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+  
+  const { error } = await admin
+    .from('family_members')
+    .update({ name })
+    .eq('id', memberId)
+    .eq('household_id', familyId); // Security: ensure member belongs to user's family
+  
+  if (error) {
+    console.error('Error editing family member:', error);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Delete a family member
+ */
+export async function deleteFamilyMember(
+  memberId: string,
+  familyId: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+  
+  const { error } = await admin
+    .from('family_members')
+    .delete()
+    .eq('id', memberId)
+    .eq('household_id', familyId); // Security: ensure member belongs to user's family
+  
+  if (error) {
+    console.error('Error deleting family member:', error);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Get all members of a family (both users and family members)
  */
 export async function getFamilyMembers(

@@ -63,8 +63,25 @@ export function EditEventDialog({
         try {
           const response = await fetch('/api/family');
           const data = await response.json();
-          if (data.success && data.data.familyMembers) {
-            setFetchedMembers(data.data.familyMembers.map((m: { name: string }) => m.name));
+          if (data.success && data.data) {
+            const allNames: string[] = [];
+            
+            // Add users with accounts (use display_name or phone_number)
+            if (data.data.users) {
+              for (const user of data.data.users) {
+                const name = user.display_name || user.phone_number;
+                if (name) allNames.push(name);
+              }
+            }
+            
+            // Add family members without accounts
+            if (data.data.familyMembers) {
+              for (const member of data.data.familyMembers) {
+                allNames.push(member.name);
+              }
+            }
+            
+            setFetchedMembers(allNames);
           }
         } catch {
           // Silently fail - not critical

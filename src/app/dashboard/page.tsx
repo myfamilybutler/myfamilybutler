@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { FamilyWidget } from '@/components/dashboard/family-widget';
 import { CalendarWidget } from '@/components/calendar/calendar-widget';
 import { UpcomingEvents } from '@/components/calendar/upcoming-events';
 import { ProtectedRoute } from '@/components/auth/protected-route';
@@ -175,8 +174,6 @@ export default function DashboardPage() {
                 />
               </CardContent>
             </Card>
-
-            <FamilyWidget />
           </aside>
 
           <main className="order-1 lg:order-2 flex-1">
