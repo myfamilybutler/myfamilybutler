@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import {
   format,
   startOfMonth,
@@ -10,7 +10,10 @@ import {
   isToday,
   addMonths,
   subMonths,
+  addDays,
 } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { formatDate } from '@/lib/date-utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -23,7 +26,6 @@ import type { CalendarEvent } from '@/types/calendar';
 // Re-export for backwards compatibility
 export type { CalendarEvent } from '@/types/calendar';
 
-const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_VISIBLE_EVENTS = 2;
 
 export interface CalendarWidgetProps {
@@ -118,6 +120,18 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
     }),
   };
 
+  const { t, i18n } = useTranslation();
+  
+  // Update weekDays based on locale
+  const weekDays = useMemo(() => {
+    const start = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday start
+    return Array.from({ length: 7 }).map((_, i) => {
+      const day = addDays(start, i);
+      return formatDate(day, 'EEE');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
+
   return (
     <>
       <Card className="border-gray-200 shadow-sm overflow-hidden bg-white">
@@ -130,6 +144,7 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
                 size="icon" 
                 onClick={handlePrevMonth}
                 className="h-8 w-8 hover:bg-slate-100"
+                aria-label={t('common.prevMonth')}
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -138,14 +153,15 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
                 size="icon" 
                 onClick={handleNextMonth}
                 className="h-8 w-8 hover:bg-slate-100"
+                aria-label={t('common.nextMonth')}
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
             
             {/* Month/Year title */}
-            <h2 className="text-lg font-semibold text-gray-900">
-              {format(currentMonth, 'MMMM yyyy')}
+            <h2 className="text-lg font-semibold text-gray-900 capitalize">
+              {formatDate(currentMonth, 'MMMM yyyy')}
             </h2>
             
             {/* Today button */}
@@ -158,7 +174,7 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
                 isTodayVisible && "opacity-50"
               )}
             >
-              Today
+              {t('calendar.today')}
             </Button>
           </div>
         </CardHeader>
@@ -168,7 +184,7 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
             {weekDays.map((day) => (
               <div
                 key={day}
-                className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1"
+                className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 uppercase"
               >
                 <span className="hidden sm:inline">{day}</span>
                 <span className="sm:hidden">{day.charAt(0)}</span>
@@ -262,7 +278,7 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
 
           {/* Swipe hint */}
           <div className="flex justify-center mt-2">
-            <span className="text-[10px] text-gray-400">Swipe to change month</span>
+            <span className="text-[10px] text-gray-400">{t('calendar.swipeHint')}</span>
           </div>
         </CardContent>
       </Card>

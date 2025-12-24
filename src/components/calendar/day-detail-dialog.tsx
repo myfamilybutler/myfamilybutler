@@ -27,6 +27,8 @@ interface DayDetailDialogProps {
   onEventsChanged?: () => void;
 }
 
+import { useTranslation } from 'react-i18next';
+import { formatDate } from '@/lib/date-utils';
 import { getMemberColor, getInitials } from '@/lib/utils/ui-helpers';
 
 export function DayDetailDialog({ 
@@ -38,8 +40,15 @@ export function DayDetailDialog({
 }: DayDetailDialogProps) {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const { t } = useTranslation();
 
   if (!date) return null;
+  
+  // This hook call is now safe (not conditional) because date check is separate or component logic restructuring
+  /* 
+   Wait, if(!date) return null is conditional return. Hooks must be before it.
+   I need to move 'const { t } = useTranslation()' to the top of the function.
+  */
 
   const handleEditClick = (event: CalendarEvent) => {
     setEditingEvent(event);
@@ -61,18 +70,18 @@ export function DayDetailDialog({
                   "flex h-12 w-12 flex-col items-center justify-center rounded-lg border shadow-sm font-semibold bg-white",
                   isToday ? "border-emerald-500 text-emerald-700" : "border-slate-200 text-slate-700"
                 )}>
-                  <span className="text-[10px] uppercase tracking-wider">{format(date, 'MMM')}</span>
-                  <span className="text-xl leading-none">{format(date, 'd')}</span>
+                  <span className="text-[10px] uppercase tracking-wider">{formatDate(date, 'MMM')}</span>
+                  <span className="text-xl leading-none">{formatDate(date, 'd')}</span>
                 </div>
                 <div>
                   <DialogTitle className="text-lg font-bold">
-                    {format(date, 'EEEE')}
+                    {formatDate(date, 'EEEE')}
                   </DialogTitle>
                   <DialogDescription className="flex items-center gap-2 mt-0.5">
-                    <span>{format(date, 'MMMM d, yyyy')}</span>
+                    <span>{formatDate(date, 'MMMM d, yyyy')}</span>
                     {isToday && (
                       <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                        Today
+                        {t('calendar.today')}
                       </Badge>
                     )}
                   </DialogDescription>
@@ -87,13 +96,13 @@ export function DayDetailDialog({
                 <div className="mb-4 rounded-full bg-slate-100 p-4">
                   <Calendar className="h-8 w-8 text-slate-400" />
                 </div>
-                <h3 className="text-base font-medium text-foreground mb-1">No events</h3>
+                <h3 className="text-base font-medium text-foreground mb-1">{t('calendar.noEvents')}</h3>
                 <p className="text-xs text-slate-400 mb-4 max-w-[200px]">
-                  No events scheduled for this day.
+                  {t('calendar.noEventsDay')}
                 </p>
                 <Button size="sm" className="gap-2" onClick={() => {/* TODO: Add event handler */}}>
                   <Plus className="h-3.5 w-3.5" />
-                  Add Event
+                  {t('calendar.addEvent')}
                 </Button>
               </div>
             ) : (
@@ -111,7 +120,7 @@ export function DayDetailDialog({
                         {/* Time or All Day */}
                         <div className="w-14 shrink-0 flex flex-col items-end pt-0.5 gap-0.5">
                           {event.is_all_day ? (
-                            <span className="text-[10px] font-bold uppercase text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-sm">All Day</span>
+                            <span className="text-[10px] font-bold uppercase text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-sm">{t('calendar.allDay')}</span>
                           ) : (
                             <>
                               <span className="text-sm font-bold text-slate-700">

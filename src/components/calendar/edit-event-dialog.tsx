@@ -24,6 +24,8 @@ import type { CalendarEvent } from '@/types/calendar';
 import { EventReminderSection } from './event-reminder-section';
 import { FamilyMemberSelector } from './family-member-selector';
 
+import { useTranslation } from 'react-i18next';
+
 interface EditEventDialogProps {
   event: CalendarEvent | null;
   open: boolean;
@@ -41,6 +43,7 @@ export function EditEventDialog({
   onEventDeleted,
   availableFamilyMembers = [],
 }: EditEventDialogProps) {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -144,12 +147,12 @@ export function EditEventDialog({
         throw new Error(result.error || 'Failed to update event');
       }
 
-      toast.success('Event updated successfully');
+      toast.success(t('calendar.eventUpdated'));
       onEventUpdated?.();
       onOpenChange(false);
     } catch (error) {
       console.error('Error updating event:', error);
-      toast.error('Failed to update event');
+      toast.error(t('calendar.updateError'));
     } finally {
       setIsLoading(false);
     }
@@ -170,12 +173,12 @@ export function EditEventDialog({
         throw new Error(result.error || 'Failed to delete event');
       }
 
-      toast.success('Event deleted');
+      toast.success(t('calendar.eventDeleted'));
       onEventDeleted?.();
       onOpenChange(false);
     } catch (error) {
       console.error('Error deleting event:', error);
-      toast.error('Failed to delete event');
+      toast.error(t('calendar.deleteError'));
     } finally {
       setIsDeleting(false);
     }
@@ -189,25 +192,25 @@ export function EditEventDialog({
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-5 h-5 text-emerald-600" />
-            Edit Event
+            {t('calendar.editEvent')}
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-4 px-1">
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{t('calendar.title')}</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Event title"
+              placeholder={t('calendar.eventTitle')}
             />
           </div>
 
           {/* Date */}
           <div className="space-y-2">
-            <Label htmlFor="eventDate">Date</Label>
+            <Label htmlFor="eventDate">{t('calendar.date')}</Label>
             <Input
               id="eventDate"
               type="date"
@@ -226,7 +229,7 @@ export function EditEventDialog({
               className="rounded border-gray-300"
             />
             <Label htmlFor="isAllDay" className="cursor-pointer">
-              All day event
+              {t('calendar.allDayEvent')}
             </Label>
           </div>
 
@@ -235,7 +238,7 @@ export function EditEventDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="eventTime" className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Start
+                  <Clock className="w-3 h-3" /> {t('calendar.start')}
                 </Label>
                 <Input
                   id="eventTime"
@@ -245,7 +248,7 @@ export function EditEventDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="endTime">End</Label>
+                <Label htmlFor="endTime">{t('calendar.end')}</Label>
                 <Input
                   id="endTime"
                   type="time"
@@ -266,24 +269,24 @@ export function EditEventDialog({
           {/* Location */}
           <div className="space-y-2">
             <Label htmlFor="location" className="flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> Location
+              <MapPin className="w-3 h-3" /> {t('calendar.location')}
             </Label>
             <Input
               id="location"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="Event location"
+              placeholder={t('calendar.eventLocation')}
             />
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t('calendar.description')}</Label>
             <Input
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Additional notes"
+              placeholder={t('calendar.additionalNotes')}
             />
           </div>
 
@@ -305,25 +308,25 @@ export function EditEventDialog({
               onClick={() => setShowDeleteConfirm(true)}
             >
               <Trash2 className="w-4 h-4 mr-1" />
-              Delete
+              {t('common.delete')}
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-red-600">Delete this event?</span>
+              <span className="text-sm text-red-600">{t('common.deleteConfirm')}</span>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={handleDelete}
                 disabled={isDeleting}
               >
-                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes'}
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.yes')}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDeleteConfirm(false)}
               >
-                No
+                {t('common.no')}
               </Button>
             </div>
           )}
@@ -339,10 +342,10 @@ export function EditEventDialog({
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
+                {t('common.saving')}
               </>
             ) : (
-              'Save Changes'
+              t('common.saveChanges')
             )}
           </Button>
         </DialogFooter>

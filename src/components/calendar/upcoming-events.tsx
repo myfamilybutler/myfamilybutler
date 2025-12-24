@@ -16,6 +16,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { useTranslation } from 'react-i18next';
+import { formatDate } from '@/lib/date-utils';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
@@ -52,6 +54,7 @@ function getMemberStyles(member?: string) {
 }
 
 function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEventCardProps) {
+  const { t } = useTranslation();
   const x = useMotionValue(0);
   const [isDragging, setIsDragging] = useState(false);
   
@@ -96,6 +99,7 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
         <button
           onClick={handleEditClick}
           className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-500 text-white shadow-lg active:scale-95 transition-transform"
+          aria-label={t('common.edit')}
         >
           <Pencil className="w-5 h-5" />
         </button>
@@ -103,6 +107,7 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
           onClick={handleDeleteClick}
           disabled={isDeleting}
           className="flex items-center justify-center w-12 h-12 rounded-xl bg-red-500 text-white shadow-lg active:scale-95 transition-transform disabled:opacity-50"
+          aria-label={t('common.delete')}
         >
           {isDeleting ? (
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -126,7 +131,7 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
         <div className="flex items-start gap-3 p-3">
           <div className="flex-shrink-0 w-16 text-right">
             <span className="text-sm font-semibold text-gray-900">
-              {event.is_all_day ? 'All day' : formatTime(event.event_time)}
+              {event.is_all_day ? t('calendar.allDay') : formatTime(event.event_time)}
             </span>
             <p className="text-xs text-gray-500">{event.dateLabel}</p>
           </div>
@@ -172,6 +177,7 @@ export function UpcomingEvents({
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
+  const { t, i18n } = useTranslation();
 
   // Family members from props (single source of truth from family_members table)
   // No longer extracting from events
@@ -194,11 +200,11 @@ export function UpcomingEvents({
         throw new Error(result.error || 'Failed to delete event');
       }
 
-      toast.success('Event deleted');
+      toast.success(t('calendar.eventDeleted'));
       onEventsChanged?.();
     } catch (error) {
       console.error('Error deleting event:', error);
-      toast.error('Failed to delete event');
+      toast.error(t('calendar.deleteError'));
     } finally {
       setDeletingEventId(null);
     }
@@ -252,15 +258,16 @@ export function UpcomingEvents({
       .map((event): ProcessedEvent => {
         let dateLabel: string;
         if (event.event_date === todayStr) {
-          dateLabel = 'Today';
+          dateLabel = t('calendar.today');
         } else if (event.event_date === tomorrowStr) {
-          dateLabel = 'Tomorrow';
+          dateLabel = t('calendar.tomorrow');
         } else {
-          dateLabel = format(parseISO(event.event_date), 'EEE, MMM d');
+          dateLabel = formatDate(parseISO(event.event_date), 'EEE, MMM d');
         }
         return { ...event, dateLabel };
       });
-  }, [events, maxEvents, selectedMembers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, maxEvents, selectedMembers, i18n.language, t]);
 
   const visibleEvents = useMemo(() => {
     return allUpcomingEvents.slice(0, visibleCount);
@@ -283,12 +290,12 @@ export function UpcomingEvents({
   if (allUpcomingEvents.length === 0 && !hasActiveFilters) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-900">Upcoming</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{t('calendar.upcomingEvents')}</h3>
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
             <Clock className="w-6 h-6 text-gray-300" />
           </div>
-          <p className="text-sm text-gray-500">No upcoming events</p>
+          <p className="text-sm text-gray-500">{t('calendar.noEvents')}</p>
           <p className="text-xs text-gray-400 mt-1">Your schedule is clear!</p>
         </div>
       </div>
@@ -300,7 +307,7 @@ export function UpcomingEvents({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">
-            Upcoming
+            {t('calendar.upcomingEvents')}
             <span className="ml-2 text-xs font-normal text-gray-400">
               ({totalEvents})
             </span>
@@ -317,6 +324,7 @@ export function UpcomingEvents({
                     "h-8 gap-1.5",
                     hasActiveFilters && "text-emerald-600"
                   )}
+                  aria-label={t('common.filters')}
                 >
                   <Filter className="w-4 h-4" />
                   {hasActiveFilters && (
@@ -330,14 +338,14 @@ export function UpcomingEvents({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-900">
-                      Filter by member
+                      {t('calendar.filterByMember')}
                     </span>
                     {hasActiveFilters && (
                       <button
                         onClick={clearFilters}
                         className="text-xs text-gray-500 hover:text-gray-700"
                       >
-                        Clear
+                        {t('calendar.clear')}
                       </button>
                     )}
                   </div>
@@ -375,12 +383,12 @@ export function UpcomingEvents({
         {/* No results with filter */}
         {allUpcomingEvents.length === 0 && hasActiveFilters && (
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <p className="text-sm text-gray-500">No events match your filter</p>
+            <p className="text-sm text-gray-500">{t('calendar.noEventsFilter')}</p>
             <button 
               onClick={clearFilters}
               className="text-xs text-emerald-600 hover:text-emerald-700 mt-1"
             >
-              Clear filters
+              {t('calendar.clearFilters')}
             </button>
           </div>
         )}
@@ -411,9 +419,9 @@ export function UpcomingEvents({
                 className="w-full text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               >
                 <ChevronDown className="w-4 h-4 mr-1" />
-                Show {Math.min(pageSize, remainingEvents)} more
+                {t('calendar.showMore', { count: Math.min(pageSize, remainingEvents) })}
                 <span className="ml-1 text-gray-400">
-                  ({remainingEvents} remaining)
+                  ({t('calendar.remaining', { count: remainingEvents })})
                 </span>
               </Button>
             )}
@@ -426,13 +434,13 @@ export function UpcomingEvents({
                 className="text-gray-400 hover:text-gray-600"
               >
                 <ChevronUp className="w-4 h-4 mr-1" />
-                Show less
+                {t('calendar.showLess')}
               </Button>
             )}
 
             {visibleCount >= maxEvents && totalEvents >= maxEvents && (
               <p className="text-xs text-gray-400 text-center">
-                Showing max {maxEvents} events. View calendar for more.
+                {t('calendar.maxEvents', { count: maxEvents })}
               </p>
             )}
           </div>
