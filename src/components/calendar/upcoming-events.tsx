@@ -129,7 +129,7 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
         onClick={() => !isDragging && x.get() === 0 && onEdit(event)}
       >
         <div className="flex items-start gap-3 p-3">
-          <div className="flex-shrink-0 w-16 text-right">
+          <div className="flex-shrink-0 w-20 text-right">
             <span className="text-sm font-semibold text-gray-900">
               {event.is_all_day ? t('calendar.allDay') : formatTime(event.event_time)}
             </span>
@@ -262,11 +262,12 @@ export function UpcomingEvents({
         } else if (event.event_date === tomorrowStr) {
           dateLabel = t('calendar.tomorrow');
         } else {
-          dateLabel = formatDate(parseISO(event.event_date), 'EEE, MMM d');
+          // Format based on current language
+          const formatStr = i18n.language === 'de' ? 'EEE, d. MMM' : 'EEE, MMM d';
+          dateLabel = formatDate(parseISO(event.event_date), formatStr);
         }
         return { ...event, dateLabel };
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, maxEvents, selectedMembers, i18n.language, t]);
 
   const visibleEvents = useMemo(() => {

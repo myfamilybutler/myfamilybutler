@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { 
   Users, 
@@ -27,6 +28,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { FamilyMembersList, type FamilyUser, type FamilyMember } from '@/components/dashboard/family-members-list';
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { dbUser, signOut } = useAuthStore();
   const [members, setMembers] = useState<FamilyUser[]>([]);
@@ -95,7 +97,7 @@ export default function SettingsPage() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export error:', error);
-      toast.error('Failed to export data');
+      toast.error(t('settings.exportError'));
     }
   };
   
@@ -111,7 +113,7 @@ export default function SettingsPage() {
         await signOut();
         router.push('/');
       } else {
-        toast.error('Failed to delete account');
+        toast.error(t('settings.deleteAccountError'));
       }
     } catch (error) {
       console.error('Delete error:', error);
@@ -133,7 +135,7 @@ export default function SettingsPage() {
       if (res.ok) {
         router.push('/onboarding');
       } else {
-        toast.error('Failed to delete family');
+        toast.error(t('settings.deleteFamilyError'));
       }
     } catch (error) {
       console.error('Delete family error:', error);
@@ -155,7 +157,7 @@ export default function SettingsPage() {
       if (res.ok) {
         router.push('/onboarding');
       } else {
-        toast.error('Failed to leave family');
+        toast.error(t('settings.leaveFamilyError'));
       }
     } catch (error) {
       console.error('Leave error:', error);
@@ -181,18 +183,18 @@ export default function SettingsPage() {
       });
       
       if (res.ok) {
-        toast.success('Member updated!');
+        toast.success(t('settings.memberUpdated'));
         setEditMemberDialog(false);
         setSelectedMember(null);
         setEditMemberName('');
         fetchData();
       } else {
         const data = await res.json();
-        toast.error(data.error || 'Failed to update member');
+        toast.error(data.error || t('settings.updateMemberError'));
       }
     } catch (error) {
       console.error('Edit member error:', error);
-      toast.error('Failed to update member');
+      toast.error(t('settings.updateMemberError'));
     } finally {
       setActionLoading(false);
     }
@@ -214,17 +216,17 @@ export default function SettingsPage() {
       });
       
       if (res.ok) {
-        toast.success('Member deleted!');
+        toast.success(t('settings.memberDeleted'));
         setDeleteMemberDialog(false);
         setSelectedMember(null);
         fetchData();
       } else {
         const data = await res.json();
-        toast.error(data.error || 'Failed to delete member');
+        toast.error(data.error || t('settings.deleteMemberError'));
       }
     } catch (error) {
       console.error('Delete member error:', error);
-      toast.error('Failed to delete member');
+      toast.error(t('settings.deleteMemberError'));
     } finally {
       setActionLoading(false);
     }
@@ -248,8 +250,8 @@ export default function SettingsPage() {
       <DashboardLayout>
         <div className="space-y-6 max-w-2xl mx-auto">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-500 mt-1">Manage your account and family</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('settings.title')}</h1>
+            <p className="text-gray-500 mt-1">{t('settings.description')}</p>
           </div>
           
           {/* Account & Security Section */}
@@ -261,16 +263,16 @@ export default function SettingsPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  Family Members
+                  {t('settings.familyMembers')}
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  {isAdmin ? 'You are the admin of this family' : 'Family member'}
+                  {isAdmin ? t('settings.adminRole') : t('settings.memberRole')}
                 </CardDescription>
               </div>
               {isAdmin && (
                 <Button size="sm" onClick={() => setAddMemberDialog(true)}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Member
+                  {t('settings.addMember')}
                 </Button>
               )}
             </CardHeader>
@@ -298,7 +300,7 @@ export default function SettingsPage() {
                   onClick={() => setLeaveFamilyDialog(true)}
                 >
                   <UserMinus className="w-4 h-4 mr-2" />
-                  Leave Family
+                  {t('settings.leaveFamily')}
                 </Button>
               )}
             </CardContent>
@@ -309,10 +311,10 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
-                Calendar Sync
+                {t('settings.calendarSync')}
               </CardTitle>
               <CardDescription>
-                Connect your calendar to automatically sync events
+                {t('settings.calendarSyncDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -323,9 +325,9 @@ export default function SettingsPage() {
           {/* GDPR Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-gray-900">Your Data (GDPR)</CardTitle>
+              <CardTitle className="text-gray-900">{t('settings.gdprTitle')}</CardTitle>
               <CardDescription>
-                Manage your personal data in accordance with GDPR
+                {t('settings.gdprDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -335,7 +337,7 @@ export default function SettingsPage() {
                 onClick={handleExportData}
               >
                 <Download className="w-4 h-4 mr-2" />
-                Export My Data
+                {t('settings.exportData')}
               </Button>
               
               {isAdmin && (
@@ -345,7 +347,7 @@ export default function SettingsPage() {
                   onClick={() => setDeleteFamilyDialog(true)}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Family
+                  {t('settings.deleteFamily')}
                 </Button>
               )}
               
@@ -355,7 +357,7 @@ export default function SettingsPage() {
                 onClick={() => setDeleteAccountDialog(true)}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Delete My Account
+                {t('settings.deleteAccount')}
               </Button>
             </CardContent>
           </Card>
@@ -367,7 +369,7 @@ export default function SettingsPage() {
             onClick={handleLogout}
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
+            {t('settings.signOut')}
           </Button>
         </div>
         
@@ -382,8 +384,8 @@ export default function SettingsPage() {
         <ConfirmDialog
           open={deleteAccountDialog}
           onOpenChange={setDeleteAccountDialog}
-          title="Delete Account"
-          description="This will permanently delete your account and all your data. This action cannot be undone."
+          title={t('settings.deleteAccountTitle')}
+          description={t('settings.deleteAccountDesc')}
           confirmText="DELETE"
           onConfirm={handleDeleteAccount}
           loading={actionLoading}
@@ -393,8 +395,8 @@ export default function SettingsPage() {
         <ConfirmDialog
           open={deleteFamilyDialog}
           onOpenChange={setDeleteFamilyDialog}
-          title="Delete Family"
-          description="This will delete the family and remove all members. All events will be lost."
+          title={t('settings.deleteFamilyTitle')}
+          description={t('settings.deleteFamilyDesc')}
           confirmText="DELETE"
           onConfirm={handleDeleteFamily}
           loading={actionLoading}
@@ -404,8 +406,8 @@ export default function SettingsPage() {
         <ConfirmDialog
           open={leaveFamilyDialog}
           onOpenChange={setLeaveFamilyDialog}
-          title="Leave Family"
-          description="Are you sure you want to leave this family? You can be invited back later."
+          title={t('settings.leaveFamilyTitle')}
+          description={t('settings.leaveFamilyDesc')}
           onConfirm={handleLeaveFamily}
           loading={actionLoading}
         />
@@ -420,21 +422,21 @@ export default function SettingsPage() {
               setEditMemberName('');
             }
           }}
-          title="Edit Family Member"
+          title={t('settings.editMemberTitle')}
           description={
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Update the name for this family member.
+                {t('settings.editMemberDesc')}
               </p>
               <Input
                 value={editMemberName}
                 onChange={(e) => setEditMemberName(e.target.value)}
-                placeholder="Enter new name"
+                placeholder={t('settings.enterName')}
                 className="mt-2"
               />
             </div>
           }
-          confirmText="Save"
+          confirmText={t('common.save')}
           onConfirm={handleEditMember}
           loading={actionLoading}
         />
@@ -446,8 +448,8 @@ export default function SettingsPage() {
             setDeleteMemberDialog(open);
             if (!open) setSelectedMember(null);
           }}
-          title="Delete Family Member"
-          description={`Are you sure you want to remove "${selectedMember?.name}" from your family? This action cannot be undone.`}
+          title={t('settings.deleteMemberTitle')}
+          description={t('settings.deleteMemberDesc', { name: selectedMember?.name })}
           confirmText="DELETE"
           onConfirm={handleDeleteMember}
           loading={actionLoading}
