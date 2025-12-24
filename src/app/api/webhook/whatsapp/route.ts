@@ -7,12 +7,14 @@ import {
   findOrCreateUser,
   logMessage,
   checkPendingInvite,
-  acceptInvite
+  acceptInvite,
+  getFamilyMembers
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
 import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/channels/whatsapp';
 import { handleCommand } from '@/lib/channels/whatsapp-commands';
 import { processIntents } from '@/lib/channels/whatsapp-intents';
+import { processImageMessage, processVoiceMessage as processVoiceMedia } from '@/lib/channels/whatsapp-media';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -140,16 +142,6 @@ async function processMessage(
     // Mark message as read (async, don't wait)
     markMessageAsRead(messageId).catch(() => { });
 
-    // Extract message content
-    const { text: userMessage, type: messageType } = extractMessageContent(message);
-
-    if (!userMessage) {
-      console.warn('[Webhook] Empty message content');
-      return;
-    }
-
-    console.log(`[Webhook] Message content: "${userMessage}" (${messageType})`);
-
     // Find or create user
     const { user, isNewUser } = await findOrCreateUser(phoneNumber, 'whatsapp');
 
@@ -162,37 +154,115 @@ async function processMessage(
       return;
     }
 
-    // Send welcome message to brand new users
-    if (isNewUser) {
-      await handleNewUser(user.id, phoneNumber, userMessage, messageType, messageId);
-      return;
+    // Get family members for AI context (if user has a household)
+    let familyMemberNames: string[] = [];
+    if (user.household_id) {
+      const { users: householdUsers, familyMembers: members } = await getFamilyMembers(user.household_id);
+      // Combine display names from users and names from family members
+      familyMemberNames = [
+        ...householdUsers.filter(u => u.display_name).map(u => u.display_name!),
+        ...members.map(m => m.name),
+      ];
     }
 
-    // Check for pending invite and auto-link to family
-    if (!user.household_id) {
-      await checkAndAcceptInvite(user, phoneNumber);
-    }
-
-    // Log user message
-    await logMessage(user.id, 'user', userMessage, messageType, messageId);
-
-    // Handle special commands
-    const commandResult = await handleCommand(userMessage, {
-      userId: user.id,
-      phoneNumber,
-    });
-
-    if (commandResult.handled) {
-      return;
-    }
-
-    // Process intents (reminders, events, or AI fallback)
-    await processIntents(userMessage, {
+    // Build media context
+    const mediaContext = {
       userId: user.id,
       phoneNumber,
       householdId: user.household_id ?? null,
       messageId,
-    });
+      familyMembers: familyMemberNames,
+    };
+
+    // Route based on message type
+    switch (message.type) {
+      case 'image': {
+        // Process image through Brain (Vision AI)
+        console.log(`[Webhook] Image message from ${phoneNumber}`);
+        
+        if (isNewUser) {
+          await handleNewUser(user.id, phoneNumber, message.image?.caption || '[Image]', 'image', messageId);
+          return;
+        }
+        
+        if (!user.household_id) {
+          await checkAndAcceptInvite(user, phoneNumber);
+        }
+        
+        await processImageMessage(
+          message.image!.id,
+          message.image!.mime_type,
+          message.image?.caption,
+          mediaContext
+        );
+        return;
+      }
+
+      case 'audio': {
+        // Process voice message through Brain (Whisper + Dialect)
+        console.log(`[Webhook] Voice message from ${phoneNumber}`);
+        
+        if (isNewUser) {
+          await handleNewUser(user.id, phoneNumber, '[Voice message]', 'voice', messageId);
+          return;
+        }
+        
+        if (!user.household_id) {
+          await checkAndAcceptInvite(user, phoneNumber);
+        }
+        
+        await processVoiceMedia(
+          message.audio!.id,
+          message.audio!.mime_type,
+          mediaContext
+        );
+        return;
+      }
+
+      default: {
+        // Text and other message types - use existing flow
+        const { text: userMessage, type: messageType } = extractMessageContent(message);
+
+        if (!userMessage) {
+          console.warn('[Webhook] Empty message content');
+          return;
+        }
+
+        console.log(`[Webhook] Message content: "${userMessage}" (${messageType})`);
+
+        // Send welcome message to brand new users
+        if (isNewUser) {
+          await handleNewUser(user.id, phoneNumber, userMessage, messageType, messageId);
+          return;
+        }
+
+        // Check for pending invite and auto-link to family
+        if (!user.household_id) {
+          await checkAndAcceptInvite(user, phoneNumber);
+        }
+
+        // Log user message
+        await logMessage(user.id, 'user', userMessage, messageType, messageId);
+
+        // Handle special commands
+        const commandResult = await handleCommand(userMessage, {
+          userId: user.id,
+          phoneNumber,
+        });
+
+        if (commandResult.handled) {
+          return;
+        }
+
+        // Process intents (reminders, events, or AI fallback)
+        await processIntents(userMessage, {
+          userId: user.id,
+          phoneNumber,
+          householdId: user.household_id ?? null,
+          messageId,
+        });
+      }
+    }
   } catch (err) {
     console.error('[Webhook] Critical error processing message:', err);
   }

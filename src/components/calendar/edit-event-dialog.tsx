@@ -62,10 +62,15 @@ export function EditEventDialog({
   // Fetch family members if not provided
   useEffect(() => {
     if (open && availableFamilyMembers.length === 0) {
+      let cancelled = false;
+      
       const fetchFamilyMembers = async () => {
         try {
           const response = await fetch('/api/family');
           const data = await response.json();
+          
+          if (cancelled) return;
+          
           if (data.success && data.data) {
             const allNames: string[] = [];
             
@@ -90,7 +95,10 @@ export function EditEventDialog({
           // Silently fail - not critical
         }
       };
+      
       fetchFamilyMembers();
+      
+      return () => { cancelled = true; };
     }
   }, [open, availableFamilyMembers.length]);
 

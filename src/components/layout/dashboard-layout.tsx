@@ -1,6 +1,7 @@
 'use client';
 
 import { Navbar } from './navbar';
+import { InstallPrompt } from '@/components/pwa/install-prompt';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -15,6 +16,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </div>
       </main>
+      <InstallPrompt />
     </div>
   );
 }

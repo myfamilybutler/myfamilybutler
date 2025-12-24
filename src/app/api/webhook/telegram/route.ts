@@ -4,9 +4,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { TelegramUpdate } from '@/types';
 import { getAdminClient } from '@/lib/supabase';
+import { getFamilyMembers } from '@/lib/supabase';
 import { processIncomingMessage, handleTelegramPhoneReceived } from '@/lib/channels/message-processor';
 import { requestPhoneNumber, sendTelegramMessage, downloadTelegramFile } from '@/lib/channels/telegram';
 import { processLocalImage } from '@/actions/process-vision';
+import { processTelegramVoiceMessage } from '@/lib/channels/telegram-media';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -153,7 +155,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     // Extract message content
-    const { text, type, photoFileId } = extractMessageContent(message);
+    const { text, type, photoFileId, voiceFileId } = extractMessageContent(message);
     
     // ===========================================
     // Handle Image Messages with Vision Agent
@@ -207,6 +209,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
         return NextResponse.json({ ok: true });
       }
+    }
+    
+    // ===========================================
+    // Handle Voice Messages with Whisper + Dialect
+    // ===========================================
+    if (type === 'voice' && voiceFileId && linkedUser.household_id) {
+      console.log(`[Telegram Webhook] Processing voice message from ${chatId}`);
+      
+      // Get family members for context
+      let familyMemberNames: string[] = [];
+      try {
+        const { users: householdUsers, familyMembers: members } = await getFamilyMembers(linkedUser.household_id);
+        familyMemberNames = [
+          ...householdUsers.filter(u => u.display_name).map(u => u.display_name!),
+          ...members.map(m => m.name),
+        ];
+      } catch {
+        // Ignore errors fetching family members
+      }
+      
+      await processTelegramVoiceMessage(voiceFileId, {
+        userId: linkedUser.id,
+        chatId,
+        householdId: linkedUser.household_id,
+        messageId: `tg_${message.message_id}`,
+        familyMembers: familyMemberNames,
+      });
+      
+      return NextResponse.json({ ok: true });
+    }
+    
+    // Handle voice messages for users without household
+    if (type === 'voice' && voiceFileId && !linkedUser.household_id) {
+      await sendTelegramMessage(
+        chatId,
+        '🎙️ Um Termine aus Sprachnachrichten zu erstellen, musst du zuerst einer Familie beitreten. Tippe "dashboard" um loszulegen.'
+      );
+      return NextResponse.json({ ok: true });
     }
     
     if (!text) {
@@ -337,6 +377,7 @@ function extractMessageContent(message: TelegramUpdate['message']): {
   text: string;
   type: 'text' | 'image' | 'voice';
   photoFileId?: string;
+  voiceFileId?: string;
 } {
   if (!message) {
     return { text: '', type: 'text' };
@@ -357,7 +398,11 @@ function extractMessageContent(message: TelegramUpdate['message']): {
   }
   
   if (message.voice) {
-    return { text: '[Voice message received]', type: 'voice' };
+    return { 
+      text: '[Voice message received]', 
+      type: 'voice',
+      voiceFileId: message.voice.file_id,
+    };
   }
   
   if (message.document) {
@@ -369,3 +414,4 @@ function extractMessageContent(message: TelegramUpdate['message']): {
   
   return { text: '', type: 'text' };
 }
+

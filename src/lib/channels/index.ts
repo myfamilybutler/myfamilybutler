@@ -27,3 +27,27 @@ export {
   handleTelegramPhoneReceived,
   type ProcessMessageInput,
 } from './message-processor';
+
+// WhatsApp Media Processing
+export {
+  processImageMessage,
+  processVoiceMessage,
+} from './whatsapp-media';
+
+// Telegram Media Processing
+export {
+  processTelegramVoiceMessage,
+} from './telegram-media';
+
+// Base Media Handler (shared utilities)
+export {
+  handleBrainResult,
+  formatEventConfirmation,
+  formatEventsList,
+  MEDIA_CONFIG,
+  MESSAGES,
+  type MediaContext,
+  type MediaResult,
+  type MessageSender,
+} from './base-media-handler';
+

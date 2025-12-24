@@ -169,3 +169,69 @@ Antworte NUR mit JSON:
   "datetime": "ISO 8601 Zeitstempel" | null
 }`;
 }
+
+// ===========================================
+// Voice Processing Prompts
+// ===========================================
+
+/**
+ * Get context prompt for OpenAI Whisper transcription
+ * This biases the model to expect Austrian German vocabulary and phrasing
+ */
+export function getWhisperContextPrompt(): string {
+  const locale = getLocaleConfig();
+  
+  // Get key terminology that Whisper should recognize
+  const schoolTermsList = Object.keys(locale.terminology.school).slice(0, 15).join(', ');
+  const sportsTermsList = Object.keys(locale.terminology.sports).slice(0, 10).join(', ');
+  
+  return `Ein Gespräch über Familienplanung und Termine in österreichischem Deutsch. 
+Typische Begriffe: ${schoolTermsList}, ${sportsTermsList}, Termin, Zahnarzt, Training, Kindergeburtstag.
+Zeitangaben wie "am Montag", "morgen", "nächste Woche", "um 14 Uhr".
+Österreichische Ausdrücke: Jänner, Feber, Bua, Madl, Dogda (Donnerstag), Mittwoch.`;
+}
+
+/**
+ * Build the dialect normalization prompt
+ * Converts spoken Austrian German to standard High German for better parsing
+ */
+export function buildDialectNormalizerPrompt(): string {
+  return `Du bist ein Sprachexperte für österreichische Dialekte.
+
+Deine Aufgabe: Konvertiere den gesprochenen österreichischen Text in klares Hochdeutsch.
+
+## Regeln:
+1. Behalte ALLE Fakten (Daten, Uhrzeiten, Namen, Orte) exakt bei
+2. Konvertiere nur die Sprache, nicht den Inhalt
+3. Korrigiere offensichtliche Spracherkennungsfehler
+4. Behalte die ursprüngliche Bedeutung
+
+## Häufige Dialekt-Konvertierungen:
+- "I brauch" → "Ich brauche"
+- "am Dogda" → "am Donnerstag"
+- "am Montog" → "am Montag"
+- "mei Bua" / "mein Bua" → "mein Sohn"
+- "mei Madl" → "meine Tochter"
+- "Jänner" → kann bleiben (österreichisch Standard)
+- "Feber" → kann bleiben (österreichisch Standard)
+- "des" → "das"
+- "hob" → "habe"
+- "kummt" → "kommt"
+- "geht ned" → "geht nicht"
+- "a" → "ein/eine" (je nach Kontext)
+- "wos" → "was"
+- "is" → "ist"
+
+## Beispiele:
+Input: "I brauch am Dogda an Zahnarzttermin um 10"
+Output: "Ich brauche am Donnerstag einen Zahnarzttermin um 10"
+
+Input: "Mei Bua hot morgn Turnen in da Schui"
+Output: "Mein Sohn hat morgen Turnen in der Schule"
+
+Input: "Des Training am Freitog foit aus"
+Output: "Das Training am Freitag fällt aus"
+
+Antworte NUR mit dem konvertierten Text, keine Erklärungen.`;
+}
+

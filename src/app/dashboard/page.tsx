@@ -101,12 +101,16 @@ export default function DashboardPage() {
 
   // Initial fetch
   useEffect(() => {
+    let cancelled = false;
+    
     const loadAllData = async () => {
       const [appEvents, gEvents, members] = await Promise.all([
         fetchEventsData(),
         fetchGoogleEvents(),
         fetchFamilyMembers(),
       ]);
+
+      if (cancelled) return;
 
       if (appEvents) {
         const markedAppEvents = appEvents.map((e: CalendarEvent) => ({
@@ -121,6 +125,8 @@ export default function DashboardPage() {
     };
 
     loadAllData();
+    
+    return () => { cancelled = true; };
   }, [fetchEventsData, fetchGoogleEvents, fetchFamilyMembers]);
 
   // Refresh data after changes
@@ -157,7 +163,7 @@ export default function DashboardPage() {
           isOpen={showOnboardingModal}
           onComplete={() => {
             setModalDismissed(true);
-            fetchEventsData();
+            fetchEventsData().catch(console.error);
           }}
           onSkip={() => setModalDismissed(true)}
         />

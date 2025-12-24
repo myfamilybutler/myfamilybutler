@@ -90,5 +90,14 @@
     "updateMemberError": "Mitglied konnte nicht aktualisiert werden",
     "memberDeleted": "Mitglied gelöscht!",
     "deleteMemberError": "Mitglied konnte nicht gelöscht werden"
+  },
+  "pwa": {
+    "install": "App installieren",
+    "installDescription": "Zum Startbildschirm hinzufügen für schnellen Zugriff",
+    "installButton": "Installieren",
+    "iosInstructions": "Tippe auf die Teilen-Taste, dann auf 'Zum Home-Bildschirm'",
+    "iosChromeInstructions": "Öffne diese Seite in Safari, dann tippe auf Teilen → 'Zum Home-Bildschirm'",
+    "installed": "App installiert",
+    "dismiss": "Nicht jetzt"
   }
 }

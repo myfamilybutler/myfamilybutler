@@ -229,3 +229,21 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
+
+// ===========================================
+// AI Types Re-export (for discoverability)
+// These are colocated with the AI module but re-exported here
+// ===========================================
+export type {
+  ParsedEvent,
+  EventExtractionResult,
+  ParsedReminder,
+  VoiceProcessingResult,
+  InputType,
+  UnifiedInput,
+  BrainAction,
+  BrainResult,
+  DraftEvent,
+  DraftStatus,
+} from '@/lib/ai/types';
+

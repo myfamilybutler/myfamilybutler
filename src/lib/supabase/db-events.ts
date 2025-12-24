@@ -296,3 +296,198 @@ export async function createEventReminder(
   
   return data as Reminder;
 }
+
+// ===========================================
+// Draft Events (Low Confidence)
+// ===========================================
+
+/**
+ * Create a draft event for low-confidence extractions
+ * 
+ * Draft events are stored in a separate table (or with a draft flag)
+ * and require user confirmation before becoming real events.
+ */
+export async function createDraftEvent(
+  householdId: string,
+  createdBy: string,
+  draftData: {
+    title: string;
+    event_date: string;
+    event_time?: string;
+    end_time?: string;
+    is_all_day?: boolean;
+    family_member?: string;
+    location?: string;
+    description?: string;
+    reason: 'low_confidence' | 'missing_info' | 'user_requested';
+    confidence: number;
+  }
+): Promise<{ id: string } | null> {
+  const admin = getAdminClient();
+  
+  // Try to insert into draft_events table
+  // If table doesn't exist, fall back to storing in events with a draft flag
+  try {
+    const { data, error } = await admin
+      .from('draft_events')
+      .insert({
+        household_id: householdId,
+        created_by: createdBy,
+        title: draftData.title,
+        event_date: draftData.event_date,
+        event_time: draftData.event_time || null,
+        end_time: draftData.end_time || null,
+        is_all_day: draftData.is_all_day ?? !draftData.event_time,
+        family_member: draftData.family_member || null,
+        location: draftData.location || null,
+        description: draftData.description || null,
+        reason: draftData.reason,
+        confidence: draftData.confidence,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
+    
+    if (error) {
+      // Table might not exist yet - log and return null
+      // In production, you'd want to create the table via migration
+      console.log('[DraftEvent] draft_events table may not exist, skipping draft:', error.message);
+      
+      // Fallback: Create regular event but add a note in description
+      const fallbackEvent = await createEvent(householdId, createdBy, {
+        title: `📝 ${draftData.title}`,
+        event_date: draftData.event_date,
+        event_time: draftData.event_time,
+        end_time: draftData.end_time,
+        is_all_day: draftData.is_all_day ?? !draftData.event_time,
+        family_member: draftData.family_member,
+        location: draftData.location,
+        description: `⚠️ Zu prüfen (${Math.round(draftData.confidence * 100)}% sicher)\n${draftData.description || ''}`,
+      });
+      
+      return fallbackEvent ? { id: fallbackEvent.id } : null;
+    }
+    
+    console.log(`[DraftEvent] Created draft: "${draftData.title}" (${Math.round(draftData.confidence * 100)}% confidence)`);
+    return data as { id: string };
+    
+  } catch (err) {
+    console.error('[DraftEvent] Error creating draft:', err);
+    return null;
+  }
+}
+
+/**
+ * Confirm a draft event and convert it to a real event
+ */
+export async function confirmDraftEvent(
+  draftId: string,
+  householdId: string,
+  userId: string
+): Promise<Event | null> {
+  const admin = getAdminClient();
+  
+  try {
+    // Get the draft
+    const { data: draft, error: fetchError } = await admin
+      .from('draft_events')
+      .select('*')
+      .eq('id', draftId)
+      .eq('household_id', householdId)
+      .single();
+    
+    if (fetchError || !draft) {
+      console.error('[DraftEvent] Draft not found:', fetchError);
+      return null;
+    }
+    
+    // Create real event
+    const event = await createEvent(householdId, userId, {
+      title: draft.title,
+      event_date: draft.event_date,
+      event_time: draft.event_time,
+      end_time: draft.end_time,
+      is_all_day: draft.is_all_day,
+      family_member: draft.family_member,
+      location: draft.location,
+      description: draft.description,
+    });
+    
+    if (!event) {
+      return null;
+    }
+    
+    // Delete the draft
+    await admin
+      .from('draft_events')
+      .delete()
+      .eq('id', draftId);
+    
+    console.log(`[DraftEvent] Confirmed draft: "${draft.title}"`);
+    return event;
+    
+  } catch (err) {
+    console.error('[DraftEvent] Error confirming draft:', err);
+    return null;
+  }
+}
+
+/**
+ * Reject/delete a draft event
+ */
+export async function rejectDraftEvent(
+  draftId: string,
+  householdId: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+  
+  const { error } = await admin
+    .from('draft_events')
+    .delete()
+    .eq('id', draftId)
+    .eq('household_id', householdId);
+  
+  if (error) {
+    console.error('[DraftEvent] Error rejecting draft:', error);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Get pending drafts for a household
+ */
+export async function getDraftEvents(householdId: string): Promise<Array<{
+  id: string;
+  title: string;
+  event_date: string;
+  event_time?: string;
+  confidence: number;
+  reason: string;
+  created_at: string;
+}>> {
+  const admin = getAdminClient();
+  
+  try {
+    const { data, error } = await admin
+      .from('draft_events')
+      .select('*')
+      .eq('household_id', householdId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      // Table might not exist
+      console.log('[DraftEvent] Could not fetch drafts:', error.message);
+      return [];
+    }
+    
+    return data || [];
+    
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (_err) {
+    return [];
+  }
+}
+

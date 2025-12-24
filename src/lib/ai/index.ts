@@ -133,7 +133,26 @@ export async function generateResponseWithFallback(
 // ===========================================
 
 // Types
-export type { ParsedEvent, EventExtractionResult, ParsedReminder } from './types';
+export type { 
+  ParsedEvent, 
+  EventExtractionResult, 
+  ParsedReminder,
+  VoiceProcessingResult,
+  UnifiedInput,
+  BrainResult,
+  BrainAction,
+  InputType,
+  DraftEvent,
+  DraftStatus,
+} from './types';
+
+// Brain (Unified Input Processor)
+export {
+  processInput,
+  processTextInput,
+  processVoiceInput,
+  processImageInput,
+} from './brain';
 
 // OpenAI direct access
 export { 
@@ -150,3 +169,10 @@ export {
   generateGeminiResponse,
   isGeminiAvailable,
 } from './providers/gemini';
+
+// Prompt builders
+export {
+  getWhisperContextPrompt,
+  buildDialectNormalizerPrompt,
+} from './prompts';
+
