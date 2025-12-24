@@ -154,6 +154,15 @@ async function processMessage(
       return;
     }
 
+    // Mark user as WhatsApp verified (they've sent us a message)
+    if (!user.whatsapp_verified) {
+      const admin = getAdminClient();
+      await admin
+        .from('users')
+        .update({ whatsapp_verified: true })
+        .eq('id', user.id);
+    }
+
     // Get family members for AI context (if user has a household)
     let familyMemberNames: string[] = [];
     if (user.household_id) {

@@ -9,6 +9,8 @@ export interface DbUser {
   display_name?: string | null;
   household_id?: string | null;
   linked_email?: string | null;
+  telegram_chat_id?: string | null;
+  whatsapp_verified?: boolean | null;
   onboarding_modal_shown?: boolean;
   onboarding_source?: 'whatsapp' | 'telegram' | 'invite' | 'web';
   created_at?: string;

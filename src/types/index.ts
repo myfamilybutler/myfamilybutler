@@ -20,6 +20,7 @@ export interface User {
   display_name?: string;
   is_admin: boolean;
   telegram_chat_id?: string;
+  whatsapp_verified?: boolean;
   onboarding_modal_shown?: boolean;  // Has user seen the dashboard modal?
   onboarding_source?: 'whatsapp' | 'telegram' | 'invite';  // How they first registered
   subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';

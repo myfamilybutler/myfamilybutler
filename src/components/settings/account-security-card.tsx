@@ -209,9 +209,15 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 {dbUser?.phone_number ? (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-600">{maskPhone(dbUser.phone_number)}</span>
-                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                      <Check className="w-3 h-3 mr-1" /> WhatsApp
-                    </Badge>
+                    {dbUser?.whatsapp_verified ? (
+                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                        <Check className="w-3 h-3 mr-1" /> WhatsApp
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                        Phone added
+                      </Badge>
+                    )}
                   </div>
                 ) : (
                   <span className="text-sm text-gray-400">Not set – Add for WhatsApp access</span>
@@ -238,7 +244,16 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
               </div>
               <div>
                 <p className="font-medium text-gray-900">Telegram</p>
-                <span className="text-sm text-gray-400">Not connected – Message @FamilyButlerBot</span>
+                {dbUser?.telegram_chat_id ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Connected</span>
+                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                      <Check className="w-3 h-3 mr-1" /> Telegram
+                    </Badge>
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-400">Not connected – Message @FamilyButlerBot</span>
+                )}
               </div>
             </div>
           </div>
