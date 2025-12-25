@@ -158,7 +158,12 @@ export async function DELETE(request: NextRequest) {
 }
 
 /**
- * POST /api/events - Create a reminder for an event
+ * POST /api/events - Create a new event OR create a reminder for an event
+ * 
+ * For event creation: { action: 'create', title, event_date, ... }
+ * For reminder creation: { action: 'reminder', eventId, eventTitle, remindAt, ... }
+ * 
+ * Legacy support: If no action specified but eventId/remindAt present, treat as reminder.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -172,17 +177,13 @@ export async function POST(request: NextRequest) {
 
     const { userId } = session;
     const body = await request.json();
-    const { eventId, eventTitle, remindAt, customMessage } = body;
-
-    if (!eventId || !eventTitle || !remindAt) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: eventId, eventTitle, remindAt' 
-      }, { status: 400 });
-    }
+    
+    // Determine action type
+    const action = body.action || (body.eventId && body.remindAt ? 'reminder' : 'create');
 
     const supabase = getAdminClient();
 
-    // Get user's household and verify they have access to this event
+    // Get user's household
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('household_id')
@@ -193,33 +194,78 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found or no household' }, { status: 404 });
     }
 
-    // Verify event belongs to user's household
-    const { data: event, error: eventError } = await supabase
-      .from('events')
-      .select('id')
-      .eq('id', eventId)
-      .eq('household_id', user.household_id)
-      .single();
+    // ============ CREATE EVENT ============
+    if (action === 'create') {
+      const { title, event_date, event_time, end_time, is_all_day, family_member, location, description } = body;
 
-    if (eventError || !event) {
-      return NextResponse.json({ error: 'Event not found or access denied' }, { status: 404 });
+      if (!title || !event_date) {
+        return NextResponse.json({ 
+          error: 'Missing required fields: title, event_date' 
+        }, { status: 400 });
+      }
+
+      // Import createEvent dynamically to avoid circular imports
+      const { createEvent } = await import('@/lib/supabase/db-events');
+      
+      const event = await createEvent(user.household_id, userId, {
+        title,
+        event_date,
+        event_time: event_time || undefined,
+        end_time: end_time || undefined,
+        is_all_day: is_all_day ?? !event_time,
+        family_member: family_member || undefined,
+        location: location || undefined,
+        description: description || undefined,
+      });
+
+      if (!event) {
+        return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });
+      }
+
+      console.log(`[API/events] Event created by user ${userId}: "${title}"`);
+      return NextResponse.json({ success: true, data: event });
     }
 
-    // Create reminder
-    const reminder = await createEventReminder(
-      userId,
-      eventId,
-      eventTitle,
-      new Date(remindAt),
-      customMessage
-    );
+    // ============ CREATE REMINDER ============
+    if (action === 'reminder') {
+      const { eventId, eventTitle, remindAt, customMessage } = body;
 
-    if (!reminder) {
-      return NextResponse.json({ error: 'Failed to create reminder' }, { status: 500 });
+      if (!eventId || !eventTitle || !remindAt) {
+        return NextResponse.json({ 
+          error: 'Missing required fields: eventId, eventTitle, remindAt' 
+        }, { status: 400 });
+      }
+
+      // Verify event belongs to user's household
+      const { data: event, error: eventError } = await supabase
+        .from('events')
+        .select('id')
+        .eq('id', eventId)
+        .eq('household_id', user.household_id)
+        .single();
+
+      if (eventError || !event) {
+        return NextResponse.json({ error: 'Event not found or access denied' }, { status: 404 });
+      }
+
+      // Create reminder
+      const reminder = await createEventReminder(
+        userId,
+        eventId,
+        eventTitle,
+        new Date(remindAt),
+        customMessage
+      );
+
+      if (!reminder) {
+        return NextResponse.json({ error: 'Failed to create reminder' }, { status: 500 });
+      }
+
+      console.log(`[API/events] Reminder created for event ${eventId} by user ${userId}`);
+      return NextResponse.json({ success: true, data: reminder });
     }
 
-    console.log(`[API/events] Reminder created for event ${eventId} by user ${userId}`);
-    return NextResponse.json({ success: true, data: reminder });
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
   } catch (error) {
     console.error('[API/events] POST Internal error:', error);

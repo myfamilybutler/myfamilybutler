@@ -9,6 +9,7 @@
     "saving": "Speichern...",
     "cancel": "Abbrechen",
     "delete": "Löschen",
+    "deleting": "Löschen...",
     "deleteConfirm": "Diesen Termin löschen?",
     "yes": "Ja",
     "no": "Nein",
@@ -30,6 +31,8 @@
     "addEvent": "Termin hinzufügen",
     "newEvent": "Neuer Termin",
     "editEvent": "Termin bearbeiten",
+    "deleteEvent": "Termin löschen",
+    "deleteConfirmMessage": "wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "allDay": "Ganztägig",
     "allDayEvent": "Ganztägiger Termin",
     "title": "Titel",
@@ -54,8 +57,12 @@
     "scheduleClear": "Ihr Terminkalender ist leer!",
     "eventDeleted": "Termin gelöscht",
     "eventUpdated": "Termin erfolgreich aktualisiert",
+    "eventCreated": "Termin erstellt",
     "deleteError": "Fehler beim Löschen des Termins",
-    "updateError": "Fehler beim Aktualisieren des Termins"
+    "updateError": "Fehler beim Aktualisieren des Termins",
+    "createError": "Fehler beim Erstellen des Termins",
+    "time": "Uhrzeit",
+    "quickAddDescription": "Schnell einen neuen Termin zu Ihrem Kalender hinzufügen"
   },
   "settings": {
     "title": "Einstellungen",

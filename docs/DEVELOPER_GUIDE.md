@@ -213,7 +213,54 @@ TELEGRAM_WEBHOOK_SECRET=      # Secret token for webhook verification
 # Google Calendar (optional)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+
+# Dev Testing (local browser testing only)
+E2E_TEST_EMAIL=test@myfamilybutler.test
+E2E_TEST_PASSWORD=DevTest2024!Secure
 ```
+
+## 10. Dev Login for Browser Testing
+
+A **dev-only password login** is available for browser testing without needing
+magic links.
+
+### How It Works
+
+1. Only available when `NODE_ENV === 'development'`
+2. Returns 404 in production (completely invisible)
+3. Uses credentials from `.env.local`
+4. Creates test user and household automatically on first login
+
+### Setup
+
+Add these to your `.env.local`:
+
+```bash
+# DEV TESTING ONLY (Browser Testing)
+E2E_TEST_EMAIL=test@myfamilybutler.test
+E2E_TEST_PASSWORD=DevTest2024!Secure
+```
+
+### Usage
+
+1. Navigate to `/login` in development
+2. Scroll to the red "DEV ONLY - Password Login" form at the bottom
+3. Enter the test credentials
+4. Click "Dev Login" → Redirects to `/dashboard`
+
+### Key Files
+
+| File                                  | Purpose                                  |
+| ------------------------------------- | ---------------------------------------- |
+| `src/app/login/page.tsx`              | DevLoginForm component (dev-only)        |
+| `src/app/api/auth/dev-login/route.ts` | API endpoint (returns 404 in production) |
+
+### Security Notes
+
+- ⚠️ **Dev only** - Route returns 404 in production
+- ✅ Credentials stored in `.env.local` (never commit)
+- ✅ Creates isolated "Test Household" for testing
+- ✅ httpOnly cookies with 1-week expiry
 
 ---
 

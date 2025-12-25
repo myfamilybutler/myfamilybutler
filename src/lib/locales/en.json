@@ -9,6 +9,7 @@
     "saving": "Saving...",
     "cancel": "Cancel",
     "delete": "Delete",
+    "deleting": "Deleting...",
     "deleteConfirm": "Delete this event?",
     "yes": "Yes",
     "no": "No",
@@ -30,6 +31,8 @@
     "addEvent": "Add Event",
     "newEvent": "New Event",
     "editEvent": "Edit Event",
+    "deleteEvent": "Delete Event",
+    "deleteConfirmMessage": "will be permanently deleted. This action cannot be undone.",
     "allDay": "All day",
     "allDayEvent": "All day event",
     "title": "Title",
@@ -54,8 +57,12 @@
     "scheduleClear": "Your schedule is clear!",
     "eventDeleted": "Event deleted",
     "eventUpdated": "Event updated successfully",
+    "eventCreated": "Event created",
     "deleteError": "Failed to delete event",
-    "updateError": "Failed to update event"
+    "updateError": "Failed to update event",
+    "createError": "Failed to create event",
+    "time": "Time",
+    "quickAddDescription": "Quickly add a new event to your calendar"
   },
   "settings": {
     "title": "Settings",

@@ -100,6 +100,22 @@ Link sent: /api/auth/magic?token=xxx
 User clicks → Token validated → Session cookie set (14 days)
 ```
 
+### Dev Login Flow (Development Only)
+
+```
+Developer opens /login
+        ↓
+DevLoginForm visible (NODE_ENV === 'development')
+        ↓
+Enter E2E_TEST_EMAIL + E2E_TEST_PASSWORD
+        ↓
+POST /api/auth/dev-login → Find/create test user + household
+        ↓
+Session cookies set → Redirect to /dashboard
+```
+
+> ⚠️ Returns 404 in production - completely invisible
+
 ### Message Processing Flow
 
 1. **User sends message** → Received by webhook
@@ -122,17 +138,18 @@ User clicks → Token validated → Session cookie set (14 days)
 
 ## 6. Key Files (Updated Paths)
 
-| File                                    | Purpose                        |
-| --------------------------------------- | ------------------------------ |
-| `src/lib/supabase/client.ts`            | Supabase client initialization |
-| `src/lib/ai/index.ts`                   | AI router with fallback logic  |
-| `src/lib/channels/message-processor.ts` | Unified message processing     |
-| `src/lib/channels/providers.config.ts`  | Provider on/off switches       |
-| `src/lib/utils/security.ts`             | Webhook verification, masking  |
-| `src/app/api/webhook/whatsapp/route.ts` | WhatsApp message handling      |
-| `src/app/api/webhook/telegram/route.ts` | Telegram message handling      |
-| `src/actions/process-vision.ts`         | Image → Event extraction       |
-| `src/middleware.ts`                     | Route protection               |
+| File                                    | Purpose                               |
+| --------------------------------------- | ------------------------------------- |
+| `src/lib/supabase/client.ts`            | Supabase client initialization        |
+| `src/lib/ai/index.ts`                   | AI router with fallback logic         |
+| `src/lib/channels/message-processor.ts` | Unified message processing            |
+| `src/lib/channels/providers.config.ts`  | Provider on/off switches              |
+| `src/lib/utils/security.ts`             | Webhook verification, masking         |
+| `src/app/api/webhook/whatsapp/route.ts` | WhatsApp message handling             |
+| `src/app/api/webhook/telegram/route.ts` | Telegram message handling             |
+| `src/app/api/auth/dev-login/route.ts`   | Dev-only password login (404 in prod) |
+| `src/actions/process-vision.ts`         | Image → Event extraction              |
+| `src/middleware.ts`                     | Route protection                      |
 
 ## 7. Provider Switching
 

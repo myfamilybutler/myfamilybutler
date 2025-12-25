@@ -274,6 +274,22 @@ export function UpcomingEvents({
     return allUpcomingEvents.slice(0, visibleCount);
   }, [allUpcomingEvents, visibleCount]);
 
+  // Group events by date for section headers (Google Calendar style)
+  const groupedEvents = useMemo(() => {
+    const groups: { dateLabel: string; events: ProcessedEvent[] }[] = [];
+    let currentGroup: { dateLabel: string; events: ProcessedEvent[] } | null = null;
+
+    for (const event of visibleEvents) {
+      if (!currentGroup || currentGroup.dateLabel !== event.dateLabel) {
+        currentGroup = { dateLabel: event.dateLabel, events: [] };
+        groups.push(currentGroup);
+      }
+      currentGroup.events.push(event);
+    }
+
+    return groups;
+  }, [visibleEvents]);
+
   const totalEvents = allUpcomingEvents.length;
   const remainingEvents = totalEvents - visibleCount;
   const canShowMore = remainingEvents > 0;
@@ -394,19 +410,33 @@ export function UpcomingEvents({
           </div>
         )}
 
-        {/* Event list with animations */}
-        <div className="space-y-2">
-          <AnimatePresence mode="popLayout">
-            {visibleEvents.map((event) => (
-              <SwipeableEventCard
-                key={event.id}
-                event={event}
-                onEdit={handleEditClick}
-                onDelete={handleDelete}
-                isDeleting={deletingEventId === event.id}
-              />
-            ))}
-          </AnimatePresence>
+        {/* Event list with date section headers (Google Calendar style) */}
+        <div className="space-y-3">
+          {groupedEvents.map((group) => (
+            <div key={group.dateLabel}>
+              {/* Sticky date header */}
+              <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm py-1.5 -mx-1 px-1 border-b border-gray-100">
+                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  {group.dateLabel}
+                </span>
+              </div>
+              
+              {/* Events for this date */}
+              <div className="space-y-2 mt-2">
+                <AnimatePresence mode="popLayout">
+                  {group.events.map((event) => (
+                    <SwipeableEventCard
+                      key={event.id}
+                      event={event}
+                      onEdit={handleEditClick}
+                      onDelete={handleDelete}
+                      isDeleting={deletingEventId === event.id}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Pagination controls */}

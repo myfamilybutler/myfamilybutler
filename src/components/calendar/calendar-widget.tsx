@@ -31,10 +31,29 @@ const MAX_VISIBLE_EVENTS = 2;
 export interface CalendarWidgetProps {
   events: CalendarEvent[];
   onEventsChanged?: () => void;
+  hideHeader?: boolean;
+  /** Controlled mode: current month from parent */
+  month?: Date;
+  /** Callback when month changes */
+  onMonthChange?: (month: Date) => void;
 }
 
-export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+export function CalendarWidget({ 
+  events, 
+  onEventsChanged, 
+  hideHeader = false,
+  month,
+  onMonthChange,
+}: CalendarWidgetProps) {
+  // Use controlled or uncontrolled mode
+  const [internalMonth, setInternalMonth] = useState(new Date());
+  const currentMonth = month ?? internalMonth;
+  const setCurrentMonth = (newMonth: Date | ((prev: Date) => Date)) => {
+    const resolved = typeof newMonth === 'function' ? newMonth(currentMonth) : newMonth;
+    setInternalMonth(resolved);
+    onMonthChange?.(resolved);
+  };
+  
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
   const isDragging = useRef(false);
@@ -149,6 +168,7 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
   return (
     <>
       <Card className="border-gray-200 shadow-sm overflow-hidden bg-white">
+        {!hideHeader && (
         <CardHeader className="pb-2 border-b border-gray-100">
           <div className="flex items-center justify-between">
             {/* Month navigation */}
@@ -192,6 +212,7 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
             </Button>
           </div>
         </CardHeader>
+        )}
         <CardContent className="p-2 sm:p-4 overflow-hidden">
           {/* Week day headers */}
           <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1">
