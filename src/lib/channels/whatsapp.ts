@@ -4,6 +4,7 @@
 // Documentation: https://developers.facebook.com/docs/whatsapp/cloud-api
 
 import { fetchWithTimeout } from '../utils/fetch';
+import { maskPhone, truncateMessage, MAX_MESSAGE_LENGTH } from '../utils/security';
 
 const GRAPH_API_VERSION = 'v21.0';
 const BASE_URL = 'https://graph.facebook.com';
@@ -25,8 +26,11 @@ export async function sendWhatsAppMessage(
 
   // Normalize phone number (remove + and non-digits)
   const normalizedTo = to.replace(/\D/g, '');
+  
+  // Truncate message to prevent API errors
+  const truncatedText = truncateMessage(text, MAX_MESSAGE_LENGTH);
 
-  console.log(`[WhatsApp] Sending message to ${normalizedTo}`);
+  console.log(`[WhatsApp] Sending message to ${maskPhone(normalizedTo)}`);
 
   try {
     const response = await fetchWithTimeout(
@@ -42,7 +46,7 @@ export async function sendWhatsAppMessage(
           recipient_type: 'individual',
           to: normalizedTo,
           type: 'text',
-          text: { body: text },
+          text: { body: truncatedText },
         }),
       }
     );

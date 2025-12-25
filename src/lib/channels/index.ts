@@ -51,3 +51,11 @@ export {
   type MessageSender,
 } from './base-media-handler';
 
+// ===========================================
+// Provider On/Off Switching
+// ===========================================
+
+export {
+  type ProviderType,
+  isProviderEnabled,
+} from './providers.config';

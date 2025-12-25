@@ -50,6 +50,8 @@
     "remaining": "{{count}} verbleibend",
     "maxEvents": "Zeige max {{count}} Termine. Kalender öffnen für mehr.",
     "swipeHint": "Wischen zum Monat wechseln",
+    "more": "weitere",
+    "scheduleClear": "Ihr Terminkalender ist leer!",
     "eventDeleted": "Termin gelöscht",
     "eventUpdated": "Termin erfolgreich aktualisiert",
     "deleteError": "Fehler beim Löschen des Termins",

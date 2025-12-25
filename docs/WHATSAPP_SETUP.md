@@ -18,11 +18,22 @@
 ## Environment Variables
 
 ```env
+# WhatsApp Business API
 WHATSAPP_API_TOKEN=<permanent_access_token>
 WHATSAPP_PHONE_ID=972036659317885
 WHATSAPP_VERIFY_TOKEN=my_family_butler_secure_token_2024_xyz789
 WHATSAPP_BUSINESS_ACCOUNT_ID=747913198355547
+
+# Webhook Security (REQUIRED for production)
+WHATSAPP_APP_SECRET=<app_secret_from_meta_developer_portal>
+
+# Provider Switch
+PROVIDER_WHATSAPP_ENABLED=true
 ```
+
+> **Security Note:** Get `WHATSAPP_APP_SECRET` from Meta Developer Portal → App
+> Settings → Basic → App Secret. This is used for webhook signature
+> verification.
 
 ---
 

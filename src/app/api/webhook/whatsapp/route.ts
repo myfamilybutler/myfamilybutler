@@ -15,6 +15,8 @@ import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/channels/whatsapp'
 import { handleCommand } from '@/lib/channels/whatsapp-commands';
 import { processIntents } from '@/lib/channels/whatsapp-intents';
 import { processImageMessage, processVoiceMessage as processVoiceMedia } from '@/lib/channels/whatsapp-media';
+import { isProviderEnabled } from '@/lib/channels/providers.config';
+import { verifyWhatsAppSignature, maskPhone } from '@/lib/utils/security';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -79,10 +81,34 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  * POST - Handle incoming Meta WhatsApp webhook events
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const body: MetaWebhookBody = await request.json();
+  // Provider on/off switch - return 200 but don't process if disabled
+  if (!isProviderEnabled('whatsapp_business')) {
+    console.log('[WhatsApp Webhook] Provider disabled, ignoring webhook');
+    return NextResponse.json({ success: true });
+  }
 
-    console.log('[Webhook] Received:', JSON.stringify(body, null, 2));
+  // Get raw body for signature verification
+  const rawBody = await request.text();
+  
+  // Verify webhook signature (skip in development if secret not set)
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  const signature = request.headers.get('x-hub-signature-256');
+  
+  if (appSecret) {
+    if (!verifyWhatsAppSignature(rawBody, signature, appSecret)) {
+      console.error('[Webhook] Invalid signature - possible spoofed request');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+    console.log('[Webhook] Signature verified ✓');
+  } else {
+    console.warn('[Webhook] WHATSAPP_APP_SECRET not set - skipping signature verification');
+  }
+
+  try {
+    const body: MetaWebhookBody = JSON.parse(rawBody);
+
+    // Log minimal info (not full payload to avoid PII leakage)
+    console.log('[Webhook] Received WhatsApp webhook, entries:', body.entry?.length || 0);
 
     if (body.object !== 'whatsapp_business_account') {
       console.log('[Webhook] Not a WhatsApp event, ignoring');
@@ -131,7 +157,7 @@ async function processMessage(
     const messageId = message.id;
     const contactName = contact?.profile?.name;
 
-    console.log(`[Webhook] Processing message from ${phoneNumber} (${contactName || 'Unknown'})`);
+    console.log(`[Webhook] Processing message from ${maskPhone(phoneNumber)} (${contactName || 'Unknown'})`);
 
     // Deduplication check
     if (isDuplicateMessage(messageId)) {

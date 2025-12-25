@@ -25,6 +25,7 @@ import {
   formatDateForLanguage,
   formatDateTimeForLanguage,
 } from '@/lib/ai/response-templates';
+import { trackMessage, trackEventCreated, trackUserSignup, identifyUser } from '@/lib/analytics';
 
 // ===========================================
 // Types
@@ -111,6 +112,16 @@ export async function processIncomingMessage(
       // Don't process the initial message as a command - they're just saying hi
       // Log the user message and return
       await logMessage(user.id, 'user', userMessage, messageType, messageId, channel);
+      
+      // Track signup and first message in PostHog
+      trackUserSignup(user.id, channel, lang);
+      identifyUser(user.id, { 
+        phone_number: phoneNumber, 
+        signup_source: channel,
+        language: lang,
+        created_at: new Date().toISOString(),
+      });
+      trackMessage(user.id, 'first_message', channel, true);
       return;
     }
 
@@ -166,6 +177,9 @@ export async function processIncomingMessage(
           .replace('{datetime}', formattedDate);
         await sendResponse(phoneNumber, confirmationMessage, channel, telegramChatId);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text', undefined, channel);
+        
+        // Track reminder creation
+        trackEventCreated(user.id, 'reminder', channel);
         return;
       }
     }
@@ -264,6 +278,9 @@ export async function processIncomingMessage(
 
         await sendResponse(phoneNumber, confirmationMessage, channel, telegramChatId);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text', undefined, channel);
+        
+        // Track event creation(s)
+        createdEvents.forEach(() => trackEventCreated(user.id, 'event', channel));
         return;
       }
     }

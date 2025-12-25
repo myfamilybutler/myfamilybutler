@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
 import { pullFromGoogle } from '@/lib/sync/google-sync-service';
 import { findUserById } from '@/lib/supabase/db-users';
+import { log } from '@/lib/utils/logger';
 
 /**
  * POST /api/calendar/sync
@@ -41,7 +42,7 @@ export async function POST() {
     });
 
   } catch (error) {
-    console.error('[Calendar Sync API] Error:', error);
+    log.error('[Calendar Sync API] Error:', error);
     return NextResponse.json(
       { error: 'Failed to sync with Google Calendar' },
       { status: 500 }

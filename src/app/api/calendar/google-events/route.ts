@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
 import { fetchGoogleEvents } from '@/lib/sync/google';
 import { hasGoogleToken } from '@/lib/auth/vault';
+import { log } from '@/lib/utils/logger';
 
 /**
  * GET /api/calendar/google-events
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[Google Events API] Error:', error);
+    log.error('[Google Events API] Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch Google Calendar events' },
       { status: 500 }

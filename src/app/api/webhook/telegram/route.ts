@@ -9,6 +9,8 @@ import { processIncomingMessage, handleTelegramPhoneReceived } from '@/lib/chann
 import { requestPhoneNumber, sendTelegramMessage, downloadTelegramFile } from '@/lib/channels/telegram';
 import { processLocalImage } from '@/actions/process-vision';
 import { processTelegramVoiceMessage } from '@/lib/channels/telegram-media';
+import { isProviderEnabled } from '@/lib/channels/providers.config';
+import { verifyTelegramSecretToken, maskChatId } from '@/lib/utils/security';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -58,10 +60,30 @@ const PENDING_TTL_MS = 30 * 60 * 1000; // 30 minutes
  * POST - Handle incoming Telegram webhook updates
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Provider on/off switch - return 200 but don't process if disabled
+  if (!isProviderEnabled('telegram')) {
+    console.log('[Telegram Webhook] Provider disabled, ignoring webhook');
+    return NextResponse.json({ ok: true });
+  }
+
+  // Verify secret token (skip in development if not set)
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  const receivedToken = request.headers.get('x-telegram-bot-api-secret-token');
+  
+  if (webhookSecret) {
+    if (!verifyTelegramSecretToken(receivedToken, webhookSecret)) {
+      console.error('[Telegram Webhook] Invalid secret token - possible spoofed request');
+      return NextResponse.json({ ok: true }); // Return 200 to avoid Telegram retrying
+    }
+    console.log('[Telegram Webhook] Secret token verified ✓');
+  } else {
+    console.warn('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET not set - skipping verification');
+  }
+
   try {
     const update: TelegramUpdate = await request.json();
     
-    console.log('[Telegram Webhook] Received:', JSON.stringify(update, null, 2));
+    console.log('[Telegram Webhook] Received update_id:', update.update_id);
     
     // Deduplication check
     if (isDuplicateMessage(update.update_id)) {
@@ -81,7 +103,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     // Handle contact (phone number) sharing
     if (message.contact) {
-      console.log(`[Telegram Webhook] Received phone number from ${chatId}`);
+      console.log(`[Telegram Webhook] Received phone number from ${maskChatId(chatId)}`);
       const phoneNumber = message.contact.phone_number;
       
       // Normalize phone number

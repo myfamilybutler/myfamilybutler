@@ -6,6 +6,7 @@
  * - Pull: When dashboard loads → fetch changes from Google using syncToken
  */
 
+import { log } from '../utils/logger';
 import { getAdminClient } from '../supabase/client';
 import { getSyncToken, storeSyncToken, hasGoogleToken } from '../auth/vault';
 import { 
@@ -61,7 +62,7 @@ export async function pullFromGoogle(
   // Check if sync already in progress for this user
   const existingSync = syncInFlight.get(userId);
   if (existingSync) {
-    console.log(`[Sync] Sync already in progress for user ${userId}, waiting...`);
+    log.debug(`[Sync] Sync already in progress for user ${userId}, waiting...`);
     return existingSync;
   }
 
@@ -109,7 +110,7 @@ async function performPullFromGoogle(
     
     if (syncResult.events.length === 0 && syncResult.nextSyncToken) {
       // No changes since last sync
-      console.log('[Sync] No changes from Google Calendar');
+      log.debug('[Sync] No changes from Google Calendar');
       // Still store the new token
       if (syncResult.nextSyncToken !== syncToken) {
         await storeSyncToken(userId, syncResult.nextSyncToken);
@@ -228,7 +229,7 @@ async function performPullFromGoogle(
     // Batch delete
     if (toDelete.length > 0) {
       await admin.from('events').delete().in('id', toDelete);
-      console.log(`[Sync] Batch deleted ${toDelete.length} events`);
+      log.debug(`[Sync] Batch deleted ${toDelete.length} events`);
     }
 
     // Batch update (individual updates, but minimal)
@@ -250,7 +251,7 @@ async function performPullFromGoogle(
     // Batch insert
     if (toInsert.length > 0) {
       await admin.from('events').insert(toInsert);
-      console.log(`[Sync] Batch inserted ${toInsert.length} events`);
+      log.debug(`[Sync] Batch inserted ${toInsert.length} events`);
     }
 
     // Store new sync token for next time
@@ -259,10 +260,10 @@ async function performPullFromGoogle(
     }
 
     result.success = true;
-    console.log(`[Sync] Pull complete: +${result.created} ~${result.updated} -${result.deleted} 🔗${result.linked}`);
+    log.info(`[Sync] Pull complete: +${result.created} ~${result.updated} -${result.deleted} 🔗${result.linked}`);
     
   } catch (error) {
-    console.error('[Sync] Pull from Google failed:', error);
+    log.error('[Sync] Pull from Google failed:', error);
     result.errors.push(`Sync failed: ${error}`);
   }
 

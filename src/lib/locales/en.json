@@ -50,6 +50,8 @@
     "remaining": "{{count}} remaining",
     "maxEvents": "Showing max {{count}} events. View calendar for more.",
     "swipeHint": "Swipe to change month",
+    "more": "more",
+    "scheduleClear": "Your schedule is clear!",
     "eventDeleted": "Event deleted",
     "eventUpdated": "Event updated successfully",
     "deleteError": "Failed to delete event",

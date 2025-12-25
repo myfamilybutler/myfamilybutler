@@ -9,6 +9,7 @@ import {
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
+import { log } from '@/lib/utils/logger';
 
 /**
  * GET - Get family members and pending invites
@@ -52,7 +53,7 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error('Get family error:', error);
+    log.error('Get family error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Family action error:', error);
+    log.error('Family action error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -217,7 +218,7 @@ export async function DELETE(request: NextRequest) {
     
     return NextResponse.json({ error: 'Invalid action or permission denied' }, { status: 400 });
   } catch (error) {
-    console.error('Family delete error:', error);
+    log.error('Family delete error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

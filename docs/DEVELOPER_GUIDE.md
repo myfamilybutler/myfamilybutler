@@ -192,12 +192,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
 # AI (at least one required)
-GOOGLE_GEMINI_API_KEY=      # Primary (free tier recommended)
-OPENAI_API_KEY=             # Fallback
+GEMINI_API_KEY=               # Primary (free tier recommended)
+OPENAI_API_KEY=               # Fallback
 
-# Messaging (as needed)
-WHATSAPP_ACCESS_TOKEN=
+# Messaging Provider Switches
+PROVIDER_PRIMARY=whatsapp_business    # or telegram
+PROVIDER_WHATSAPP_ENABLED=true
+PROVIDER_TELEGRAM_ENABLED=false
+
+# WhatsApp Business API
+WHATSAPP_API_TOKEN=
+WHATSAPP_PHONE_ID=
+WHATSAPP_VERIFY_TOKEN=
+WHATSAPP_APP_SECRET=          # For webhook signature verification (production)
+
+# Telegram Bot
 TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=      # Secret token for webhook verification
 
 # Google Calendar (optional)
 GOOGLE_CLIENT_ID=
@@ -206,4 +217,4 @@ GOOGLE_CLIENT_SECRET=
 
 ---
 
-_Last updated: 2024-12-20_
+_Last updated: 2024-12-25_

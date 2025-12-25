@@ -38,7 +38,8 @@ src/lib/
 │   ├── index.ts
 │   ├── telegram.ts            # Telegram Bot API
 │   ├── whatsapp.ts            # Meta WhatsApp API
-│   └── message-processor.ts   # Unified message handling
+│   ├── message-processor.ts   # Unified message handling
+│   └── providers.config.ts    # Provider on/off switches
 │
 ├── supabase/                   # 🗄️ Database operations
 │   ├── client.ts
@@ -56,6 +57,7 @@ src/lib/
 │   ├── fetch.ts               # fetchWithTimeout
 │   ├── logger.ts              # Logging utilities
 │   ├── phone.ts               # Phone number formatting
+│   ├── security.ts            # Webhook verification, masking
 │   └── ui-helpers.ts          # getMemberColor, getInitials
 │
 └── config.ts                   # ⚙️ App configuration
@@ -125,7 +127,32 @@ User clicks → Token validated → Session cookie set (14 days)
 | `src/lib/supabase/client.ts`            | Supabase client initialization |
 | `src/lib/ai/index.ts`                   | AI router with fallback logic  |
 | `src/lib/channels/message-processor.ts` | Unified message processing     |
+| `src/lib/channels/providers.config.ts`  | Provider on/off switches       |
+| `src/lib/utils/security.ts`             | Webhook verification, masking  |
 | `src/app/api/webhook/whatsapp/route.ts` | WhatsApp message handling      |
 | `src/app/api/webhook/telegram/route.ts` | Telegram message handling      |
 | `src/actions/process-vision.ts`         | Image → Event extraction       |
 | `src/middleware.ts`                     | Route protection               |
+
+## 7. Provider Switching
+
+Toggle messaging providers via environment variables:
+
+```bash
+# Production (WhatsApp only)
+PROVIDER_WHATSAPP_ENABLED=true
+PROVIDER_TELEGRAM_ENABLED=false
+
+# Testing (Telegram)
+PROVIDER_TELEGRAM_ENABLED=true
+PROVIDER_WHATSAPP_ENABLED=false
+```
+
+## 8. Webhook Security
+
+| Feature            | Implementation                         |
+| ------------------ | -------------------------------------- |
+| WhatsApp signature | X-Hub-Signature-256 HMAC verification  |
+| Telegram secret    | X-Telegram-Bot-Api-Secret-Token header |
+| Phone masking      | PII redacted in logs (`+43***5678`)    |
+| Message truncation | Max 4096 chars to prevent DoS          |

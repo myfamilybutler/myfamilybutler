@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
+import { log } from '@/lib/utils/logger';
 
 /**
  * GET /api/dashboard
@@ -15,7 +16,7 @@ export async function GET() {
     try {
       session = await validateSession();
     } catch (error) {
-      console.error('[API/dashboard] Auth failed:', error);
+      log.error('[API/dashboard] Auth failed:', error);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -30,7 +31,7 @@ export async function GET() {
       .single();
 
     if (userError || !user) {
-      console.error('[API/dashboard] User not found:', userError);
+      log.error('[API/dashboard] User not found:', userError);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -45,7 +46,7 @@ export async function GET() {
         .order('event_time', { ascending: true });
 
       if (eventsError) {
-        console.error('[API/dashboard] Events fetch error:', eventsError);
+        log.error('[API/dashboard] Events fetch error:', eventsError);
         // Don't fail the whole request, just return empty events
       } else {
         events = eventData || [];
@@ -59,7 +60,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('[API/dashboard] Internal error:', error);
+    log.error('[API/dashboard] Internal error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

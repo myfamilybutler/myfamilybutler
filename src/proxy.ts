@@ -9,7 +9,7 @@ const PROTECTED_PATHS = ['/dashboard', '/onboarding'];
 const redirectToLogin = (request: NextRequest) => 
   NextResponse.redirect(new URL('/login', request.url));
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const isProtectedPath = PROTECTED_PATHS.some((path) => 
     request.nextUrl.pathname.startsWith(path)
   );
@@ -23,12 +23,12 @@ export async function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get('sb-refresh-token')?.value;
   const sessionDetail = request.cookies.get('session_authenticated');
 
-  log.debug(`[Middleware] Path: ${request.nextUrl.pathname}, session_authenticated: ${sessionDetail?.value ?? 'none'}, accessToken: ${!!accessToken}`);
+  log.debug(`[Proxy] Path: ${request.nextUrl.pathname}, session_authenticated: ${sessionDetail?.value ?? 'none'}, accessToken: ${!!accessToken}`);
 
   // Quick check: any session indicator present?
   const hasAnySession = accessToken || refreshToken || sessionDetail;
   if (!hasAnySession) {
-    log.debug('[Middleware] No session found, redirecting to login');
+    log.debug('[Proxy] No session found, redirecting to login');
     return redirectToLogin(request);
   }
 

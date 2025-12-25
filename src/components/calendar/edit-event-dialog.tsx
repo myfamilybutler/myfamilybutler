@@ -25,6 +25,7 @@ import { EventReminderSection } from './event-reminder-section';
 import { FamilyMemberSelector } from './family-member-selector';
 
 import { useTranslation } from 'react-i18next';
+import { log } from '@/lib/utils/logger';
 
 interface EditEventDialogProps {
   event: CalendarEvent | null;
@@ -159,7 +160,7 @@ export function EditEventDialog({
       onEventUpdated?.();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error updating event:', error);
+      log.error('Error updating event:', error);
       toast.error(t('calendar.updateError'));
     } finally {
       setIsLoading(false);
@@ -185,7 +186,7 @@ export function EditEventDialog({
       onEventDeleted?.();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error deleting event:', error);
+      log.error('Error deleting event:', error);
       toast.error(t('calendar.deleteError'));
     } finally {
       setIsDeleting(false);

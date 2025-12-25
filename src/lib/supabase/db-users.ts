@@ -68,6 +68,7 @@ export async function findOrCreateUser(
     return { user: null, isNewUser: false };
   }
 
+  // Note: Analytics tracking is done in message-processor.ts to avoid client bundle issues
   return { user: newUser as User, isNewUser: true };
 }
 

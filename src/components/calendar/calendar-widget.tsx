@@ -45,12 +45,23 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
   const calendarEnd = endOfWeek(monthEnd);
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  // Simple O(N) lookup - for small datasets (family calendar) this is negligible.
-  // For larger datasets, we would map events by date in a useMemo.
+  // Optimize event lookup by date using a Map
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    for (const event of events) {
+      const date = event.event_date;
+      if (!map.has(date)) {
+        map.set(date, []);
+      }
+      map.get(date)!.push(event);
+    }
+    return map;
+  }, [events]);
+
   const getEventsForDay = useCallback((day: Date) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return events.filter((event) => event.event_date === dayStr);
-  }, [events]);
+    return eventsByDate.get(dayStr) || [];
+  }, [eventsByDate]);
 
   const handlePrevMonth = useCallback(() => {
     setDirection('left');
@@ -62,22 +73,25 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
     setCurrentMonth(prev => addMonths(prev, 1));
   }, []);
 
-  const handleToday = () => {
+  const handleToday = useCallback(() => {
     const now = new Date();
-    const currentMonthStr = format(currentMonth, 'yyyy-MM');
-    const nowMonthStr = format(now, 'yyyy-MM');
-    
-    if (currentMonthStr !== nowMonthStr) {
-      setDirection(currentMonthStr > nowMonthStr ? 'left' : 'right');
-      setCurrentMonth(now);
-    }
-  };
+    setCurrentMonth((current) => {
+      const currentMonthStr = format(current, 'yyyy-MM');
+      const nowMonthStr = format(now, 'yyyy-MM');
+      
+      if (currentMonthStr !== nowMonthStr) {
+        setDirection(currentMonthStr > nowMonthStr ? 'left' : 'right');
+        return now;
+      }
+      return current;
+    });
+  }, []);
 
-  const handleDayClick = (day: Date) => {
+  const handleDayClick = useCallback((day: Date) => {
     if (!isDragging.current) {
       setSelectedDate(day);
     }
-  };
+  }, []);
 
   const handleDragStart = () => {
     isDragging.current = true;
@@ -264,7 +278,7 @@ export function CalendarWidget({ events, onEventsChanged }: CalendarWidgetProps)
                           {/* Overflow indicator */}
                           {overflowCount > 0 && (
                             <div className="text-[9px] sm:text-[10px] text-gray-400 font-medium px-1">
-                              +{overflowCount} more
+                              +{overflowCount} {t('calendar.more')}
                             </div>
                           )}
                         </div>

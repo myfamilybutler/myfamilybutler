@@ -4,6 +4,7 @@
 // Documentation: https://core.telegram.org/bots/api
 
 import { fetchWithTimeout } from '../utils/fetch';
+import { maskChatId, truncateMessage, MAX_MESSAGE_LENGTH } from '../utils/security';
 
 const BASE_URL = 'https://api.telegram.org';
 
@@ -25,7 +26,10 @@ export async function sendTelegramMessage(
     return { success: false, error: 'Missing Telegram bot configuration' };
   }
 
-  console.log(`[Telegram] Sending message to ${chatId}`);
+  console.log(`[Telegram] Sending message to ${maskChatId(chatId)}`);
+  
+  // Truncate message to prevent API errors
+  const truncatedText = truncateMessage(text, MAX_MESSAGE_LENGTH);
 
   try {
     const response = await fetchWithTimeout(
@@ -37,7 +41,7 @@ export async function sendTelegramMessage(
         },
         body: JSON.stringify({
           chat_id: chatId,
-          text: text,
+          text: truncatedText,
           parse_mode: options?.parseMode,
           reply_to_message_id: options?.replyToMessageId,
         }),
@@ -158,11 +162,13 @@ export async function removeKeyboard(
 
 /**
  * Set webhook URL for the Telegram bot
+ * Optionally includes secret_token for webhook verification
  */
 export async function setTelegramWebhook(
   webhookUrl: string
 ): Promise<{ success: boolean; error?: string }> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
   if (!botToken) {
     return { success: false, error: 'Missing Telegram bot configuration' };
@@ -179,6 +185,8 @@ export async function setTelegramWebhook(
         body: JSON.stringify({
           url: webhookUrl,
           allowed_updates: ['message'],
+          // Include secret_token for webhook verification if configured
+          ...(webhookSecret && { secret_token: webhookSecret }),
         }),
       }
     );
@@ -189,7 +197,7 @@ export async function setTelegramWebhook(
       return { success: false, error: data?.description };
     }
 
-    console.log('[Telegram] Webhook set successfully');
+    console.log('[Telegram] Webhook set successfully', webhookSecret ? '(with secret_token)' : '');
     return { success: true };
   } catch (error) {
     return {

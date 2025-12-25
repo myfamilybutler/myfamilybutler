@@ -297,7 +297,7 @@ export function UpcomingEvents({
             <Clock className="w-6 h-6 text-gray-300" />
           </div>
           <p className="text-sm text-gray-500">{t('calendar.noEvents')}</p>
-          <p className="text-xs text-gray-400 mt-1">Your schedule is clear!</p>
+          <p className="text-xs text-gray-400 mt-1">{t('calendar.scheduleClear')}</p>
         </div>
       </div>
     );
