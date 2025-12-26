@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { format, parseISO, isAfter, startOfDay, addDays } from 'date-fns';
-import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
+import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, PanInfo, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, formatTime } from '@/lib/utils';
@@ -10,19 +10,12 @@ import type { CalendarEvent } from '@/types/calendar';
 import { EditEventDialog } from './edit-event-dialog';
 import { getMemberColor } from '@/lib/utils/ui-helpers';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/lib/utils';
+import { useSelectedMembers } from '@/stores/filter-store';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
-  /** Family members from family_members table - single source of truth */
-  familyMembers?: string[];
   pageSize?: number;
   maxEvents?: number;
   onEventsChanged?: () => void;
@@ -39,19 +32,7 @@ interface SwipeableEventCardProps {
   isDeleting: boolean;
 }
 
-// Color mapping for family members
-const MEMBER_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  default: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700' },
-  mom: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
-  dad: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700' },
-  kids: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700' },
-};
 
-function getMemberStyles(member?: string) {
-  if (!member) return MEMBER_COLORS.default;
-  const lowerMember = member.toLowerCase();
-  return MEMBER_COLORS[lowerMember] || MEMBER_COLORS.default;
-}
 
 function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEventCardProps) {
   const { t } = useTranslation();
@@ -166,7 +147,6 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
 
 export function UpcomingEvents({ 
   events,
-  familyMembers = [],
   pageSize = 5, 
   maxEvents = 20, 
   onEventsChanged 
@@ -175,12 +155,11 @@ export function UpcomingEvents({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(pageSize);
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [filterOpen, setFilterOpen] = useState(false);
+  
+  // Use global filter store
+  const selectedMembers = useSelectedMembers();
+  
   const { t, i18n } = useTranslation();
-
-  // Family members from props (single source of truth from family_members table)
-  // No longer extracting from events
 
   const handleEditClick = (event: CalendarEvent) => {
     setEditingEvent(event);
@@ -210,19 +189,6 @@ export function UpcomingEvents({
     }
   };
 
-  const toggleMember = (member: string) => {
-    setSelectedMembers(prev => 
-      prev.includes(member) 
-        ? prev.filter(m => m !== member)
-        : [...prev, member]
-    );
-  };
-
-  const clearFilters = () => {
-    setSelectedMembers([]);
-    setFilterOpen(false);
-  };
-
   // Filter, sort, and process upcoming events with date labels
   const allUpcomingEvents = useMemo(() => {
     const today = startOfDay(new Date());
@@ -235,7 +201,7 @@ export function UpcomingEvents({
         const eventDate = parseISO(event.event_date);
         const isUpcoming = isAfter(eventDate, today) || event.event_date === todayStr;
         
-        // Apply family member filter
+        // Apply global family member filter
         if (selectedMembers.length > 0) {
           const matchesMember = !event.family_member || selectedMembers.includes(event.family_member);
           return isUpcoming && matchesMember;
@@ -330,83 +296,14 @@ export function UpcomingEvents({
             </span>
           </h3>
           
-          {/* Filter button */}
-          {familyMembers.length > 0 && (
-            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-8 gap-1.5",
-                    hasActiveFilters && "text-emerald-600"
-                  )}
-                  aria-label={t('common.filters')}
-                >
-                  <Filter className="w-4 h-4" />
-                  {hasActiveFilters && (
-                    <Badge variant="secondary" className="h-5 px-1.5 text-xs">
-                      {selectedMembers.length}
-                    </Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-3" align="end">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-900">
-                      {t('calendar.filterByMember')}
-                    </span>
-                    {hasActiveFilters && (
-                      <button
-                        onClick={clearFilters}
-                        className="text-xs text-gray-500 hover:text-gray-700"
-                      >
-                        {t('calendar.clear')}
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {familyMembers.map((member) => {
-                      const isSelected = selectedMembers.includes(member);
-                      const styles = getMemberStyles(member);
-                      
-                      return (
-                        <button
-                          key={member}
-                          onClick={() => toggleMember(member)}
-                          className={cn(
-                            'px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all',
-                            isSelected
-                              ? `${styles.bg} ${styles.border} ${styles.text}`
-                              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                          )}
-                        >
-                          {member}
-                          {isSelected && (
-                            <X className="w-3 h-3 ml-1.5 inline-block" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
+          {/* Note: Filter button has been moved to Navbar */}
         </div>
         
         {/* No results with filter */}
         {allUpcomingEvents.length === 0 && hasActiveFilters && (
           <div className="flex flex-col items-center justify-center py-6 text-center">
             <p className="text-sm text-gray-500">{t('calendar.noEventsFilter')}</p>
-            <button 
-              onClick={clearFilters}
-              className="text-xs text-emerald-600 hover:text-emerald-700 mt-1"
-            >
-              {t('calendar.clearFilters')}
-            </button>
+            {/* We don't show clear button here as the filter is in navbar */}
           </div>
         )}
 

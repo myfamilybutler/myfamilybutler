@@ -15,7 +15,7 @@ export function ScheduleWidget({ events }: ScheduleWidgetProps) {
 
   return (
     <Card className="h-full border-slate-200 shadow-sm">
-      <CardHeader className="pb-3">
+      <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold text-gray-900">
             Today

@@ -9,4 +9,4 @@ export { useAuthStore } from './auth-store';
 
 // Add more stores as they are created:
 // export { useUIStore } from './ui-store';
-// export { useCalendarStore } from './calendar-store';
+export { useFilterStore } from './filter-store';

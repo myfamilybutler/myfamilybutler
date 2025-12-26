@@ -10,11 +10,14 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Clock, MapPin } from 'lucide-react';
-import { format } from 'date-fns';
+import { MapPin } from 'lucide-react';
+import { format, parseISO, addHours } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
+import { TimePicker } from '@/components/ui/time-picker';
 import { FamilyMemberSelector } from './family-member-selector';
 import type { CalendarEvent } from '@/types/calendar';
 
@@ -41,6 +44,19 @@ interface EventFormProps {
 }
 
 /**
+ * Normalize time string to HH:mm format
+ */
+function normalizeTime(time: string | null | undefined): string {
+  if (!time) return '';
+  // Take first 5 chars if longer (HH:mm:ss)
+  const clean = time.slice(0, 5);
+  const [h, m] = clean.split(':');
+  if (!h || !m) return '';
+  
+  return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+}
+
+/**
  * Create initial form data from an event or defaults
  */
 export function createEventFormData(
@@ -51,31 +67,51 @@ export function createEventFormData(
     return {
       title: event.title,
       eventDate: event.event_date,
-      eventTime: event.event_time || '',
-      endTime: event.end_time || '',
+      eventTime: normalizeTime(event.event_time),
+      endTime: normalizeTime(event.end_time),
       isAllDay: event.is_all_day,
       familyMember: event.family_member || '',
       location: event.location || '',
       description: event.description || '',
     };
   }
-  return {
-    title: '',
-    eventDate: defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-    eventTime: '',
-    endTime: '',
-    isAllDay: false,
-    familyMember: '',
-    location: '',
-    description: '',
-  };
+
+    // Default time: next 15-minute slot
+    const now = new Date();
+    const minutes = now.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 15) * 15;
+    // NOTE: setMinutes(60) automatically increments the hour
+    now.setMinutes(roundedMinutes);
+    now.setSeconds(0);
+    
+    const startTime = format(now, 'HH:mm');
+    const endTime = format(addHours(now, 1), 'HH:mm');
+
+    return {
+      title: '',
+      eventDate: defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+      eventTime: startTime,
+      endTime: endTime,
+      isAllDay: false,
+      familyMember: '',
+      location: '',
+      description: '',
+    };
 }
 
 /**
  * Validate form data
  */
 export function isEventFormValid(data: EventFormData): boolean {
-  return data.title.trim() !== '' && data.eventDate !== '';
+  const basicValid = data.title.trim() !== '' && data.eventDate !== '';
+  if (!basicValid) return false;
+
+  // For time-based events, require start time
+  if (!data.isAllDay) {
+    return data.eventTime !== '';
+  }
+
+  return true;
 }
 
 export function EventForm({
@@ -142,6 +178,12 @@ export function EventForm({
     onChange({ ...data, [field]: value });
   };
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      updateField('eventDate', format(date, 'yyyy-MM-dd'));
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Title */}
@@ -158,23 +200,43 @@ export function EventForm({
 
       {/* Date */}
       <div className="space-y-2">
-        <Label htmlFor="event-date">{t('calendar.date')}</Label>
-        <Input
-          id="event-date"
-          type="date"
-          value={data.eventDate}
-          onChange={(e) => updateField('eventDate', e.target.value)}
+        <Label>{t('calendar.date')}</Label>
+        <DatePicker
+          date={data.eventDate ? parseISO(data.eventDate) : undefined}
+          onSelect={handleDateSelect}
+          placeholder={t('calendar.selectDate')}
         />
       </div>
 
       {/* All Day Toggle */}
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
+      <div className="flex items-center space-x-2">
+        <Checkbox
           id="event-allday"
           checked={data.isAllDay}
-          onChange={(e) => updateField('isAllDay', e.target.checked)}
-          className="rounded border-gray-300"
+          onCheckedChange={(checked) => {
+            const isChecked = checked as boolean;
+            
+            // If switching TO time-based (unchecked), ALWAYS reset to current time default
+            if (!isChecked) {
+              const now = new Date();
+              const minutes = now.getMinutes();
+              const roundedMinutes = Math.ceil(minutes / 15) * 15;
+              now.setMinutes(roundedMinutes);
+              now.setSeconds(0);
+              
+              const startTime = format(now, 'HH:mm');
+              const endTime = format(addHours(now, 1), 'HH:mm');
+              
+              onChange({
+                ...data,
+                isAllDay: false,
+                eventTime: startTime,
+                endTime: endTime
+              });
+            } else {
+              updateField('isAllDay', isChecked);
+            }
+          }}
         />
         <Label htmlFor="event-allday" className="cursor-pointer">
           {t('calendar.allDayEvent')}
@@ -185,23 +247,17 @@ export function EventForm({
       {!data.isAllDay && (
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="event-time" className="flex items-center gap-1">
-              <Clock className="w-3 h-3" /> {t('calendar.start')}
-            </Label>
-            <Input
-              id="event-time"
-              type="time"
+            <Label>{t('calendar.start')}</Label>
+            <TimePicker
               value={data.eventTime}
-              onChange={(e) => updateField('eventTime', e.target.value)}
+              onChange={(value) => updateField('eventTime', value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="event-end-time">{t('calendar.end')}</Label>
-            <Input
-              id="event-end-time"
-              type="time"
+            <Label>{t('calendar.end')}</Label>
+            <TimePicker
               value={data.endTime}
-              onChange={(e) => updateField('endTime', e.target.value)}
+              onChange={(value) => updateField('endTime', value)}
             />
           </div>
         </div>

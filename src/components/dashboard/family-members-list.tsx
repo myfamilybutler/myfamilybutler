@@ -38,7 +38,7 @@ export function FamilyMembersList({
       {users.map((user) => (
         <div
           key={user.id}
-          className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors"
+          className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -64,7 +64,7 @@ export function FamilyMembersList({
       {familyMembers.map((member) => (
         <div
           key={member.id}
-          className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors"
+          className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">

@@ -95,8 +95,8 @@ export function CollapsibleCalendar({
   return (
     <Card className="border-gray-200 shadow-sm overflow-hidden bg-white">
       {/* Header - consistent layout with navigation */}
-      <CardHeader className="py-2 px-3 border-b border-gray-100">
-        <div className="flex items-center justify-between gap-2">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div className="flex items-center justify-between w-full gap-2">
           {/* Navigation arrows */}
           <div className="flex items-center gap-0.5">
             <Button
@@ -139,23 +139,36 @@ export function CollapsibleCalendar({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent>
+        {/* Persistent Week Day Headers - matches CalendarWidget exact styling */}
+        <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
+          {weekDays.map((day) => (
+            <div
+              key={day.toISOString()}
+              className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 uppercase"
+            >
+              <span className="hidden sm:inline">{formatDate(day, 'EEE')}</span>
+              <span className="sm:hidden">{formatDate(day, 'EEE').charAt(0)}</span>
+            </div>
+          ))}
+        </div>
+
         <AnimatePresence mode="wait">
           {!isExpanded ? (
-            /* Collapsed: Week Strip */
+            /* Collapsed: Week Strip (Grid aligned with headers) */
             <motion.div
               key={`week-${format(weekDays[0], 'yyyy-MM-dd')}`}
               initial={{ opacity: 0, x: swipeDirection === 'right' ? 30 : -30 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: swipeDirection === 'right' ? -30 : 30 }}
               transition={{ duration: 0.15 }}
-              className="px-2 py-2 touch-pan-y"
+              className="touch-pan-y"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.2}
               onDragEnd={handleDragEnd}
             >
-              <div className="grid grid-cols-7 gap-0.5">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                 {weekDays.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd');
                   const eventCount = eventCountByDate[dateStr] || 0;
@@ -167,20 +180,15 @@ export function CollapsibleCalendar({
                       key={dateStr}
                       onClick={() => handleDayClick(day)}
                       className={cn(
-                        'flex flex-col items-center py-1 rounded-lg transition-colors min-h-[48px]',
+                        'flex flex-col items-center py-2 rounded-lg transition-colors min-h-[48px]',
                         'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500',
                         isSelected && !isTodayDate && 'bg-emerald-50',
                       )}
                     >
-                      {/* Day name */}
-                      <span className="text-[10px] text-gray-400 uppercase font-medium">
-                        {formatDate(day, 'EEE').charAt(0)}
-                      </span>
-                      
-                      {/* Day number */}
+                      {/* Day number (No day name, already in header) */}
                       <span
                         className={cn(
-                          'text-sm font-semibold mt-0.5 w-6 h-6 flex items-center justify-center rounded-full',
+                          'text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full',
                           isTodayDate
                             ? 'text-white bg-emerald-600'
                             : isSelected
@@ -193,7 +201,7 @@ export function CollapsibleCalendar({
 
                       {/* Event dots */}
                       {eventCount > 0 && (
-                        <div className="flex gap-0.5 mt-0.5">
+                        <div className="flex gap-0.5 mt-1">
                           {Array.from({ length: Math.min(eventCount, 3) }).map((_, i) => (
                             <div
                               key={i}
@@ -208,21 +216,22 @@ export function CollapsibleCalendar({
               </div>
             </motion.div>
           ) : (
-            /* Expanded: Full Calendar */
+            /* Expanded: Full Calendar (Header hidden to avoid duplication) */
             <motion.div
               key="full-calendar"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="p-2"
             >
               <CalendarWidget
                 events={events}
                 onEventsChanged={onEventsChanged}
                 hideHeader
+                hideWeekdays // Hide internal header
                 month={selectedDate}
                 onMonthChange={setSelectedDate}
+                className="border-none shadow-none bg-transparent py-0 gap-0"
               />
             </motion.div>
           )}

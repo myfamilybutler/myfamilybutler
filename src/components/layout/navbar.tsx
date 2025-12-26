@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/stores/auth-store';
 import i18n from '@/lib/i18n';
+import { FamilyFilter } from './family-filter';
 
 export function Navbar() {
   const router = useRouter();
@@ -46,53 +47,57 @@ export function Navbar() {
             <span className="font-semibold text-gray-900">FamilyButler</span>
           </Link>
 
-          {/* User Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="flex items-center gap-2 text-gray-700 hover:text-gray-900 hover:bg-slate-100"
-              >
-                <span className="text-sm font-medium">{displayIdentifier}</span>
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer">
-                  <LayoutDashboard className="w-4 h-4" />
-                  {t('common.dashboard')}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/settings" className="flex items-center gap-2 cursor-pointer">
-                  <Settings className="w-4 h-4" />
-                  {t('common.settings')}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  const newLang = i18n.language === 'en' ? 'de' : 'en';
-                  i18n.changeLanguage(newLang);
-                }}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <span className="text-lg leading-none pt-1">
-                  {i18n.language === 'en' ? '🇺🇸' : '🇩🇪'}
-                </span>
-                {i18n.language === 'en' ? 'English' : 'Deutsch'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleSignOut}
-                className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-              >
-                <LogOut className="w-4 h-4" />
-                {t('common.logout')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-3">
+            <FamilyFilter />
+
+            {/* User Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 text-gray-700 hover:text-gray-900 hover:bg-slate-100"
+                >
+                  <span className="text-sm font-medium">{displayIdentifier}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer">
+                    <LayoutDashboard className="w-4 h-4" />
+                    {t('common.dashboard')}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/settings" className="flex items-center gap-2 cursor-pointer">
+                    <Settings className="w-4 h-4" />
+                    {t('common.settings')}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    const newLang = i18n.language === 'en' ? 'de' : 'en';
+                    i18n.changeLanguage(newLang);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="text-lg leading-none pt-1">
+                    {i18n.language === 'en' ? '🇺🇸' : '🇩🇪'}
+                  </span>
+                  {i18n.language === 'en' ? 'English' : 'Deutsch'}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                >
+                  <LogOut className="w-4 h-4" />
+                  {t('common.logout')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     </header>

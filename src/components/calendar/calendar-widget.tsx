@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getMemberColor } from '@/lib/utils/ui-helpers';
 import { DayDetailDialog } from './day-detail-dialog';
+import { useSelectedMembers } from '@/stores/filter-store';
 import type { CalendarEvent } from '@/types/calendar';
 
 // Re-export for backwards compatibility
@@ -36,14 +37,19 @@ export interface CalendarWidgetProps {
   month?: Date;
   /** Callback when month changes */
   onMonthChange?: (month: Date) => void;
+  /** Hide the M T W T F S S header row */
+  hideWeekdays?: boolean;
+  className?: string;
 }
 
 export function CalendarWidget({ 
   events, 
   onEventsChanged, 
   hideHeader = false,
+  hideWeekdays = false,
   month,
   onMonthChange,
+  className,
 }: CalendarWidgetProps) {
   // Use controlled or uncontrolled mode
   const [internalMonth, setInternalMonth] = useState(new Date());
@@ -65,11 +71,20 @@ export function CalendarWidget({
   const calendarStart = startOfWeek(monthStart);
   const calendarEnd = endOfWeek(monthEnd);
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const selectedMembers = useSelectedMembers();
+
+  // Filter events based on selected members
+  const filteredEvents = useMemo(() => {
+    if (selectedMembers.length === 0) return events;
+    return events.filter(event => 
+      !event.family_member || selectedMembers.includes(event.family_member)
+    );
+  }, [events, selectedMembers]);
 
   // Optimize event lookup by date using a Map
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    for (const event of events) {
+    for (const event of filteredEvents) {
       const date = event.event_date;
       if (!map.has(date)) {
         map.set(date, []);
@@ -77,7 +92,7 @@ export function CalendarWidget({
       map.get(date)!.push(event);
     }
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const getEventsForDay = useCallback((day: Date) => {
     const dayStr = format(day, 'yyyy-MM-dd');
@@ -169,9 +184,9 @@ export function CalendarWidget({
 
   return (
     <>
-      <Card className="border-gray-200 shadow-sm overflow-hidden bg-white">
+      <Card className={cn("bg-white", className)}>
         {!hideHeader && (
-        <CardHeader className="pb-2 border-b border-gray-100">
+        <CardHeader className="pb-2 border-b-0">
           <div className="flex items-center justify-between">
             {/* Month navigation */}
             <div className="flex items-center gap-1">
@@ -196,7 +211,7 @@ export function CalendarWidget({
             </div>
             
             {/* Month/Year title */}
-            <h2 className="text-lg font-semibold text-gray-900 capitalize">
+            <h2 className="text-lg font-bold text-gray-900 capitalize">
               {formatDate(currentMonth, 'MMMM yyyy')}
             </h2>
             
@@ -215,19 +230,21 @@ export function CalendarWidget({
           </div>
         </CardHeader>
         )}
-        <CardContent className="p-2 sm:p-4 overflow-hidden">
+        <CardContent className={cn("p-6", hideHeader && "p-0 overflow-hidden")}>
           {/* Week day headers */}
-          <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1">
-            {weekDays.map((day) => (
-              <div
-                key={day}
-                className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 uppercase"
-              >
-                <span className="hidden sm:inline">{day}</span>
-                <span className="sm:hidden">{day.charAt(0)}</span>
-              </div>
-            ))}
-          </div>
+          {!hideWeekdays && (
+            <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
+              {weekDays.map((day) => (
+                <div
+                  key={day}
+                  className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 uppercase"
+                >
+                  <span className="hidden sm:inline">{day}</span>
+                  <span className="sm:hidden">{day.charAt(0)}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Swipeable calendar grid */}
           <motion.div
@@ -312,11 +329,6 @@ export function CalendarWidget({
               </motion.div>
             </AnimatePresence>
           </motion.div>
-
-          {/* Swipe hint */}
-          <div className="flex justify-center mt-2">
-            <span className="text-[10px] text-gray-400">{t('calendar.swipeHint')}</span>
-          </div>
         </CardContent>
       </Card>
 

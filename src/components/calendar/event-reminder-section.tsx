@@ -12,8 +12,9 @@ import { format, addHours, addDays, setHours, setMinutes } from 'date-fns';
 import { Bell, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
+import { TimePicker } from '@/components/ui/time-picker';
 import {
   Select,
   SelectContent,
@@ -40,7 +41,7 @@ export function EventReminderSection({
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [reminderType, setReminderType] = useState<ReminderType>('1h');
-  const [customDate, setCustomDate] = useState('');
+  const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customTime, setCustomTime] = useState('');
 
   const handleAddReminder = async () => {
@@ -60,7 +61,7 @@ export function EventReminderSection({
           return;
         }
         const [hours, minutes] = customTime.split(':').map(Number);
-        remindAt = setMinutes(setHours(new Date(customDate), hours), minutes);
+        remindAt = setMinutes(setHours(customDate, hours), minutes);
         break;
       default:
         remindAt = addHours(eventDateTime, -1);
@@ -129,15 +130,14 @@ export function EventReminderSection({
 
         {reminderType === 'custom' && (
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              type="date"
-              value={customDate}
-              onChange={(e) => setCustomDate(e.target.value)}
+            <DatePicker
+              date={customDate}
+              onSelect={setCustomDate}
+              placeholder="Pick date"
             />
-            <Input
-              type="time"
+            <TimePicker
               value={customTime}
-              onChange={(e) => setCustomTime(e.target.value)}
+              onChange={setCustomTime}
             />
           </div>
         )}

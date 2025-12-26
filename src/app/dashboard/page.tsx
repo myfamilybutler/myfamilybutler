@@ -15,7 +15,6 @@ import { useDashboardData } from '@/hooks';
 export default function DashboardPage() {
   const { 
     allEvents, 
-    familyMemberNames, 
     refresh, 
     dbUser 
   } = useDashboardData();
@@ -50,10 +49,9 @@ export default function DashboardPage() {
           
           {/* Upcoming Events (full width) */}
           <Card className="border-gray-200 shadow-sm bg-white">
-            <CardContent className="p-4">
+            <CardContent>
               <UpcomingEvents
                 events={allEvents}
-                familyMembers={familyMemberNames}
                 pageSize={10}
                 onEventsChanged={refresh}
               />
@@ -65,10 +63,9 @@ export default function DashboardPage() {
         <div className="hidden lg:flex lg:gap-6">
           <aside className="lg:w-80 lg:flex-shrink-0 space-y-4">
             <Card className="border-gray-200 shadow-sm bg-white">
-              <CardContent className="p-4">
+              <CardContent>
                 <UpcomingEvents
                   events={allEvents}
-                  familyMembers={familyMemberNames}
                   pageSize={5}
                   onEventsChanged={refresh}
                 />
