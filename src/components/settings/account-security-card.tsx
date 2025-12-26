@@ -142,12 +142,13 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         setNewEmail('');
         onUpdate?.();
       } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Failed to update email');
+        const data = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
+        console.error('Update email failed:', res.status, data);
+        toast.error(data.error || `Failed to update email (${res.status})`);
       }
     } catch (error) {
       console.error('Update email error:', error);
-      toast.error('Failed to update email');
+      toast.error(error instanceof Error ? error.message : 'Network error - please try again');
     } finally {
       setSaving(false);
     }
