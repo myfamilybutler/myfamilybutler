@@ -19,6 +19,7 @@ interface UpcomingEventsProps {
   pageSize?: number;
   maxEvents?: number;
   onEventsChanged?: () => void;
+  hideHeader?: boolean;
 }
 
 interface ProcessedEvent extends CalendarEvent {
@@ -149,7 +150,8 @@ export function UpcomingEvents({
   events,
   pageSize = 5, 
   maxEvents = 20, 
-  onEventsChanged 
+  onEventsChanged,
+  hideHeader = false,
 }: UpcomingEventsProps) {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -288,16 +290,18 @@ export function UpcomingEvents({
   return (
     <>
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">
-            {t('calendar.upcomingEvents')}
-            <span className="ml-2 text-xs font-normal text-gray-400">
-              ({totalEvents})
-            </span>
-          </h3>
-          
-          {/* Note: Filter button has been moved to Navbar */}
-        </div>
+        {!hideHeader && (
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">
+              {t('calendar.upcomingEvents')}
+              <span className="ml-2 text-xs font-normal text-gray-400">
+                ({totalEvents})
+              </span>
+            </h3>
+            
+            {/* Note: Filter button has been moved to Navbar */}
+          </div>
+        )}
         
         {/* No results with filter */}
         {allUpcomingEvents.length === 0 && hasActiveFilters && (
@@ -338,7 +342,7 @@ export function UpcomingEvents({
 
         {/* Pagination controls */}
         {totalEvents > 0 && (
-          <div className="flex flex-col items-center gap-2 pt-2">
+          <div className="flex flex-col items-center gap-2">
             {canShowMore && (
               <Button
                 variant="ghost"

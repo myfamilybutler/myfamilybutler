@@ -9,7 +9,7 @@ import { ProtectedRoute } from '@/components/auth/protected-route';
 import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
 import { QuickAddFab } from '@/components/calendar/quick-add-fab';
 import { QuickAddSheet } from '@/components/calendar/quick-add-sheet';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useDashboardData } from '@/hooks';
 
 export default function DashboardPage() {
@@ -49,11 +49,15 @@ export default function DashboardPage() {
           
           {/* Upcoming Events (full width) */}
           <Card className="border-gray-200 shadow-sm bg-white">
+            <CardHeader>
+              <h3 className="text-sm font-semibold text-gray-900">Upcoming Events</h3>
+            </CardHeader>
             <CardContent>
               <UpcomingEvents
                 events={allEvents}
                 pageSize={10}
                 onEventsChanged={refresh}
+                hideHeader
               />
             </CardContent>
           </Card>
@@ -63,11 +67,15 @@ export default function DashboardPage() {
         <div className="hidden lg:flex lg:gap-6">
           <aside className="lg:w-80 lg:flex-shrink-0 space-y-4">
             <Card className="border-gray-200 shadow-sm bg-white">
+              <CardHeader>
+                <h3 className="text-sm font-semibold text-gray-900">Upcoming Events</h3>
+              </CardHeader>
               <CardContent>
                 <UpcomingEvents
                   events={allEvents}
                   pageSize={5}
                   onEventsChanged={refresh}
+                  hideHeader
                 />
               </CardContent>
             </Card>

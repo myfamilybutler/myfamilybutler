@@ -186,7 +186,7 @@ export function CalendarWidget({
     <>
       <Card className={cn("bg-white", className)}>
         {!hideHeader && (
-        <CardHeader className="pb-2 border-b-0">
+        <CardHeader className="border-b-0">
           <div className="flex items-center justify-between">
             {/* Month navigation */}
             <div className="flex items-center gap-1">
@@ -230,7 +230,7 @@ export function CalendarWidget({
           </div>
         </CardHeader>
         )}
-        <CardContent className={cn("p-6", hideHeader && "p-0 overflow-hidden")}>
+        <CardContent className={cn(hideHeader && "p-0 overflow-hidden")}>
           {/* Week day headers */}
           {!hideWeekdays && (
             <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
