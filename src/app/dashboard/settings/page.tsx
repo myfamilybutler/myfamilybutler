@@ -61,14 +61,19 @@ export default function SettingsPage() {
         setMembers(data.data.users || []);
         setFamilyMembers(data.data.familyMembers || []);
         setIsAdmin(data.data.isAdmin || false);
+      } else {
+        console.warn('Family fetch failed:', data.error);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching family data:', error);
     } finally {
       setLoading(false);
     }
   }, []);
   
+  // Fetch immediately - the API validates session server-side
+  // On direct page load, dbUser may not be populated (cookie-based auth),
+  // but the API will work correctly with the session cookie
   useEffect(() => {
     fetchData();
   }, [fetchData]);

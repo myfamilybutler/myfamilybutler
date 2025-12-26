@@ -113,9 +113,14 @@ function LoginContent() {
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace('/dashboard');
+       const returnUrl = searchParams.get('returnUrl');
+       if (returnUrl) {
+         router.replace(decodeURIComponent(returnUrl));
+       } else {
+         router.replace('/dashboard');
+       }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, searchParams]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();

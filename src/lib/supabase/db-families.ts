@@ -2,6 +2,8 @@
  * Family Database Operations
  */
 import { getAdminClient } from './client';
+// Use Node's crypto for secure token generation
+import { randomUUID } from 'crypto';
 
 /**
  * Create a new family and set user as admin
@@ -274,4 +276,143 @@ export async function getPendingInvites(
   }
   
   return data ?? [];
+}
+
+/**
+ * Get invite by Token (supports both QR code and Email token)
+ */
+export async function getInviteByToken(
+  token: string
+): Promise<{ householdId: string; inviteId: string; invitedBy: string } | null> {
+  const admin = getAdminClient();
+  
+  // 1. Try to find by explicit token column (Email invites)
+  const { data: tokenInvite, error: _tokenError } = await admin
+    .from('household_invites')
+    .select('id, household_id, invited_by, expires_at')
+    .eq('token', token)
+    .eq('status', 'pending')
+    .single();
+
+  if (tokenInvite) {
+     // Check expiration
+     if (tokenInvite.expires_at && new Date(tokenInvite.expires_at) < new Date()) {
+         return null; 
+     }
+
+     return { 
+        householdId: tokenInvite.household_id, 
+        inviteId: tokenInvite.id,
+        invitedBy: tokenInvite.invited_by
+      };
+  }
+
+  // 2. Fallback: Try QR code format (stored in phone_number)
+  const qrPhoneNumber = `qr:${token}`;
+  const { data, error } = await admin
+    .from('household_invites')
+    .select('id, household_id, invited_by')
+    .eq('phone_number', qrPhoneNumber)
+    .eq('status', 'pending')
+    .single();
+  
+  if (error || !data) {
+    return null;
+  }
+  
+  return { 
+    householdId: data.household_id, 
+    inviteId: data.id,
+    invitedBy: data.invited_by
+  };
+}
+
+/**
+ * Create an email invite
+ * Returns the invite ID to be used as a token
+ */
+export async function createEmailInvite(
+  familyId: string,
+  email: string,
+  invitedBy: string
+): Promise<string | null> {
+  const admin = getAdminClient();
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  // Check if invite already exists
+  const { data: existingInvite } = await admin
+    .from('household_invites')
+    .select('id, token')
+    .eq('household_id', familyId)
+    .eq('email', normalizedEmail)
+    .eq('status', 'pending')
+    .filter('expires_at', 'gt', new Date().toISOString()) // Only valid invites
+    .single();
+  
+  if (existingInvite?.token) {
+    return existingInvite.token;
+  }
+  
+  // Create secure token and expiration
+  const token = randomUUID();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+
+  const { data, error } = await admin
+    .from('household_invites')
+    .insert({
+      household_id: familyId,
+      email: normalizedEmail,
+      invited_by: invitedBy,
+      status: 'pending',
+      token: token,
+      expires_at: expiresAt.toISOString(),
+      // Backward compatibility: store in phone_number but with email prefix, 
+      // or we can make phone_number nullable in schema update.
+      // For now, let's just make sure phone_number constraint doesn't fail if we upgraded schema
+      // but if we didn't migrate old constraints, we might need a dummy value.
+      // Based on our migration, we have a check constraint (phone OR email).
+      // So we can leave phone_number null if the migration ran.
+    })
+    .select('token')
+    .single();
+  
+  if (error || !data) {
+    console.error('Error creating email invite:', error);
+    return null;
+  }
+  
+  return data.token;
+}
+
+/**
+ * Get invite by ID (Legacy/Fallback)
+ */
+export async function getInviteById(
+  inviteId: string
+): Promise<{ householdId: string; inviteId: string; invitedBy: string } | null> {
+  const admin = getAdminClient();
+  
+  const { data, error } = await admin
+    .from('household_invites')
+    .select('id, household_id, invited_by, expires_at')
+    .eq('id', inviteId)
+    .eq('status', 'pending')
+    .single();
+  
+  if (error || !data) {
+    console.error('Error fetching invite by ID:', error);
+    return null;
+  }
+
+  // Check expiration if present
+  if (data.expires_at && new Date(data.expires_at) < new Date()) {
+      return null;
+  }
+  
+  return { 
+    householdId: data.household_id, 
+    inviteId: data.id,
+    invitedBy: data.invited_by
+  };
 }

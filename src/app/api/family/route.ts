@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
   createFamilyInvite, 
+  createEmailInvite,
   addFamilyMember, 
   editFamilyMember,
   deleteFamilyMember,
   getFamilyMembers,
   getPendingInvites 
 } from '@/lib/supabase';
+import { sendInviteEmail } from '@/lib/email/send-email';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 import { log } from '@/lib/utils/logger';
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
     
     const { userId } = session;
-    const { action, phoneNumber, name, memberId } = await request.json();
+    const { action, phoneNumber, email, name, memberId } = await request.json();
     
     if (!action) {
       return NextResponse.json({ error: 'Missing action' }, { status: 400 });
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
     // Get user using validated session userId
     const { data: user, error } = await admin
       .from('users')
-      .select('id, household_id, is_admin')
+      .select('id, household_id, is_admin, display_name')
       .eq('id', userId)
       .single();
     
@@ -92,7 +94,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
-    if (!user.is_admin) {
+
+    // Admin check removed for 'invite' action to allow family members to invite others
+    if (!user.is_admin && action !== 'invite' && action !== 'inviteEmail' && action !== 'add') {
       return NextResponse.json({ error: 'Only admin can manage members' }, { status: 403 });
     }
     
@@ -108,6 +112,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         success: true, 
         message: 'Invite created. Ask them to message the My Family Butler WhatsApp.' 
+      });
+    }
+
+    if (action === 'inviteEmail' && email) {
+      const inviteId = await createEmailInvite(user.household_id, email, user.id);
+      
+      if (!inviteId) {
+        return NextResponse.json({ error: 'Failed to create email invite' }, { status: 500 });
+      }
+      
+      // Send email
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const joinLink = `${baseUrl}/invite/join?id=${inviteId}`;
+      
+      const emailResult = await sendInviteEmail(email, joinLink, user.display_name);
+      
+      if (!emailResult.success) {
+        log.error('Failed to send invite email:', emailResult.error);
+        return NextResponse.json({ 
+          success: true, 
+          message: `Invite created but email failed: ${emailResult.error || 'Unknown error'}. You can share the link manually.`,
+          link: joinLink 
+        });
+      }
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Invitation sent via email!',
+        link: joinLink
       });
     }
     

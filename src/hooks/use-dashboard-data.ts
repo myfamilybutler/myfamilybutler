@@ -24,8 +24,14 @@ export function useDashboardData() {
   const dbUser = useAuthStore((state) => state.dbUser);
   const setDbUser = useAuthStore((state) => state.setDbUser);
   
-  // Use ref to track if component is mounted (avoids stale closure issues)
+  // Use refs to avoid stale closures and callback recreation
   const isMounted = useRef(true);
+  const setDbUserRef = useRef(setDbUser);
+  
+  // Keep setDbUser ref up to date without adding to dependencies
+  useEffect(() => {
+    setDbUserRef.current = setDbUser;
+  }, [setDbUser]);
 
   const fetchEventsData = useCallback(async (): Promise<DashboardApiResponse | null> => {
     try {
@@ -37,7 +43,6 @@ export function useDashboardData() {
         return null;
       }
 
-      // Return the data - let the caller handle side effects
       return result;
     } catch (error) {
       log.error('Dashboard fetch error:', error);
@@ -91,9 +96,14 @@ export function useDashboardData() {
         
         return allMembers;
       }
+      
+      // Log non-success responses for debugging
+      if (!response.ok) {
+        log.warn('Family members fetch failed:', response.status, result.error);
+      }
       return [];
-    } catch {
-      // Silent fail - return empty array
+    } catch (error) {
+      log.error('Family members fetch error:', error);
       return [];
     }
   }, []);
@@ -101,32 +111,39 @@ export function useDashboardData() {
   const loadAllData = useCallback(async () => {
     setLoading(true);
     
-    const [dashboardResponse, gEvents, members] = await Promise.all([
-      fetchEventsData(),
+    // Step 1: Fetch dashboard data first to get user (required for family members)
+    const dashboardResponse = await fetchEventsData();
+    
+    if (!isMounted.current) return;
+    
+    // Update user state immediately using ref (avoids callback recreation)
+    if (dashboardResponse?.user) {
+      setDbUserRef.current(dashboardResponse.user);
+    }
+    
+    if (dashboardResponse?.events) {
+      setEvents(dashboardResponse.events.map((e: CalendarEvent) => ({ 
+        ...e, 
+        source: 'app' as const 
+      })));
+    }
+    
+    // Step 2: Check if user has household_id before fetching family members
+    // This prevents 404 errors when user doesn't have a household yet
+    const hasHousehold = dashboardResponse?.user?.household_id;
+    
+    // Fetch Google events and family members in parallel (if applicable)
+    const [gEvents, members] = await Promise.all([
       fetchGoogleEvents(),
-      fetchFamilyMembers(),
+      hasHousehold ? fetchFamilyMembers() : Promise.resolve([]),
     ]);
 
-    // Only update state if still mounted
     if (!isMounted.current) return;
-
-    // Handle dashboard response - state updates here, not in fetcher
-    if (dashboardResponse) {
-      if (dashboardResponse.user) {
-        setDbUser(dashboardResponse.user);
-      }
-      if (dashboardResponse.events) {
-        setEvents(dashboardResponse.events.map((e: CalendarEvent) => ({ 
-          ...e, 
-          source: 'app' as const 
-        })));
-      }
-    }
     
     setGoogleEvents(gEvents);
     setFamilyMembers(members);
     setLoading(false);
-  }, [fetchEventsData, fetchGoogleEvents, fetchFamilyMembers, setDbUser]);
+  }, [fetchEventsData, fetchGoogleEvents, fetchFamilyMembers]); // Note: setDbUser removed from dependencies
 
   useEffect(() => {
     isMounted.current = true;
