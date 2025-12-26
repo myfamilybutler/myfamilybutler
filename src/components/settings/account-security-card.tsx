@@ -55,6 +55,8 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
   // Dialog states
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
   const [newPhone, setNewPhone] = useState('');
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
 
   // Handle display name update
   const handleSaveDisplayName = async () => {
@@ -109,6 +111,45 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       toast.error('Failed to send verification email');
     } finally {
       setResendingVerification(false);
+    }
+  };
+
+  // Handle email update
+  const handleSaveEmail = async () => {
+    if (!newEmail.trim()) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/account/update-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail }),
+      });
+
+      if (res.ok) {
+        toast.success('Verification email sent. Please check your inbox.');
+        setEmailDialogOpen(false);
+        setNewEmail('');
+        onUpdate?.();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to update email');
+      }
+    } catch (error) {
+      console.error('Update email error:', error);
+      toast.error('Failed to update email');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -257,21 +298,33 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 )}
               </div>
             </div>
-            {!isEmailVerified && email && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleResendVerification}
-                disabled={resendingVerification}
+            <div className="flex items-center gap-2">
+              {!isEmailVerified && email && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleResendVerification}
+                  disabled={resendingVerification}
+                >
+                  {resendingVerification ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Mail className="w-4 h-4 mr-2" />
+                  )}
+                  Resend
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setNewEmail(email || '');
+                  setEmailDialogOpen(true);
+                }}
               >
-                {resendingVerification ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Mail className="w-4 h-4 mr-2" />
-                )}
-                Resend
+                {email ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               </Button>
-            )}
+            </div>
           </div>
 
           {/* Phone Number */}
@@ -367,6 +420,44 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
             <Button onClick={handleSavePhone} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Email Dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-blue-600" />
+              {email ? 'Change Email Address' : 'Add Email Address'}
+            </DialogTitle>
+            <DialogDescription>
+              {email 
+                ? 'Enter your new email address. A verification link will be sent to confirm the change.'
+                : 'Enter your email address. A verification link will be sent to confirm.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="your@email.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEmail} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Send Verification
             </Button>
           </DialogFooter>
         </DialogContent>
