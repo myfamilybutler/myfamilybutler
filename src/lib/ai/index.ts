@@ -27,9 +27,16 @@ const AI_CONFIG = {
   timeoutMs: 15000, // Gemini can be slower, give it more time
 };
 
-// ===========================================
-// Event Parsing with Fallback
-// ===========================================
+/**
+ * Extended result with logging metadata
+ */
+export interface EventExtractionResultWithMeta extends EventExtractionResult {
+  _meta?: {
+    model: string;
+    latencyMs: number;
+    promptVersion: string;
+  };
+}
 
 /**
  * Parse events with automatic fallback
@@ -40,7 +47,9 @@ export async function parseEventWithFallback(
   message: string,
   conversationHistory?: ChatMessage[],
   familyMembers?: string[]
-): Promise<EventExtractionResult> {
+): Promise<EventExtractionResultWithMeta> {
+  const startTime = performance.now();
+  
   // Try primary provider (Gemini - free/cheap)
   if (isGeminiAvailable()) {
     for (let attempt = 0; attempt <= AI_CONFIG.maxRetries; attempt++) {
@@ -54,7 +63,14 @@ export async function parseEventWithFallback(
         ]);
         
         if (result.events.length > 0 || result.needs_clarification || result.intent_type !== 'unknown') {
-          return result;
+          return {
+            ...result,
+            _meta: {
+              model: 'gemini-2.0-flash',
+              latencyMs: Math.round(performance.now() - startTime),
+              promptVersion: 'event-v1.0',
+            },
+          };
         }
         break;
         
@@ -73,13 +89,30 @@ export async function parseEventWithFallback(
   if (AI_CONFIG.enableFallback) {
     try {
       console.log('[AI] Falling back to OpenAI GPT-4o-mini');
-      return await parseEventWithClarification(message, conversationHistory, familyMembers);
+      const result = await parseEventWithClarification(message, conversationHistory, familyMembers);
+      return {
+        ...result,
+        _meta: {
+          model: 'gpt-4o-mini',
+          latencyMs: Math.round(performance.now() - startTime),
+          promptVersion: 'event-v1.0',
+        },
+      };
     } catch (error) {
       console.error('[AI] OpenAI fallback failed:', error);
     }
   }
   
-  return { events: [], needs_clarification: false, intent_type: 'unknown' };
+  return { 
+    events: [], 
+    needs_clarification: false, 
+    intent_type: 'unknown',
+    _meta: {
+      model: 'none',
+      latencyMs: Math.round(performance.now() - startTime),
+      promptVersion: 'event-v1.0',
+    },
+  };
 }
 
 /**

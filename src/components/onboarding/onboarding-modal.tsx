@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Users, Mail, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
+import { X, User, Users, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,7 +23,6 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
     const [displayName, setDisplayName] = useState('');
     const [familyMembers, setFamilyMembers] = useState<string[]>([]);
     const [newMember, setNewMember] = useState('');
-    const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -49,7 +48,7 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                 body: JSON.stringify({
                     displayName: displayName.trim() || undefined,
                     familyMembers: familyMembers.map(name => ({ name })),
-                    linkedEmail: email.trim() || undefined,
+                    // Email removed - user can add in Settings later
                 }),
             });
 
@@ -87,7 +86,6 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                     <DialogTitle className="text-center text-xl">
                         {step === 1 && '👋 Willkommen!'}
                         {step === 2 && '👨‍👩‍👧‍👦 Deine Familie'}
-                        {step === 3 && '📧 Email für Desktop'}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -185,54 +183,6 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                                 <Button
                                     variant="ghost"
                                     className="flex-1"
-                                    onClick={() => setStep(3)}
-                                >
-                                    Überspringen
-                                </Button>
-                                <Button
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                                    onClick={() => setStep(3)}
-                                >
-                                    Weiter <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* Step 3: Email */}
-                    {step === 3 && (
-                        <motion.div
-                            key="step3"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="space-y-4 py-4"
-                        >
-                            <p className="text-gray-600 text-center">
-                                Füge deine Email hinzu, um dich auf anderen Geräten anzumelden.
-                            </p>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <Input
-                                    type="email"
-                                    placeholder="deine@email.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="pl-11 h-12"
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 text-center">
-                                Optional – du kannst das auch später in den Einstellungen machen.
-                            </p>
-
-                            {error && (
-                                <p className="text-sm text-red-500 text-center">{error}</p>
-                            )}
-
-                            <div className="flex gap-3">
-                                <Button
-                                    variant="ghost"
-                                    className="flex-1"
                                     onClick={handleSkip}
                                     disabled={loading}
                                 >
@@ -252,6 +202,10 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                                     )}
                                 </Button>
                             </div>
+
+                            {error && (
+                                <p className="text-sm text-red-500 text-center">{error}</p>
+                            )}
                         </motion.div>
                     )}
                 </AnimatePresence>

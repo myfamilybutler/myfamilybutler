@@ -109,3 +109,86 @@ export async function mark360DialogMessageAsRead(messageId: string): Promise<boo
     return false;
   }
 }
+
+/**
+ * Quick Reply button for interactive messages
+ */
+export interface QuickReplyButton {
+  id: string;
+  title: string;
+}
+
+/**
+ * Send an interactive message with Quick Reply buttons (max 3 buttons)
+ */
+export async function send360DialogInteractiveMessage(
+  to: string,
+  bodyText: string,
+  buttons: QuickReplyButton[]
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const apiKey = process.env.D360_API_KEY;
+  const baseUrl = process.env.D360_BASE_URL || DEFAULT_BASE_URL;
+
+  if (!apiKey) {
+    console.error('[360dialog] Missing D360_API_KEY configuration');
+    return { success: false, error: 'Missing 360dialog configuration' };
+  }
+
+  // WhatsApp allows max 3 buttons
+  const limitedButtons = buttons.slice(0, 3);
+
+  // Normalize phone number (remove + and non-digits)
+  const normalizedTo = to.replace(/\D/g, '');
+  
+  // Truncate body text
+  const truncatedBody = truncateMessage(bodyText, MAX_MESSAGE_LENGTH);
+
+  console.log(`[360dialog] Sending interactive message to ${maskPhone(normalizedTo)}`);
+
+  try {
+    const response = await fetchWithTimeout(
+      `${baseUrl}/v1/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'D360-API-KEY': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: normalizedTo,
+          type: 'interactive',
+          interactive: {
+            type: 'button',
+            body: { text: truncatedBody },
+            action: {
+              buttons: limitedButtons.map(btn => ({
+                type: 'reply',
+                reply: { id: btn.id, title: btn.title.slice(0, 20) }, // Max 20 chars
+              })),
+            },
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[360dialog] Interactive API Error:', JSON.stringify(data, null, 2));
+      // Fallback to text message if interactive fails
+      return send360DialogMessage(to, bodyText);
+    }
+
+    console.log('[360dialog] Interactive message sent:', data?.messages?.[0]?.id);
+    return {
+      success: true,
+      messageId: data?.messages?.[0]?.id,
+    };
+  } catch (error) {
+    console.error('[360dialog] Interactive send error:', error);
+    // Fallback to text message
+    return send360DialogMessage(to, bodyText);
+  }
+}

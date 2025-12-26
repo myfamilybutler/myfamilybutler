@@ -17,9 +17,9 @@ import {
 } from '@/lib/supabase';
 import { parseReminderIntent } from '@/lib/ai/providers/openai';
 import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
-import { sendWhatsAppMessage } from './whatsapp';
+import { sendWhatsAppMessage, sendInteractiveMessage, type QuickReplyButton } from './whatsapp';
 import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from './telegram';
-import { send360DialogMessage } from './three-sixty-dialog';
+import { send360DialogMessage, send360DialogInteractiveMessage } from './three-sixty-dialog';
 import {
   detectLanguage,
   getTemplate,
@@ -27,6 +27,7 @@ import {
   formatDateTimeForLanguage,
 } from '@/lib/ai/response-templates';
 import { trackMessage, trackEventCreated, trackUserSignup, identifyUser } from '@/lib/analytics';
+import { logAIInteraction } from '@/lib/ai/logging';
 
 // ===========================================
 // Types
@@ -62,6 +63,30 @@ async function sendResponse(
     return send360DialogMessage(phoneNumber, text);
   } else {
     return sendWhatsAppMessage(phoneNumber, text);
+  }
+}
+
+/**
+ * Send response with Quick Reply buttons (WhatsApp/360dialog only, text fallback for Telegram)
+ */
+async function sendInteractiveResponse(
+  phoneNumber: string,
+  text: string,
+  buttons: QuickReplyButton[],
+  channel: MessageChannel,
+  telegramChatId?: number
+): Promise<{ success: boolean; messageId?: string }> {
+  // Telegram doesn't support inline quick replies in same way, use text fallback
+  if (channel === 'telegram' && telegramChatId) {
+    const result = await sendTelegramMessage(telegramChatId, text);
+    return {
+      success: result.success,
+      messageId: result.messageId?.toString(),
+    };
+  } else if (channel === '360dialog') {
+    return send360DialogInteractiveMessage(phoneNumber, text, buttons);
+  } else {
+    return sendInteractiveMessage(phoneNumber, text, buttons);
   }
 }
 
@@ -107,7 +132,12 @@ export async function processIncomingMessage(
       const lang = detectLanguage(userMessage);
       const welcomeMessage = getTemplate('welcome', lang);
 
-      await sendResponse(phoneNumber, welcomeMessage, channel, telegramChatId);
+      // Send with Quick Reply buttons
+      const welcomeButtons: QuickReplyButton[] = lang === 'de' 
+        ? [{ id: 'help', title: '❓ Wie funktioniert?' }]
+        : [{ id: 'help', title: '❓ How does it work?' }];
+
+      await sendInteractiveResponse(phoneNumber, welcomeMessage, welcomeButtons, channel, telegramChatId);
 
       // Log welcome message
       await logMessage(user.id, 'assistant', welcomeMessage, 'text', undefined, channel);
@@ -217,6 +247,36 @@ export async function processIncomingMessage(
     // Use AI router with fallback and clarification support
     const extractionResult = await parseEventWithFallback(userMessage, chatHistory, familyMemberNames);
 
+    // Log AI interaction for observability
+    const intentDetected = extractionResult.needs_clarification 
+      ? 'clarification' 
+      : extractionResult.events.length > 0 
+        ? 'create_event' 
+        : extractionResult.intent_type || 'chat';
+
+    // Fire-and-forget logging (don't block response)
+    logAIInteraction(
+      {
+        userId: user.id,
+        channel,
+        userMessage,
+        messageType,
+        contextMessageCount: history.length,
+        familyMembers: familyMemberNames,
+      },
+      {
+        promptVersion: extractionResult._meta?.promptVersion || 'event-v1.0',
+        model: extractionResult._meta?.model || 'unknown',
+        aiOutput: extractionResult,
+        intentDetected,
+        eventsExtracted: extractionResult.events.length,
+        actionTaken: intentDetected === 'clarification' ? 'clarification_sent' : 
+                     extractionResult.events.length > 0 ? 'event_created' : 'response_sent',
+        wasSuccessful: true,
+        latencyMs: extractionResult._meta?.latencyMs || 0,
+      }
+    ).catch(err => console.error('[AI Logging] Background log failed:', err));
+
     // Handle clarification requests from AI
     if (extractionResult.needs_clarification && extractionResult.clarification_question) {
       console.log(`[${channel.toUpperCase()}] AI needs clarification: ${extractionResult.clarification_question}`);
@@ -291,7 +351,18 @@ export async function processIncomingMessage(
             .replace('{eventList}', eventList);
         }
 
-        await sendResponse(phoneNumber, confirmationMessage, channel, telegramChatId);
+        // Send with Quick Reply buttons for dashboard and new event
+        const confirmButtons: QuickReplyButton[] = lang === 'de'
+          ? [
+              { id: 'dashboard', title: '📅 Kalender' },
+              { id: 'new_event', title: '➕ Neuer Termin' },
+            ]
+          : [
+              { id: 'dashboard', title: '📅 Calendar' },
+              { id: 'new_event', title: '➕ New Event' },
+            ];
+
+        await sendInteractiveResponse(phoneNumber, confirmationMessage, confirmButtons, channel, telegramChatId);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text', undefined, channel);
         
         // Track event creation(s)

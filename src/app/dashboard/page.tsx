@@ -23,8 +23,10 @@ export default function DashboardPage() {
   const [modalDismissed, setModalDismissed] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
-  // Derive modal visibility directly
-  const showOnboardingModal = dbUser?.onboarding_modal_shown === false && !modalDismissed;
+  // Progressive onboarding: only show modal after user has created 3+ events
+  // This ensures they've seen value before we ask for profile details
+  const hasEnoughEvents = allEvents.length >= 3;
+  const showOnboardingModal = dbUser?.onboarding_modal_shown === false && !modalDismissed && hasEnoughEvents;
 
   return (
     <ProtectedRoute>

@@ -56,6 +56,8 @@ export function detectLanguage(message: string): 'de' | 'en' {
 
 export interface ResponseTemplates {
     welcome: string;
+    welcomeReturning: string;
+    welcomeInactive: string;
     eventCreatedSingle: string;
     eventCreatedMultiple: string;
     reminderCreated: string;
@@ -67,16 +69,14 @@ export interface ResponseTemplates {
 
 const templates: Record<'de' | 'en', ResponseTemplates> = {
     de: {
-        welcome: `🎉 Willkommen bei My Family Butler!
+        welcome: `👋 Hallo! Schick mir einfach deinen Termin:
+"Zahnarzt Montag 10"
 
-Ich bin dein Familienkalender-Assistent.
-Schick mir Termine, Erinnerungen, oder Fotos von Briefen!
+Das ist alles! 😊`,
 
-📅 "Zahnarzt am Montag um 10"
-⏰ "Erinnere mich morgen an..."
-📸 Foto von Schulbrief senden
+        welcomeReturning: `Schön, dass du wieder da bist! 🎉 Was kann ich für dich tun?`,
 
-💡 Tippe "dashboard" für dein Online-Dashboard!`,
+        welcomeInactive: `Lange nichts gehört! 👋 Wie kann ich dir helfen?`,
 
         eventCreatedSingle: `📅 Termin erstellt!
 
@@ -104,16 +104,14 @@ Schick mir Termine, Erinnerungen, oder Fotos von Briefen!
     },
 
     en: {
-        welcome: `🎉 Welcome to My Family Butler!
+        welcome: `👋 Hi! Just send me your appointment:
+"Dentist Monday 10am"
 
-I'm your family calendar assistant.
-Send me appointments, reminders, or photos of letters!
+That's all! 😊`,
 
-📅 "Dentist on Monday at 10"
-⏰ "Remind me tomorrow to..."
-📸 Send a photo of a school letter
+        welcomeReturning: `Great to have you back! 🎉 What can I do for you?`,
 
-💡 Type "dashboard" for your online dashboard!`,
+        welcomeInactive: `Long time no see! 👋 How can I help you?`,
 
         eventCreatedSingle: `📅 Event created!
 

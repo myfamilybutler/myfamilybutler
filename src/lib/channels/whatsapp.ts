@@ -109,3 +109,86 @@ export async function markMessageAsRead(messageId: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Quick Reply button for interactive messages
+ */
+export interface QuickReplyButton {
+  id: string;
+  title: string;
+}
+
+/**
+ * Send an interactive message with Quick Reply buttons (max 3 buttons)
+ */
+export async function sendInteractiveMessage(
+  to: string,
+  bodyText: string,
+  buttons: QuickReplyButton[]
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_ID;
+  const accessToken = process.env.WHATSAPP_API_TOKEN;
+
+  if (!phoneNumberId || !accessToken) {
+    console.error('Missing Meta WhatsApp configuration');
+    return { success: false, error: 'Missing Meta WhatsApp configuration' };
+  }
+
+  // WhatsApp allows max 3 buttons
+  const limitedButtons = buttons.slice(0, 3);
+
+  // Normalize phone number (remove + and non-digits)
+  const normalizedTo = to.replace(/\D/g, '');
+  
+  // Truncate body text
+  const truncatedBody = truncateMessage(bodyText, MAX_MESSAGE_LENGTH);
+
+  console.log(`[WhatsApp] Sending interactive message to ${maskPhone(normalizedTo)}`);
+
+  try {
+    const response = await fetchWithTimeout(
+      `${BASE_URL}/${GRAPH_API_VERSION}/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: normalizedTo,
+          type: 'interactive',
+          interactive: {
+            type: 'button',
+            body: { text: truncatedBody },
+            action: {
+              buttons: limitedButtons.map(btn => ({
+                type: 'reply',
+                reply: { id: btn.id, title: btn.title.slice(0, 20) }, // Max 20 chars
+              })),
+            },
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[WhatsApp] Interactive API Error:', JSON.stringify(data, null, 2));
+      // Fallback to text message if interactive fails
+      return sendWhatsAppMessage(to, bodyText);
+    }
+
+    console.log('[WhatsApp] Interactive message sent:', data?.messages?.[0]?.id);
+    return {
+      success: true,
+      messageId: data?.messages?.[0]?.id,
+    };
+  } catch (error) {
+    console.error('[WhatsApp] Interactive send error:', error);
+    // Fallback to text message
+    return sendWhatsAppMessage(to, bodyText);
+  }
+}
