@@ -94,21 +94,23 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
     
     setResendingVerification(true);
     try {
-      const res = await fetch('/api/auth/send-verification', {
+      const res = await fetch('/api/account/update-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
 
+      const data = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        console.error('Resend verification failed:', res.status, data);
         throw new Error(data.error || 'Failed to send');
       }
 
-      toast.success('Verification email sent');
+      toast.success('Verification email sent. Please check your inbox.');
     } catch (error) {
       console.error('Resend verification error:', error);
-      toast.error('Failed to send verification email');
+      toast.error(error instanceof Error ? error.message : 'Failed to send verification email');
     } finally {
       setResendingVerification(false);
     }
