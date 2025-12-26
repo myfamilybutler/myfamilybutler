@@ -106,6 +106,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body: D360WebhookBody = await request.json();
 
+    // Debug: Log full payload to understand structure
+    console.log('[360dialog] Full payload:', JSON.stringify(body, null, 2));
     console.log('[360dialog] Webhook received, messages:', body.messages?.length || 0);
 
     // Handle status updates (delivery receipts)
