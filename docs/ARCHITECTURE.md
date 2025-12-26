@@ -4,14 +4,14 @@
 
 _List only the technologies that are CRITICAL. Mark others as "To Deprecate"._
 
-| Component     | Active Choice                | Status in Code                              |
-| :------------ | :--------------------------- | :------------------------------------------ |
-| **Framework** | Next.js 16 (App Router)      | ✅ Implemented (v16.0.10 in `package.json`) |
-| **Database**  | Supabase                     | ✅ Active (`src/lib/supabase/`)             |
-| **Auth**      | Supabase Auth + Magic Tokens | ✅ Active (`src/lib/auth/`)                 |
-| **Messaging** | WhatsApp + Telegram          | ✅ Active (`src/lib/channels/`)             |
-| **AI**        | Gemini + OpenAI (fallback)   | ✅ Active (`src/lib/ai/`)                   |
-| **Vision**    | Gemini Vision + OpenAI       | ✅ Active (`src/actions/process-vision.ts`) |
+| Component     | Active Choice                   | Status in Code                              |
+| :------------ | :------------------------------ | :------------------------------------------ |
+| **Framework** | Next.js 16 (App Router)         | ✅ Implemented (v16.0.10 in `package.json`) |
+| **Database**  | Supabase                        | ✅ Active (`src/lib/supabase/`)             |
+| **Auth**      | Supabase Auth + Magic Tokens    | ✅ Active (`src/lib/auth/`)                 |
+| **Messaging** | WhatsApp + Telegram + 360dialog | ✅ Active (`src/lib/channels/`)             |
+| **AI**        | Gemini + OpenAI (fallback)      | ✅ Active (`src/lib/ai/`)                   |
+| **Vision**    | Gemini Vision + OpenAI          | ✅ Active (`src/actions/process-vision.ts`) |
 
 ## 2. Directory Structure (Post-Refactoring)
 
@@ -38,6 +38,7 @@ src/lib/
 │   ├── index.ts
 │   ├── telegram.ts            # Telegram Bot API
 │   ├── whatsapp.ts            # Meta WhatsApp API
+│   ├── three-sixty-dialog.ts  # 360dialog WhatsApp API
 │   ├── message-processor.ts   # Unified message handling
 │   └── providers.config.ts    # Provider on/off switches
 │
@@ -133,23 +134,25 @@ Session cookies set → Redirect to /dashboard
 | Entry Point | Primary ID                       | Links To           |
 | ----------- | -------------------------------- | ------------------ |
 | WhatsApp    | `phone_number` (wa_id)           | users.phone_number |
+| 360dialog   | `phone_number` (wa_id)           | users.phone_number |
 | Telegram    | `telegram_chat_id` → phone share | users.phone_number |
 | Web/Email   | `email` + onboarding phone       | users.phone_number |
 
 ## 6. Key Files (Updated Paths)
 
-| File                                    | Purpose                               |
-| --------------------------------------- | ------------------------------------- |
-| `src/lib/supabase/client.ts`            | Supabase client initialization        |
-| `src/lib/ai/index.ts`                   | AI router with fallback logic         |
-| `src/lib/channels/message-processor.ts` | Unified message processing            |
-| `src/lib/channels/providers.config.ts`  | Provider on/off switches              |
-| `src/lib/utils/security.ts`             | Webhook verification, masking         |
-| `src/app/api/webhook/whatsapp/route.ts` | WhatsApp message handling             |
-| `src/app/api/webhook/telegram/route.ts` | Telegram message handling             |
-| `src/app/api/auth/dev-login/route.ts`   | Dev-only password login (404 in prod) |
-| `src/actions/process-vision.ts`         | Image → Event extraction              |
-| `src/middleware.ts`                     | Route protection                      |
+| File                                     | Purpose                               |
+| ---------------------------------------- | ------------------------------------- |
+| `src/lib/supabase/client.ts`             | Supabase client initialization        |
+| `src/lib/ai/index.ts`                    | AI router with fallback logic         |
+| `src/lib/channels/message-processor.ts`  | Unified message processing            |
+| `src/lib/channels/providers.config.ts`   | Provider on/off switches              |
+| `src/lib/utils/security.ts`              | Webhook verification, masking         |
+| `src/app/api/webhook/whatsapp/route.ts`  | WhatsApp message handling             |
+| `src/app/api/webhook/telegram/route.ts`  | Telegram message handling             |
+| `src/app/api/webhook/360dialog/route.ts` | 360dialog message handling            |
+| `src/app/api/auth/dev-login/route.ts`    | Dev-only password login (404 in prod) |
+| `src/actions/process-vision.ts`          | Image → Event extraction              |
+| `src/middleware.ts`                      | Route protection                      |
 
 ## 7. Provider Switching
 
@@ -159,10 +162,17 @@ Toggle messaging providers via environment variables:
 # Production (WhatsApp only)
 PROVIDER_WHATSAPP_ENABLED=true
 PROVIDER_TELEGRAM_ENABLED=false
+PROVIDER_360DIALOG_ENABLED=false
 
 # Testing (Telegram)
 PROVIDER_TELEGRAM_ENABLED=true
 PROVIDER_WHATSAPP_ENABLED=false
+PROVIDER_360DIALOG_ENABLED=false
+
+# 360dialog Sandbox Testing
+PROVIDER_360DIALOG_ENABLED=true
+PROVIDER_WHATSAPP_ENABLED=false
+PROVIDER_TELEGRAM_ENABLED=false
 ```
 
 ## 8. Webhook Security
@@ -171,5 +181,6 @@ PROVIDER_WHATSAPP_ENABLED=false
 | ------------------ | -------------------------------------- |
 | WhatsApp signature | X-Hub-Signature-256 HMAC verification  |
 | Telegram secret    | X-Telegram-Bot-Api-Secret-Token header |
+| 360dialog          | D360-API-KEY header authentication     |
 | Phone masking      | PII redacted in logs (`+43***5678`)    |
 | Message truncation | Max 4096 chars to prevent DoS          |

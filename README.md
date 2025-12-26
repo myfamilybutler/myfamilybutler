@@ -5,7 +5,7 @@ reminders, and schedules via WhatsApp, Telegram, or web dashboard.
 
 ## Features
 
-- 📱 **Multi-Channel** - WhatsApp, Telegram, Web Dashboard
+- 📱 **Multi-Channel** - WhatsApp, Telegram, 360dialog, Web Dashboard
 - 🧠 **AI-Powered** - Natural language event extraction (German/Austrian)
 - 📸 **Vision Processing** - Extract events from school letters & photos
 - 📅 **Google Calendar Sync** - Bidirectional sync with Google Calendar
@@ -13,16 +13,16 @@ reminders, and schedules via WhatsApp, Telegram, or web dashboard.
 
 ## Tech Stack
 
-| Component   | Technology                           |
-| ----------- | ------------------------------------ |
-| Framework   | Next.js 16 (App Router)              |
-| Database    | Supabase (PostgreSQL + Auth)         |
-| AI Primary  | Gemini 1.5 Flash (free tier)         |
-| AI Fallback | OpenAI GPT-4o-mini                   |
-| Messaging   | WhatsApp Cloud API, Telegram Bot API |
-| State       | Zustand                              |
-| Validation  | Zod                                  |
-| Styling     | Tailwind CSS + shadcn/ui             |
+| Component   | Technology                                      |
+| ----------- | ----------------------------------------------- |
+| Framework   | Next.js 16 (App Router)                         |
+| Database    | Supabase (PostgreSQL + Auth)                    |
+| AI Primary  | Gemini 1.5 Flash (free tier)                    |
+| AI Fallback | OpenAI GPT-4o-mini                              |
+| Messaging   | WhatsApp Cloud API, Telegram Bot API, 360dialog |
+| State       | Zustand                                         |
+| Validation  | Zod                                             |
+| Styling     | Tailwind CSS + shadcn/ui                        |
 
 ## Getting Started
 
@@ -83,7 +83,7 @@ src/
 │   ├── ai/               # AI providers (Gemini + OpenAI)
 │   ├── agents/           # Vision agent
 │   ├── auth/             # Authentication
-│   ├── channels/         # WhatsApp, Telegram
+│   ├── channels/         # WhatsApp, Telegram, 360dialog
 │   ├── supabase/         # Database operations
 │   ├── sync/             # Google Calendar sync
 │   └── utils/            # Shared utilities

@@ -48,11 +48,13 @@ export function CalendarWidget({
   // Use controlled or uncontrolled mode
   const [internalMonth, setInternalMonth] = useState(new Date());
   const currentMonth = month ?? internalMonth;
-  const setCurrentMonth = (newMonth: Date | ((prev: Date) => Date)) => {
-    const resolved = typeof newMonth === 'function' ? newMonth(currentMonth) : newMonth;
-    setInternalMonth(resolved);
-    onMonthChange?.(resolved);
-  };
+  const setCurrentMonth = useCallback((newMonth: Date | ((prev: Date) => Date)) => {
+    setInternalMonth((prev) => {
+      const resolved = typeof newMonth === 'function' ? newMonth(prev) : newMonth;
+      onMonthChange?.(resolved);
+      return resolved;
+    });
+  }, [onMonthChange]);
   
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
@@ -85,12 +87,12 @@ export function CalendarWidget({
   const handlePrevMonth = useCallback(() => {
     setDirection('left');
     setCurrentMonth(prev => subMonths(prev, 1));
-  }, []);
+  }, [setCurrentMonth]);
 
   const handleNextMonth = useCallback(() => {
     setDirection('right');
     setCurrentMonth(prev => addMonths(prev, 1));
-  }, []);
+  }, [setCurrentMonth]);
 
   const handleToday = useCallback(() => {
     const now = new Date();
@@ -104,7 +106,7 @@ export function CalendarWidget({
       }
       return current;
     });
-  }, []);
+  }, [setCurrentMonth]);
 
   const handleDayClick = useCallback((day: Date) => {
     if (!isDragging.current) {

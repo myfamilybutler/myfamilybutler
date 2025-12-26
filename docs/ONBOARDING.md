@@ -6,27 +6,29 @@
 
 ## 1. Core Principle
 
-> **WhatsApp-first, Desktop-friendly** — Users start via WhatsApp (zero friction),
-> then optionally link an email to enable persistent desktop login.
+> **WhatsApp-first, Desktop-friendly** — Users start via WhatsApp (zero
+> friction), then optionally link an email to enable persistent desktop login.
 
 ### Philosophy
 
-- **Mobile-first entry**: WhatsApp/QR is the primary onboarding (no registration forms)
+- **Mobile-first entry**: WhatsApp/QR is the primary onboarding (no registration
+  forms)
 - **Magic link for desktop**: Initial dashboard access via WhatsApp command
 - **Email linking optional**: Add email in settings for desktop login (no OAuth)
-- **One-time profile modal**: Show once on first dashboard visit, never nag again
+- **One-time profile modal**: Show once on first dashboard visit, never nag
+  again
 - **Respect user choice**: Settings page always available for later
 
 ---
 
 ## 2. Current State → Target State
 
-| Aspect | Current | Target |
-|--------|---------|--------|
-| **Primary entry** | Web registration form | WhatsApp message / QR code |
-| **Phone capture** | Optional | Automatic (from WhatsApp) |
-| **Desktop access** | Email/password login | Magic link → optional email linking |
-| **Onboarding** | Multi-step wizard | One-time optional modal |
+| Aspect             | Current               | Target                              |
+| ------------------ | --------------------- | ----------------------------------- |
+| **Primary entry**  | Web registration form | WhatsApp message / QR code          |
+| **Phone capture**  | Optional              | Automatic (from WhatsApp)           |
+| **Desktop access** | Email/password login  | Magic link → optional email linking |
+| **Onboarding**     | Multi-step wizard     | One-time optional modal             |
 
 ---
 
@@ -331,30 +333,30 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS
 
 **Key Rules:**
 
-| Rule | Implementation |
-|------|----------------|
-| **No passwords** | Email magic links only (same as WhatsApp) |
-| **Phone is primary** | Email is convenience layer for desktop |
-| **One email per user** | `linked_email` is UNIQUE |
-| **Optional** | Users can skip email linking entirely |
+| Rule                   | Implementation                            |
+| ---------------------- | ----------------------------------------- |
+| **No passwords**       | Email magic links only (same as WhatsApp) |
+| **Phone is primary**   | Email is convenience layer for desktop    |
+| **One email per user** | `linked_email` is UNIQUE                  |
+| **Optional**           | Users can skip email linking entirely     |
 
 ### 4.3 Modal UX Guidelines
 
 ```typescript
 // Key principles for onboarding modals
 const MODAL_GUIDELINES = {
-    // Show modal only ONCE per user
-    showCondition: "!user.onboarding_modal_shown",
+  // Show modal only ONCE per user
+  showCondition: "!user.onboarding_modal_shown",
 
-    // Mark as shown even if skipped
-    onSkip: "SET user.onboarding_modal_shown = true",
-    onComplete: "SET user.onboarding_modal_shown = true",
+  // Mark as shown even if skipped
+  onSkip: "SET user.onboarding_modal_shown = true",
+  onComplete: "SET user.onboarding_modal_shown = true",
 
-    // Never show again
-    neverNag: true,
+  // Never show again
+  neverNag: true,
 
-    // Respect user choice
-    settingsAlwaysAvailable: true,
+  // Respect user choice
+  settingsAlwaysAvailable: true,
 };
 ```
 
@@ -378,7 +380,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS 
   onboarding_source TEXT DEFAULT 'whatsapp' 
-  CHECK (onboarding_source IN ('whatsapp', 'telegram', 'invite'));
+  CHECK (onboarding_source IN ('whatsapp', 'telegram', '360dialog', 'invite'));
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS 
   linked_email TEXT UNIQUE DEFAULT NULL;
@@ -448,13 +450,13 @@ src/
 // For messaging users who access dashboard first
 
 interface CompleteOnboardingModalRequest {
-    displayName?: string;
-    familyMembers?: { name: string }[];
-    linkedEmail?: string;  // Optional email for desktop login
+  displayName?: string;
+  familyMembers?: { name: string }[];
+  linkedEmail?: string; // Optional email for desktop login
 }
 
 interface CompleteOnboardingModalResponse {
-    success: boolean;
+  success: boolean;
 }
 ```
 
@@ -465,10 +467,10 @@ interface CompleteOnboardingModalResponse {
 // Phone is now REQUIRED
 
 interface CompleteOnboardingRequest {
-    supabaseUserId: string;
-    phoneNumber: string; // REQUIRED (was optional)
-    displayName?: string; // Optional
-    familyMembers?: { name: string }[]; // Optional
+  supabaseUserId: string;
+  phoneNumber: string; // REQUIRED (was optional)
+  displayName?: string; // Optional
+  familyMembers?: { name: string }[]; // Optional
 }
 ```
 
@@ -493,7 +495,7 @@ interface CompleteOnboardingRequest {
 2. **Invite Links**: Should invited family members go through the same
    onboarding?
 
-4. **Fallback**: What if user doesn't have WhatsApp installed on the device
+3. **Fallback**: What if user doesn't have WhatsApp installed on the device
    they're registering from? (Desktop browser, etc.)
 
 ---
