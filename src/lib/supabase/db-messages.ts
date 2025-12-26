@@ -13,7 +13,7 @@ export async function logMessage(
   content: string,
   type: 'text' | 'image' | 'voice' = 'text',
   messageId?: string,
-  channel: 'whatsapp' | 'telegram' = 'whatsapp'
+  channel: 'whatsapp' | 'telegram' | '360dialog' = 'whatsapp'
 ): Promise<Message | null> {
   const admin = getAdminClient();
   

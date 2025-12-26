@@ -33,10 +33,10 @@ async function getClient(): Promise<PostHog | null> {
 // Types
 // ===========================================
 
-export type SignupSource = 'whatsapp' | 'telegram' | 'web';
+export type SignupSource = 'whatsapp' | 'telegram' | 'web' | '360dialog';
 export type MessageIntent = 'event' | 'reminder' | 'question' | 'command' | 'first_message' | 'unknown';
 export type EventType = 'event' | 'reminder';
-export type EventSource = 'whatsapp' | 'telegram' | 'web';
+export type EventSource = 'whatsapp' | 'telegram' | 'web' | '360dialog';
 
 interface UserProperties {
   phone_number?: string;

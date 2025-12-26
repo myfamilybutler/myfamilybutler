@@ -216,7 +216,7 @@ export interface TelegramContact {
 // Message Channel Type
 // ===========================================
 
-export type MessageChannel = 'whatsapp' | 'telegram';
+export type MessageChannel = 'whatsapp' | 'telegram' | '360dialog';
 
 // OpenAI Types
 export interface ChatMessage {

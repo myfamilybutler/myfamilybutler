@@ -19,6 +19,7 @@ import { parseReminderIntent } from '@/lib/ai/providers/openai';
 import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
 import { sendWhatsAppMessage } from './whatsapp';
 import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from './telegram';
+import { send360DialogMessage } from './three-sixty-dialog';
 import {
   detectLanguage,
   getTemplate,
@@ -57,6 +58,8 @@ async function sendResponse(
       success: result.success,
       messageId: result.messageId?.toString(),
     };
+  } else if (channel === '360dialog') {
+    return send360DialogMessage(phoneNumber, text);
   } else {
     return sendWhatsAppMessage(phoneNumber, text);
   }

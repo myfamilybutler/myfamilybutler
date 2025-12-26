@@ -198,12 +198,17 @@ OPENAI_API_KEY=               # Fallback
 # Messaging Provider Switches
 PROVIDER_WHATSAPP_ENABLED=true
 PROVIDER_TELEGRAM_ENABLED=false
+PROVIDER_360DIALOG_ENABLED=false
 
-# WhatsApp Business API
+# WhatsApp Business API (Meta Cloud API)
 WHATSAPP_API_TOKEN=
 WHATSAPP_PHONE_ID=
 WHATSAPP_VERIFY_TOKEN=
 WHATSAPP_APP_SECRET=          # For webhook signature verification (production)
+
+# 360dialog WhatsApp API (alternative to Meta Cloud API)
+D360_API_KEY=                 # API key from 360dialog dashboard
+D360_BASE_URL=https://waba-sandbox.360dialog.io  # or production URL
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN=
