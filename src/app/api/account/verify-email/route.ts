@@ -22,6 +22,23 @@ export async function GET(request: NextRequest) {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const now = new Date().toISOString();
 
+    console.log('[verify-email] Looking for token hash:', tokenHash.substring(0, 16) + '...');
+    console.log('[verify-email] Current time:', now);
+
+    // First, check if token exists at all (for debugging)
+    const { data: allTokens } = await admin
+      .from('email_login_tokens')
+      .select('token_hash, user_id, email, expires_at, used_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    console.log('[verify-email] Recent tokens in DB:', allTokens?.map(t => ({
+      hash: t.token_hash?.substring(0, 16) + '...',
+      email: t.email,
+      expires_at: t.expires_at,
+      used_at: t.used_at,
+    })));
+
     // Find and consume the token atomically
     const { data: emailToken, error: tokenError } = await admin
       .from('email_login_tokens')
@@ -33,7 +50,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (tokenError || !emailToken) {
-      console.log('[verify-email] Invalid or expired token');
+      console.log('[verify-email] Token lookup failed:', { tokenError, emailToken });
       return NextResponse.redirect(`${baseUrl}/dashboard/settings?error=expired_token`);
     }
 
