@@ -2,45 +2,25 @@
  * Channels Module - Main Entry Point
  * 
  * Re-exports messaging channel integrations.
+ * All channels now follow consistent folder structure.
  */
 
-// Telegram Bot API
-export { 
-  sendTelegramMessage, 
-  requestPhoneNumber, 
-  removeKeyboard,
-  setTelegramWebhook,
-  getTelegramWebhookInfo,
-  downloadTelegramFile,
-} from './telegram';
+// ===========================================
+// Base Utilities (Shared)
+// ===========================================
 
-// WhatsApp Cloud API
-export { 
-  sendWhatsAppMessage, 
-  markMessageAsRead 
-} from './whatsapp';
-
-// Unified Message Processor
-export { 
-  processIncomingMessage,
-  handleTelegramPhoneRequest,
-  handleTelegramPhoneReceived,
-  type ProcessMessageInput,
-} from './message-processor';
-
-// WhatsApp Media Processing
 export {
-  processImageMessage,
-  processVoiceMessage,
-} from './whatsapp-media';
-
-// Telegram Media Processing
-export {
-  processTelegramVoiceMessage,
-} from './telegram-media';
-
-// Base Media Handler (shared utilities)
-export {
+  // Commands
+  processCommand,
+  detectCommand,
+  handleDashboard,
+  handleStart,
+  handleHelp,
+  handleNewEvent,
+  COMMAND_MESSAGES,
+  type CommandContext,
+  type CommandResult,
+  // Media handling
   handleBrainResult,
   formatEventConfirmation,
   formatEventsList,
@@ -49,7 +29,61 @@ export {
   type MediaContext,
   type MediaResult,
   type MessageSender,
-} from './base-media-handler';
+} from './base';
+
+// ===========================================
+// WhatsApp (Meta Cloud API - Production)
+// ===========================================
+
+export {
+  sendWhatsAppMessage,
+  markMessageAsRead,
+  sendInteractiveMessage,
+  processImageMessage,
+  processVoiceMessage,
+  handleCommand,
+  processIntents,
+  type QuickReplyButton,
+} from './whatsapp/index';
+
+// ===========================================
+// Telegram (Testing)
+// ===========================================
+
+export {
+  sendTelegramMessage,
+  requestPhoneNumber,
+  removeKeyboard,
+  setTelegramWebhook,
+  getTelegramWebhookInfo,
+  downloadTelegramFile,
+  processTelegramVoiceMessage,
+} from './telegram/index';
+
+// ===========================================
+// 360dialog (Testing)
+// ===========================================
+
+export {
+  send360DialogMessage,
+  send360DialogInteractiveMessage,
+  mark360DialogMessageAsRead,
+  download360DialogMedia,
+  process360DialogImage,
+  process360DialogVoice,
+} from './360dialog';
+
+// ===========================================
+// Unified Message Processor
+// ===========================================
+
+export { 
+  processIncomingMessage,
+  handleTelegramPhoneRequest,
+  handleTelegramPhoneReceived,
+  sendInteractiveResponse,
+  type ProcessMessageInput,
+} from './message-processor';
 
 // ===========================================
 // Provider On/Off Switching

@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { CalendarWidget } from './calendar-widget';
 import type { CalendarEvent } from '@/types/calendar';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/utils';
 
 interface CollapsibleCalendarProps {
   events: CalendarEvent[];

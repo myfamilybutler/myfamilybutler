@@ -17,9 +17,9 @@ import {
 } from '@/lib/supabase';
 import { parseReminderIntent } from '@/lib/ai/providers/openai';
 import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
-import { sendWhatsAppMessage, sendInteractiveMessage, type QuickReplyButton } from './whatsapp';
-import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from './telegram';
-import { send360DialogMessage, send360DialogInteractiveMessage } from './three-sixty-dialog';
+import { sendWhatsAppMessage, sendInteractiveMessage, type QuickReplyButton } from './whatsapp/send';
+import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from './telegram/send';
+import { send360DialogMessage, send360DialogInteractiveMessage } from './360dialog/send';
 import {
   detectLanguage,
   getTemplate,
@@ -69,7 +69,7 @@ async function sendResponse(
 /**
  * Send response with Quick Reply buttons (WhatsApp/360dialog only, text fallback for Telegram)
  */
-async function sendInteractiveResponse(
+export async function sendInteractiveResponse(
   phoneNumber: string,
   text: string,
   buttons: QuickReplyButton[],

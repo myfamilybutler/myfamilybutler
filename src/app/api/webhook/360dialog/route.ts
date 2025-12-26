@@ -1,18 +1,23 @@
 // ===========================================
 // 360dialog WhatsApp Webhook Handler
 // ===========================================
-// 360dialog uses the same payload format as Meta Cloud API
+// Clean, modular handler using separated channel logic
 import { NextRequest, NextResponse } from 'next/server';
-import { processIncomingMessage } from '@/lib/channels/message-processor';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
-import { mark360DialogMessageAsRead } from '@/lib/channels/three-sixty-dialog';
+import { mark360DialogMessageAsRead, send360DialogMessage } from '@/lib/channels/360dialog/send';
+import { processImage, processVoice } from '@/lib/channels/360dialog/media';
+import { processCommand } from '@/lib/channels/base/commands';
 import { maskPhone } from '@/lib/utils/security';
+import { findOrCreateUser, logMessage, getAdminClient } from '@/lib/supabase';
+import { generateResponseWithFallback, parseEventWithFallback } from '@/lib/ai';
+import { createEvent } from '@/lib/supabase';
+import { send360DialogInteractiveMessage } from '@/lib/channels/360dialog/send';
 
 // ===========================================
-// Deduplication: Prevent processing same message twice
+// Deduplication
 // ===========================================
 const PROCESSED_MESSAGES = new Map<string, number>();
-const MESSAGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MESSAGE_TTL_MS = 5 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 60 * 1000;
 
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
@@ -26,17 +31,13 @@ function ensureCleanupInterval() {
         }
       }
     }, CLEANUP_INTERVAL_MS);
-    if (cleanupInterval.unref) {
-      cleanupInterval.unref();
-    }
+    if (cleanupInterval.unref) cleanupInterval.unref();
   }
 }
 
 function isDuplicateMessage(messageId: string): boolean {
   ensureCleanupInterval();
-  if (PROCESSED_MESSAGES.has(messageId)) {
-    return true;
-  }
+  if (PROCESSED_MESSAGES.has(messageId)) return true;
   PROCESSED_MESSAGES.set(messageId, Date.now());
   return false;
 }
@@ -44,32 +45,6 @@ function isDuplicateMessage(messageId: string): boolean {
 // ===========================================
 // Types (360dialog uses Meta Cloud API format)
 // ===========================================
-
-interface D360WebhookBody {
-  object: 'whatsapp_business_account';
-  entry: D360Entry[];
-}
-
-interface D360Entry {
-  id: string;
-  changes: D360Change[];
-}
-
-interface D360Change {
-  value: D360Value;
-  field: 'messages';
-}
-
-interface D360Value {
-  messaging_product: 'whatsapp';
-  metadata: {
-    display_phone_number: string;
-    phone_number_id: string;
-  };
-  contacts?: D360Contact[];
-  messages?: D360Message[];
-  statuses?: D360Status[];
-}
 
 interface D360Message {
   from: string;
@@ -91,73 +66,51 @@ interface D360Contact {
   wa_id: string;
 }
 
-interface D360Status {
-  id: string;
-  status: 'sent' | 'delivered' | 'read' | 'failed';
-  timestamp: string;
-  recipient_id: string;
+interface D360WebhookBody {
+  object: 'whatsapp_business_account';
+  entry: Array<{
+    id: string;
+    changes: Array<{
+      value: {
+        messaging_product: 'whatsapp';
+        metadata: { display_phone_number: string; phone_number_id: string };
+        contacts?: D360Contact[];
+        messages?: D360Message[];
+        statuses?: Array<{ id: string; status: string; timestamp: string; recipient_id: string }>;
+      };
+      field: 'messages';
+    }>;
+  }>;
 }
 
-/**
- * GET - Webhook verification
- */
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const searchParams = request.nextUrl.searchParams;
-  const challenge = searchParams.get('hub.challenge');
+// ===========================================
+// Webhook Endpoint
+// ===========================================
 
-  if (challenge) {
-    console.log('[360dialog] Webhook verification request');
-    return new NextResponse(challenge, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain' },
-    });
-  }
-
-  return NextResponse.json({ status: 'ok', provider: '360dialog' });
-}
-
-/**
- * POST - Handle incoming 360dialog webhook events
- */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  // Provider on/off switch
+  // Check if provider is enabled
   if (!isProviderEnabled('360dialog')) {
-    console.log('[360dialog] Provider disabled, returning 404');
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    console.log('[360dialog] Provider disabled, ignoring webhook');
+    return NextResponse.json({ success: true });
   }
 
   try {
-    const body: D360WebhookBody = await request.json();
+    const body = await request.json() as D360WebhookBody;
 
-    console.log('[360dialog] Webhook received');
+    // Extract messages from webhook payload
+    const entry = body.entry?.[0];
+    const change = entry?.changes?.[0];
+    const value = change?.value;
 
-    if (body.object !== 'whatsapp_business_account') {
-      console.log('[360dialog] Not a WhatsApp event, ignoring');
+    if (!value?.messages || value.messages.length === 0) {
+      // Status update or no messages - acknowledge
       return NextResponse.json({ success: true });
     }
 
-    // Parse Meta-style nested structure
-    for (const entry of body.entry) {
-      for (const change of entry.changes) {
-        if (change.field !== 'messages') continue;
-
-        const value = change.value;
-
-        // Handle status updates
-        if (value.statuses) {
-          for (const status of value.statuses) {
-            console.log(`[360dialog] Status update: ${status.id} -> ${status.status}`);
-          }
-        }
-
-        // Handle incoming messages
-        if (value.messages) {
-          console.log(`[360dialog] Processing ${value.messages.length} message(s)`);
-          for (const message of value.messages) {
-            await processMessage(message, value.contacts?.[0]);
-          }
-        }
-      }
+    // Process each message
+    for (const message of value.messages) {
+      const contact = value.contacts?.[0];
+      await processMessage(message, contact);
     }
 
     return NextResponse.json({ success: true });
@@ -167,91 +120,168 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-/**
- * Process a single incoming message
- */
-async function processMessage(
-  message: D360Message,
-  contact?: D360Contact
-): Promise<void> {
+// ===========================================
+// Message Processing (Clean Router)
+// ===========================================
+
+async function processMessage(message: D360Message, contact?: D360Contact): Promise<void> {
   try {
     const phoneNumber = message.from;
     const messageId = message.id;
     const contactName = contact?.profile?.name;
 
-    console.log(`[360dialog] Processing message from ${maskPhone(phoneNumber)} (${contactName || 'Unknown'})`);
+    console.log(`[360dialog] Processing ${message.type} from ${maskPhone(phoneNumber)} (${contactName || 'Unknown'})`);
 
-    // Deduplication check
+    // Deduplication
     if (isDuplicateMessage(messageId)) {
       console.log(`[360dialog] Duplicate message ignored: ${messageId}`);
       return;
     }
 
-    // Mark message as read (async, don't wait)
+    // Mark as read (fire and forget)
     mark360DialogMessageAsRead(messageId).catch(() => { /* ignored */ });
 
-    // Extract message content
-    const { text: userMessage, type: messageType } = extractMessageContent(message);
+    // Find or create user
+    const { user } = await findOrCreateUser(phoneNumber, '360dialog');
+    if (!user) {
+      console.error(`[360dialog] Failed to find/create user: ${phoneNumber}`);
+      await send360DialogMessage(phoneNumber, 'Es gab einen Fehler. Bitte versuche es später erneut.');
+      return;
+    }
 
-    if (!userMessage) {
+    // Mark user as WhatsApp verified
+    if (!user.whatsapp_verified) {
+      const admin = getAdminClient();
+      await admin.from('users').update({ whatsapp_verified: true }).eq('id', user.id);
+    }
+
+    const context = {
+      userId: user.id,
+      phoneNumber,
+      householdId: user.household_id ?? null,
+      messageId,
+    };
+
+    // ===== ROUTE BY MESSAGE TYPE =====
+
+    // 1. Image messages → Vision AI
+    if (message.type === 'image' && message.image?.id) {
+      await processImage(
+        message.image.id,
+        message.image.mime_type || 'image/jpeg',
+        message.image.caption,
+        context
+      );
+      return;
+    }
+
+    // 2. Voice messages → Whisper + AI
+    if (message.type === 'audio' && message.audio?.id) {
+      await processVoice(
+        message.audio.id,
+        message.audio.mime_type || 'audio/ogg',
+        context
+      );
+      return;
+    }
+
+    // 3. Text/Interactive → Extract text and process
+    const messageText = extractTextContent(message);
+    if (!messageText) {
       console.warn('[360dialog] Empty message content');
       return;
     }
 
-    console.log(`[360dialog] Message content: "${userMessage}" (${messageType})`);
+    console.log(`[360dialog] Text: "${messageText}"`);
 
-    // Use unified message processor
-    await processIncomingMessage({
+    // 4. Check for commands (dashboard, help, start, new_event)
+    const commandResult = await processCommand(messageText, {
+      userId: user.id,
       phoneNumber,
-      userMessage,
-      messageType,
-      messageId,
-      contactName,
       channel: '360dialog',
     });
+
+    if (commandResult.handled && commandResult.response) {
+      await send360DialogMessage(phoneNumber, commandResult.response);
+      await logMessage(user.id, 'user', messageText, 'text', messageId, '360dialog');
+      await logMessage(user.id, 'assistant', commandResult.response, 'text', undefined, '360dialog');
+      return;
+    }
+
+    // 5. AI processing for regular text
+    await logMessage(user.id, 'user', messageText, 'text', messageId, '360dialog');
+
+    if (!user.household_id) {
+      // Send welcome with interactive buttons for new users
+      await send360DialogInteractiveMessage(phoneNumber,
+        `👋 *Willkommen bei My Family Butler!*\n\nIch bin dein Familienassistent. Um loszulegen, erstelle zuerst dein Dashboard.`,
+        [{ id: 'dashboard', title: '📅 Dashboard' }, { id: 'help', title: '❓ Hilfe' }]
+      );
+      return;
+    }
+
+    // Parse for events
+    const extraction = await parseEventWithFallback(messageText, undefined, []);
+
+    if (extraction.events.length > 0 && (extraction.confidence ?? 0.75) >= 0.70) {
+      // Save events
+      const savedEvents: string[] = [];
+      for (const event of extraction.events) {
+        const created = await createEvent(user.household_id, user.id, {
+          title: event.title,
+          event_date: event.event_date,
+          event_time: event.event_time ?? undefined,
+          end_time: event.end_time ?? undefined,
+          is_all_day: event.is_all_day,
+          family_member: event.family_member ?? undefined,
+          location: event.location ?? undefined,
+          description: event.description ?? undefined,
+        });
+        if (created) savedEvents.push(`• ${event.title} (${event.event_date})`);
+      }
+
+      if (savedEvents.length > 0) {
+        const response = `✅ *${savedEvents.length} Termin(e) erstellt!*\n\n${savedEvents.join('\n')}`;
+        await send360DialogInteractiveMessage(phoneNumber, response, [
+          { id: 'dashboard', title: '📅 Kalender' },
+          { id: 'new_event', title: '➕ Neuer Termin' },
+        ]);
+        await logMessage(user.id, 'assistant', response, 'text', undefined, '360dialog');
+        return;
+      }
+    }
+
+    // Fall back to AI chat response
+    const aiResponse = await generateResponseWithFallback([], messageText);
+    await send360DialogMessage(phoneNumber, aiResponse);
+    await logMessage(user.id, 'assistant', aiResponse, 'text', undefined, '360dialog');
+
   } catch (err) {
-    console.error('[360dialog] Critical error processing message:', err);
+    console.error('[360dialog] Critical error:', err);
   }
 }
 
-/**
- * Extract message content from 360dialog message object
- */
-function extractMessageContent(message: D360Message): {
-  text: string;
-  type: 'text' | 'image' | 'voice';
-} {
+// ===========================================
+// Helpers
+// ===========================================
+
+function extractTextContent(message: D360Message): string {
   switch (message.type) {
     case 'text':
-      return { text: message.text?.body || '', type: 'text' };
-
-    case 'image':
-      return {
-        text: message.image?.caption || '[Image received]',
-        type: 'image'
-      };
-
-    case 'audio':
-      return { text: '[Voice message received]', type: 'voice' };
-
+      return message.text?.body || '';
     case 'interactive':
-      // Handle button replies - use the button ID as the command
       if (message.interactive?.button_reply) {
-        const buttonId = message.interactive.button_reply.id;
-        const buttonTitle = message.interactive.button_reply.title;
-        console.log(`[360dialog] Button reply received: "${buttonTitle}" (id: ${buttonId})`);
-        return { text: buttonId, type: 'text' };
+        const { id, title } = message.interactive.button_reply;
+        console.log(`[360dialog] Button reply: "${title}" (id: ${id})`);
+        return id;
       }
-      // Handle list replies
       if (message.interactive?.list_reply) {
-        const listId = message.interactive.list_reply.id;
-        const listTitle = message.interactive.list_reply.title;
-        console.log(`[360dialog] List reply received: "${listTitle}" (id: ${listId})`);
-        return { text: listId, type: 'text' };
+        const { id, title } = message.interactive.list_reply;
+        console.log(`[360dialog] List reply: "${title}" (id: ${id})`);
+        return id;
       }
-      return { text: '', type: 'text' };
-
+      return '';
     default:
-      return { text: '', type: 'text' };
+      return '';
   }
 }

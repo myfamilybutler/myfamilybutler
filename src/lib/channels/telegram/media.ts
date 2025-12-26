@@ -5,7 +5,7 @@
  * Uses shared base handler for common logic.
  */
 
-import { sendTelegramMessage, downloadTelegramFile } from '@/lib/channels/telegram';
+import { sendTelegramMessage, downloadTelegramFile } from './send';
 import { logMessage } from '@/lib/supabase';
 import { processLocalAudio } from '@/actions/process-voice';
 import { parseEventWithFallback } from '@/lib/ai';
@@ -16,7 +16,7 @@ import {
   type MediaContext,
   type MediaResult,
   type MessageSender,
-} from './base-media-handler';
+} from '../base/media-handler';
 import type { BrainResult } from '@/lib/ai/types';
 
 // ===========================================

@@ -6,9 +6,9 @@ import type { TelegramUpdate } from '@/types';
 import { getAdminClient } from '@/lib/supabase';
 import { getFamilyMembers } from '@/lib/supabase';
 import { processIncomingMessage, handleTelegramPhoneReceived } from '@/lib/channels/message-processor';
-import { requestPhoneNumber, sendTelegramMessage, downloadTelegramFile } from '@/lib/channels/telegram';
+import { requestPhoneNumber, sendTelegramMessage, downloadTelegramFile } from '@/lib/channels/telegram/send';
 import { processLocalImage } from '@/actions/process-vision';
-import { processTelegramVoiceMessage } from '@/lib/channels/telegram-media';
+import { processTelegramVoiceMessage } from '@/lib/channels/telegram/media';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyTelegramSecretToken, maskChatId } from '@/lib/utils/security';
 

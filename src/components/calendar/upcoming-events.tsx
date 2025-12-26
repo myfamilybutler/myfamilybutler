@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useTranslation } from 'react-i18next';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/utils';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];

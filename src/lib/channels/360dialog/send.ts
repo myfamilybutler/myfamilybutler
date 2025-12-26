@@ -4,10 +4,58 @@
 // Documentation: https://docs.360dialog.com
 // Uses same WhatsApp Cloud API format as Meta
 
-import { fetchWithTimeout } from '../utils/fetch';
-import { maskPhone, truncateMessage, MAX_MESSAGE_LENGTH } from '../utils/security';
+import { fetchWithTimeout } from '../../utils/fetch';
+import { maskPhone, truncateMessage, MAX_MESSAGE_LENGTH } from '../../utils/security';
 
 const DEFAULT_BASE_URL = 'https://waba.360dialog.io';
+
+/**
+ * Download media from 360dialog WhatsApp API
+ * @see https://docs.360dialog.com/docs/360dialog-cloud-api/media
+ */
+export async function download360DialogMedia(mediaId: string): Promise<Buffer> {
+  const apiKey = process.env.D360_API_KEY;
+  const baseUrl = process.env.D360_BASE_URL || DEFAULT_BASE_URL;
+
+  if (!apiKey) {
+    throw new Error('Missing D360_API_KEY environment variable');
+  }
+
+  // Step 1: Get the media URL from 360dialog
+  const mediaInfoResponse = await fetch(
+    `${baseUrl}/v1/media/${mediaId}`,
+    {
+      headers: {
+        'D360-API-KEY': apiKey,
+      },
+    }
+  );
+
+  if (!mediaInfoResponse.ok) {
+    const errorData = await mediaInfoResponse.text();
+    throw new Error(`Failed to get media info: ${errorData}`);
+  }
+
+  const mediaInfo = await mediaInfoResponse.json() as { url: string };
+
+  if (!mediaInfo.url) {
+    throw new Error('No URL in media info response');
+  }
+
+  // Step 2: Download the actual media file
+  const mediaResponse = await fetch(mediaInfo.url, {
+    headers: {
+      'D360-API-KEY': apiKey,
+    },
+  });
+
+  if (!mediaResponse.ok) {
+    throw new Error(`Failed to download media: ${mediaResponse.status}`);
+  }
+
+  const arrayBuffer = await mediaResponse.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
 
 /**
  * Send a text message via 360dialog WhatsApp API

@@ -5,7 +5,7 @@
  * Uses shared base handler for common logic.
  */
 
-import { sendWhatsAppMessage } from '@/lib/channels/whatsapp';
+import { sendWhatsAppMessage } from './send';
 import { logMessage } from '@/lib/supabase';
 import { processImageInput, processVoiceInput } from '@/lib/ai';
 import { 
@@ -14,7 +14,7 @@ import {
   type MediaContext,
   type MediaResult,
   type MessageSender,
-} from './base-media-handler';
+} from '../base/media-handler';
 
 // ===========================================
 // Types

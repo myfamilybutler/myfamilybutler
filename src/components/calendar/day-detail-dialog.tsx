@@ -28,7 +28,7 @@ interface DayDetailDialogProps {
 }
 
 import { useTranslation } from 'react-i18next';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/utils';
 import { getMemberColor, getInitials } from '@/lib/utils/ui-helpers';
 
 export function DayDetailDialog({ 

@@ -11,10 +11,10 @@ import {
   getFamilyMembers
 } from '@/lib/supabase';
 import { getAdminClient } from '@/lib/supabase';
-import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/channels/whatsapp';
-import { handleCommand } from '@/lib/channels/whatsapp-commands';
-import { processIntents } from '@/lib/channels/whatsapp-intents';
-import { processImageMessage, processVoiceMessage as processVoiceMedia } from '@/lib/channels/whatsapp-media';
+import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/channels/whatsapp/send';
+import { handleCommand } from '@/lib/channels/whatsapp/commands';
+import { processIntents } from '@/lib/channels/whatsapp/intents';
+import { processImageMessage, processVoiceMessage as processVoiceMedia } from '@/lib/channels/whatsapp/media';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyWhatsAppSignature, maskPhone } from '@/lib/utils/security';
 

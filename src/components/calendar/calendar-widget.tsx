@@ -13,7 +13,7 @@ import {
   addDays,
 } from 'date-fns';
 import { useTranslation } from 'react-i18next';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';

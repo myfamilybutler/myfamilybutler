@@ -3,8 +3,8 @@
 // ===========================================
 // Documentation: https://developers.facebook.com/docs/whatsapp/cloud-api
 
-import { fetchWithTimeout } from '../utils/fetch';
-import { maskPhone, truncateMessage, MAX_MESSAGE_LENGTH } from '../utils/security';
+import { fetchWithTimeout } from '../../utils/fetch';
+import { maskPhone, truncateMessage, MAX_MESSAGE_LENGTH } from '../../utils/security';
 
 const GRAPH_API_VERSION = 'v21.0';
 const BASE_URL = 'https://graph.facebook.com';

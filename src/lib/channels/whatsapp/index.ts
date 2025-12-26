@@ -1,0 +1,29 @@
+/**
+ * WhatsApp Channel Module (Meta Cloud API)
+ * 
+ * Production WhatsApp integration via Meta Cloud API.
+ */
+
+// Send functions
+export {
+  sendWhatsAppMessage,
+  markMessageAsRead,
+  sendInteractiveMessage,
+  type QuickReplyButton,
+} from './send';
+
+// Media processing
+export {
+  processImageMessage,
+  processVoiceMessage,
+} from './media';
+
+// Command handlers
+export {
+  handleCommand,
+} from './commands';
+
+// Intent processing
+export {
+  processIntents,
+} from './intents';

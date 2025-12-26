@@ -3,8 +3,8 @@
 // ===========================================
 // Documentation: https://core.telegram.org/bots/api
 
-import { fetchWithTimeout } from '../utils/fetch';
-import { maskChatId, truncateMessage, MAX_MESSAGE_LENGTH } from '../utils/security';
+import { fetchWithTimeout } from '../../utils/fetch';
+import { maskChatId, truncateMessage, MAX_MESSAGE_LENGTH } from '../../utils/security';
 
 const BASE_URL = 'https://api.telegram.org';
 

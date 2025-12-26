@@ -26,3 +26,6 @@ export {
   getMemberColor, 
   getInitials 
 } from './ui-helpers';
+
+// Date utilities
+export { getLocale, formatDate } from './date';
