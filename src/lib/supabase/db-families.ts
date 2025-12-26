@@ -287,7 +287,7 @@ export async function getInviteByToken(
   const admin = getAdminClient();
   
   // 1. Try to find by explicit token column (Email invites)
-  const { data: tokenInvite, error: _tokenError } = await admin
+  const { data: tokenInvite } = await admin
     .from('household_invites')
     .select('id, household_id, invited_by, expires_at')
     .eq('token', token)

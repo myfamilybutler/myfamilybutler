@@ -27,15 +27,21 @@ import { useAuthStore } from '@/stores/auth-store';
 
 import { FamilyMembersList, type FamilyUser, type FamilyMember } from '@/components/dashboard/family-members-list';
 
+import { useDashboardData } from '@/hooks/use-dashboard-data';
+// ... imports
+
 export default function SettingsPage() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { dbUser, signOut } = useAuthStore();
+  const { dbUser, signOut } = useAuthStore(); // dbUser will be hydrated by useDashboardData
+  // Trigger global data fetch to ensure dbUser is fresh
+  const { refresh: refreshDashboard } = useDashboardData();
+  
   const [members, setMembers] = useState<FamilyUser[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+
   // Dialog states
   const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
   const [deleteFamilyDialog, setDeleteFamilyDialog] = useState(false);
@@ -46,11 +52,7 @@ export default function SettingsPage() {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [editMemberName, setEditMemberName] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  
-  // Add Member states
-  // const [invitePhone, setInvitePhone] = useState('');
-  // const [memberName, setMemberName] = useState('');
-  
+
   // Fetch data - extracted to useCallback so mutations can refetch
   const fetchData = useCallback(async () => {
     try {
@@ -70,6 +72,18 @@ export default function SettingsPage() {
       setLoading(false);
     }
   }, []);
+
+  // Combined update handler
+  const handleDataUpdate = useCallback(async () => {
+    await Promise.all([
+      refreshDashboard(),
+      fetchData()
+    ]);
+  }, [refreshDashboard, fetchData]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
   
   // Fetch immediately - the API validates session server-side
   // On direct page load, dbUser may not be populated (cookie-based auth),
@@ -260,8 +274,11 @@ export default function SettingsPage() {
           </div>
           
           {/* Account & Security Section */}
-          <AccountSecurityCard dbUser={dbUser} onUpdate={fetchData} />
-          
+          <AccountSecurityCard 
+          dbUser={dbUser} 
+          loading={loading} 
+          onUpdate={handleDataUpdate} 
+        />  
           {/* Family Section */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">

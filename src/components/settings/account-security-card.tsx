@@ -11,7 +11,8 @@ import {
   Loader2,
   Shield,
   User,
-  Save
+  Save,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -39,9 +40,12 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
   // Get email directly from Supabase Auth user (most reliable source)
   const { user } = useAuthStore();
   const email = user?.email || dbUser?.linked_email || null;
+  const isEmailVerified = !!user?.email_confirmed_at;
 
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState(dbUser?.display_name || '');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
 
   // Sync displayName with dbUser prop changes
   useEffect(() => {
@@ -64,6 +68,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
 
       if (res.ok) {
         toast.success('Name updated successfully');
+        setIsEditingName(false);
         onUpdate?.();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -74,6 +79,36 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       toast.error('Failed to update name');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancelEditName = () => {
+    setDisplayName(dbUser?.display_name || '');
+    setIsEditingName(false);
+  };
+
+  const handleResendVerification = async () => {
+    if (!email) return;
+    
+    setResendingVerification(true);
+    try {
+      const res = await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to send');
+      }
+
+      toast.success('Verification email sent');
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      toast.error('Failed to send verification email');
+    } finally {
+      setResendingVerification(false);
     }
   };
 
@@ -157,18 +192,38 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
               <User className="w-4 h-4 text-gray-500" />
               Display Name
             </Label>
-            <div className="flex gap-2">
-              <Input
-                id="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Your name"
-                className="flex-1"
-              />
-              <Button onClick={handleSaveDisplayName} disabled={saving}>
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              </Button>
-            </div>
+            
+            {isEditingName ? (
+              <div className="flex gap-2">
+                <Input
+                  id="displayName"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Your name"
+                  className="flex-1"
+                  autoFocus
+                />
+                <Button onClick={handleSaveDisplayName} disabled={saving} size="icon" className="shrink-0">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                </Button>
+                <Button onClick={handleCancelEditName} disabled={saving} variant="outline" size="icon" className="shrink-0">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-2 rounded-md border border-transparent hover:border-gray-200 hover:bg-slate-50 transition-colors group">
+                <span className="font-medium text-gray-900 ml-1">{displayName || 'No name set'}</span>
+                <Button 
+                  onClick={() => setIsEditingName(true)} 
+                  variant="ghost" 
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Divider */}
@@ -187,15 +242,36 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 {email ? (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-600">{email}</span>
-                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                      <Check className="w-3 h-3 mr-1" /> Verified
-                    </Badge>
+                    {isEmailVerified ? (
+                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                        <Check className="w-3 h-3 mr-1" /> Verified
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                        Not Verified
+                      </Badge>
+                    )}
                   </div>
                 ) : (
                   <span className="text-sm text-gray-400">Not set</span>
                 )}
               </div>
             </div>
+            {!isEmailVerified && email && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleResendVerification}
+                disabled={resendingVerification}
+              >
+                {resendingVerification ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Mail className="w-4 h-4 mr-2" />
+                )}
+                Resend
+              </Button>
+            )}
           </div>
 
           {/* Phone Number */}
