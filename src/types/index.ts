@@ -131,6 +131,11 @@ export interface MetaMessage {
   audio?: { mime_type: string; sha256: string; id: string };
   video?: { caption?: string; mime_type: string; sha256: string; id: string };
   document?: { filename: string; mime_type: string; sha256: string; id: string };
+  interactive?: {
+    type: 'button_reply' | 'list_reply';
+    button_reply?: { id: string; title: string };
+    list_reply?: { id: string; title: string; description?: string };
+  };
 }
 
 export interface MetaStatus {

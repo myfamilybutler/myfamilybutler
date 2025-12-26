@@ -31,6 +31,10 @@ export async function handleCommand(
     return { handled: true };
   }
 
+  if (await handleNewEventCommand(lowerMessage, context)) {
+    return { handled: true };
+  }
+
   if (await handleStartCommand(lowerMessage, context)) {
     return { handled: true };
   }
@@ -125,6 +129,33 @@ async function handleHelpCommand(
 
   await sendWhatsAppMessage(phoneNumber, helpMessage);
   await logMessage(userId, 'assistant', helpMessage, 'text');
+
+  return true;
+}
+
+/**
+ * Handle new_event button click - prompt user to create a new event
+ */
+async function handleNewEventCommand(
+  lowerMessage: string,
+  { userId, phoneNumber }: CommandContext
+): Promise<boolean> {
+  if (lowerMessage !== 'new_event') {
+    return false;
+  }
+
+  console.log(`[WhatsApp] New Event command from ${phoneNumber}`);
+
+  const newEventMessage =
+    `📅 *Neuen Termin erstellen*\n\n` +
+    `Schreib mir einfach, was du eintragen möchtest. Zum Beispiel:\n\n` +
+    `• "Zahnarzt am Freitag um 14 Uhr"\n` +
+    `• "Elternabend nächsten Dienstag 19:00"\n` +
+    `• "Fußballtraining jeden Mittwoch 16:30"\n\n` +
+    `Ich erkenne automatisch Datum, Uhrzeit und Details. 🎯`;
+
+  await sendWhatsAppMessage(phoneNumber, newEventMessage);
+  await logMessage(userId, 'assistant', newEventMessage, 'text');
 
   return true;
 }

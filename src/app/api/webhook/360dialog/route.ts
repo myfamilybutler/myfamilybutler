@@ -75,10 +75,15 @@ interface D360Message {
   from: string;
   id: string;
   timestamp: string;
-  type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'location' | 'contacts';
+  type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'location' | 'contacts' | 'interactive';
   text?: { body: string };
   image?: { caption?: string; mime_type: string; id: string };
   audio?: { mime_type: string; id: string };
+  interactive?: {
+    type: 'button_reply' | 'list_reply';
+    button_reply?: { id: string; title: string };
+    list_reply?: { id: string; title: string; description?: string };
+  };
 }
 
 interface D360Contact {
@@ -228,6 +233,23 @@ function extractMessageContent(message: D360Message): {
 
     case 'audio':
       return { text: '[Voice message received]', type: 'voice' };
+
+    case 'interactive':
+      // Handle button replies - use the button ID as the command
+      if (message.interactive?.button_reply) {
+        const buttonId = message.interactive.button_reply.id;
+        const buttonTitle = message.interactive.button_reply.title;
+        console.log(`[360dialog] Button reply received: "${buttonTitle}" (id: ${buttonId})`);
+        return { text: buttonId, type: 'text' };
+      }
+      // Handle list replies
+      if (message.interactive?.list_reply) {
+        const listId = message.interactive.list_reply.id;
+        const listTitle = message.interactive.list_reply.title;
+        console.log(`[360dialog] List reply received: "${listTitle}" (id: ${listId})`);
+        return { text: listId, type: 'text' };
+      }
+      return { text: '', type: 'text' };
 
     default:
       return { text: '', type: 'text' };

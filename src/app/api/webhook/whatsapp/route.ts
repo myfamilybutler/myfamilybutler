@@ -391,6 +391,23 @@ function extractMessageContent(message: MetaMessage): {
         type: 'text'
       };
 
+    case 'interactive':
+      // Handle button replies - use the button ID as the command
+      if (message.interactive?.button_reply) {
+        const buttonId = message.interactive.button_reply.id;
+        const buttonTitle = message.interactive.button_reply.title;
+        console.log(`[Webhook] Button reply received: "${buttonTitle}" (id: ${buttonId})`);
+        return { text: buttonId, type: 'text' };
+      }
+      // Handle list replies
+      if (message.interactive?.list_reply) {
+        const listId = message.interactive.list_reply.id;
+        const listTitle = message.interactive.list_reply.title;
+        console.log(`[Webhook] List reply received: "${listTitle}" (id: ${listId})`);
+        return { text: listId, type: 'text' };
+      }
+      return { text: '', type: 'text' };
+
     default:
       return { text: '', type: 'text' };
   }

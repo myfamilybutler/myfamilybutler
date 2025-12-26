@@ -479,6 +479,23 @@ async function handleSharedCommand(
     return true;
   }
 
+  // New Event button click
+  if (lowerMessage === 'new_event') {
+    console.log(`[${channel.toUpperCase()}] New Event command from ${phoneNumber}`);
+
+    const newEventMessage =
+      `📅 *Neuen Termin erstellen*\n\n` +
+      `Schreib mir einfach, was du eintragen möchtest. Zum Beispiel:\n\n` +
+      `• "Zahnarzt am Freitag um 14 Uhr"\n` +
+      `• "Elternabend nächsten Dienstag 19:00"\n` +
+      `• "Fußballtraining jeden Mittwoch 16:30"\n\n` +
+      `Ich erkenne automatisch Datum, Uhrzeit und Details. 🎯`;
+
+    await sendResponse(phoneNumber, newEventMessage, channel, telegramChatId);
+    await logMessage(userId, 'assistant', newEventMessage, 'text', undefined, channel);
+    return true;
+  }
+
   return false;
 }
 
