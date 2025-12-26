@@ -4,7 +4,7 @@
 // Simple on/off switches for messaging providers
 // Toggle via environment variables during testing vs production
 
-export type ProviderType = 'whatsapp_business' | 'telegram' | 'wasender';
+export type ProviderType = 'whatsapp_business' | 'telegram';
 
 /**
  * Check if a specific provider is enabled
@@ -16,8 +16,6 @@ export function isProviderEnabled(provider: ProviderType): boolean {
       return process.env.PROVIDER_TELEGRAM_ENABLED === 'true';
     case 'whatsapp_business':
       return process.env.PROVIDER_WHATSAPP_ENABLED === 'true';
-    case 'wasender':
-      return process.env.PROVIDER_WASENDER_ENABLED === 'true';
     default:
       return false;
   }

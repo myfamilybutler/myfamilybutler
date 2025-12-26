@@ -196,7 +196,6 @@ GEMINI_API_KEY=               # Primary (free tier recommended)
 OPENAI_API_KEY=               # Fallback
 
 # Messaging Provider Switches
-PROVIDER_PRIMARY=whatsapp_business    # or telegram
 PROVIDER_WHATSAPP_ENABLED=true
 PROVIDER_TELEGRAM_ENABLED=false
 
