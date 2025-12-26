@@ -10,7 +10,7 @@ import { getAdminClient } from './client';
  */
 export async function generateDashboardLink(
   phoneNumber: string,
-  channel: 'whatsapp' | 'telegram' = 'whatsapp'
+  channel: 'whatsapp' | 'telegram' | '360dialog' = 'whatsapp'
 ): Promise<{ success: boolean; link?: string; error?: string }> {
   try {
     const admin = getAdminClient();

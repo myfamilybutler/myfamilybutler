@@ -160,6 +160,18 @@ export async function processIncomingMessage(
     // Log user message
     await logMessage(user.id, 'user', userMessage, messageType, messageId, channel);
 
+    // Handle special commands (dashboard, help, start) for channels using shared processor
+    const commandHandled = await handleSharedCommand(
+      userMessage.toLowerCase().trim(),
+      user.id,
+      phoneNumber,
+      channel,
+      telegramChatId
+    );
+    if (commandHandled) {
+      return;
+    }
+
     // Check for reminder intent
     const reminderIntent = await parseReminderIntent(userMessage);
 
@@ -326,3 +338,76 @@ export async function handleTelegramPhoneReceived(
     `✅ Danke, ${firstName}! Deine Nummer wurde gespeichert. Du kannst mir jetzt Nachrichten schicken, um Termine und Erinnerungen zu erstellen! 📅`
   );
 }
+
+// ===========================================
+// Shared Command Handler (for 360dialog and others)
+// ===========================================
+
+async function handleSharedCommand(
+  lowerMessage: string,
+  userId: string,
+  phoneNumber: string,
+  channel: MessageChannel,
+  telegramChatId?: number
+): Promise<boolean> {
+  // Dashboard/login command
+  if (['dashboard', 'link', 'login'].includes(lowerMessage)) {
+    console.log(`[${channel.toUpperCase()}] Dashboard command from ${phoneNumber}`);
+    
+    const { generateDashboardLink } = await import('@/lib/supabase');
+    const result = await generateDashboardLink(phoneNumber, channel);
+
+    if (result.success && result.link) {
+      const dashboardMessage =
+        `🔗 *Dein sicherer Dashboard-Link*\n\n` +
+        `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
+        `${result.link}\n\n` +
+        `⏱️ Der Link ist 15 Minuten gültig.`;
+
+      await sendResponse(phoneNumber, dashboardMessage, channel, telegramChatId);
+      await logMessage(userId, 'assistant', dashboardMessage, 'text', undefined, channel);
+    } else {
+      const errorMessage = `❌ Fehler: ${result.error || 'Unbekannter Fehler'}`;
+      await sendResponse(phoneNumber, errorMessage, channel, telegramChatId);
+      await logMessage(userId, 'assistant', errorMessage, 'text', undefined, channel);
+    }
+    return true;
+  }
+
+  // Start/hello command
+  if (['start', 'hallo', 'hi', 'hello'].includes(lowerMessage)) {
+    const welcomeMessage =
+      `👋 *Willkommen bei My Family Butler!*\n\n` +
+      `Ich bin dein persönlicher Familienassistent. Ich kann dir helfen mit:\n\n` +
+      `📅 *Termine erstellen* - "Zahnarzt am Montag um 10 Uhr"\n` +
+      `⏰ *Erinnerungen* - "Erinnere mich morgen an Milch kaufen"\n` +
+      `🔗 *Dashboard öffnen* - "Dashboard" oder "Link"\n\n` +
+      `Probiere es aus! Schreib mir einfach eine Nachricht.`;
+
+    await sendResponse(phoneNumber, welcomeMessage, channel, telegramChatId);
+    await logMessage(userId, 'assistant', welcomeMessage, 'text', undefined, channel);
+    return true;
+  }
+
+  // Help command
+  if (['help', 'hilfe', '?'].includes(lowerMessage)) {
+    const helpMessage =
+      `ℹ️ *My Family Butler Hilfe*\n\n` +
+      `*Termine:*\n` +
+      `• "Zahnarzt am Montag um 10 Uhr"\n` +
+      `• "Meeting morgen 14:00"\n\n` +
+      `*Erinnerungen:*\n` +
+      `• "Erinnere mich in 1 Stunde an..."\n` +
+      `• "Reminder: Milch kaufen morgen"\n\n` +
+      `*Befehle:*\n` +
+      `• dashboard - Dashboard öffnen\n` +
+      `• help - Diese Hilfe anzeigen`;
+
+    await sendResponse(phoneNumber, helpMessage, channel, telegramChatId);
+    await logMessage(userId, 'assistant', helpMessage, 'text', undefined, channel);
+    return true;
+  }
+
+  return false;
+}
+
