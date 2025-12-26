@@ -1,6 +1,7 @@
 // ===========================================
 // 360dialog WhatsApp Webhook Handler
 // ===========================================
+// 360dialog uses the same payload format as Meta Cloud API
 import { NextRequest, NextResponse } from 'next/server';
 import { processIncomingMessage } from '@/lib/channels/message-processor';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
@@ -41,12 +42,32 @@ function isDuplicateMessage(messageId: string): boolean {
 }
 
 // ===========================================
-// Types (360dialog uses same format as Meta Cloud API)
+// Types (360dialog uses Meta Cloud API format)
 // ===========================================
 
 interface D360WebhookBody {
-  messages?: D360Message[];
+  object: 'whatsapp_business_account';
+  entry: D360Entry[];
+}
+
+interface D360Entry {
+  id: string;
+  changes: D360Change[];
+}
+
+interface D360Change {
+  value: D360Value;
+  field: 'messages';
+}
+
+interface D360Value {
+  messaging_product: 'whatsapp';
+  metadata: {
+    display_phone_number: string;
+    phone_number_id: string;
+  };
   contacts?: D360Contact[];
+  messages?: D360Message[];
   statuses?: D360Status[];
 }
 
@@ -73,14 +94,12 @@ interface D360Status {
 }
 
 /**
- * GET - Webhook verification (360dialog may use different verification)
- * Some 360dialog setups don't require verification, but we support it
+ * GET - Webhook verification
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const searchParams = request.nextUrl.searchParams;
   const challenge = searchParams.get('hub.challenge');
 
-  // If there's a challenge, return it (Meta-style verification)
   if (challenge) {
     console.log('[360dialog] Webhook verification request');
     return new NextResponse(challenge, {
@@ -89,7 +108,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  // Otherwise just confirm the endpoint exists
   return NextResponse.json({ status: 'ok', provider: '360dialog' });
 }
 
@@ -106,21 +124,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body: D360WebhookBody = await request.json();
 
-    // Debug: Log full payload to understand structure
-    console.log('[360dialog] Full payload:', JSON.stringify(body, null, 2));
-    console.log('[360dialog] Webhook received, messages:', body.messages?.length || 0);
+    console.log('[360dialog] Webhook received');
 
-    // Handle status updates (delivery receipts)
-    if (body.statuses) {
-      for (const status of body.statuses) {
-        console.log(`[360dialog] Status update: ${status.id} -> ${status.status}`);
-      }
+    if (body.object !== 'whatsapp_business_account') {
+      console.log('[360dialog] Not a WhatsApp event, ignoring');
+      return NextResponse.json({ success: true });
     }
 
-    // Handle incoming messages
-    if (body.messages) {
-      for (const message of body.messages) {
-        await processMessage(message, body.contacts?.[0]);
+    // Parse Meta-style nested structure
+    for (const entry of body.entry) {
+      for (const change of entry.changes) {
+        if (change.field !== 'messages') continue;
+
+        const value = change.value;
+
+        // Handle status updates
+        if (value.statuses) {
+          for (const status of value.statuses) {
+            console.log(`[360dialog] Status update: ${status.id} -> ${status.status}`);
+          }
+        }
+
+        // Handle incoming messages
+        if (value.messages) {
+          console.log(`[360dialog] Processing ${value.messages.length} message(s)`);
+          for (const message of value.messages) {
+            await processMessage(message, value.contacts?.[0]);
+          }
+        }
       }
     }
 
