@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { UserPlus } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
@@ -35,13 +35,7 @@ export function AddMemberDialog({
   const [memberName, setMemberName] = useState('');
   const [qrToken, setQrToken] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      setQrToken(null);
-    }
-  }, [open]);
-
-  const fetchQrToken = async () => {
+  const fetchQrToken = useCallback(async () => {
     if (qrToken) return;
     
     setLoading(true);
@@ -60,7 +54,16 @@ export function AddMemberDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [qrToken]);
+
+  useEffect(() => {
+    if (!open) {
+      setQrToken(null);
+    } else {
+      // Fetch token immediately if opening to default tab
+      fetchQrToken();
+    }
+  }, [open, fetchQrToken]);
 
   const [email, setEmail] = useState('');
 
