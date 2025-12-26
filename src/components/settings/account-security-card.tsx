@@ -37,10 +37,11 @@ interface AccountSecurityCardProps {
 }
 
 export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: AccountSecurityCardProps) {
-  // Get email directly from Supabase Auth user (most reliable source)
+  // Get email from dbUser (linked_email) as primary source, fallback to auth user
   const { user } = useAuthStore();
-  const email = user?.email || dbUser?.linked_email || null;
-  const isEmailVerified = !!user?.email_confirmed_at;
+  const email = dbUser?.linked_email || user?.email || null;
+  // Check custom email_verified field (set by our verify-email endpoint)
+  const isEmailVerified = !!dbUser?.email_verified;
 
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState(dbUser?.display_name || '');

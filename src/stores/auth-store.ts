@@ -9,6 +9,7 @@ export interface DbUser {
   display_name?: string | null;
   household_id?: string | null;
   linked_email?: string | null;
+  email_verified?: boolean | null;
   telegram_chat_id?: string | null;
   whatsapp_verified?: boolean | null;
   onboarding_modal_shown?: boolean;

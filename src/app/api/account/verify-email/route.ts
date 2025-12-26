@@ -54,10 +54,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/dashboard/settings?error=expired_token`);
     }
 
-    // Update user's linked_email
+    // Update user's linked_email and mark as verified
     const { error: updateError } = await admin
       .from('users')
-      .update({ linked_email: emailToken.email })
+      .update({ linked_email: emailToken.email, email_verified: true })
       .eq('id', emailToken.user_id);
 
     if (updateError) {

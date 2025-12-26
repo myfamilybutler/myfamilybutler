@@ -16,6 +16,7 @@ export interface User {
   id: string;
   phone_number?: string;
   linked_email?: string;  // Email for desktop magic link login
+  email_verified?: boolean;  // Whether linked_email has been verified
   household_id?: string;
   display_name?: string;
   is_admin: boolean;
