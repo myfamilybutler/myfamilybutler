@@ -100,8 +100,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
     console.log('[Webhook] Signature verified ✓');
+  } else if (process.env.NODE_ENV === 'production') {
+    // SECURITY: Fail closed in production - require signature verification
+    console.error('[Webhook] CRITICAL: WHATSAPP_APP_SECRET not set in production');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
   } else {
-    console.warn('[Webhook] WHATSAPP_APP_SECRET not set - skipping signature verification');
+    // Development only: allow without signature for local testing
+    console.warn('[Webhook] DEV MODE: Skipping signature verification (WHATSAPP_APP_SECRET not set)');
   }
 
   try {

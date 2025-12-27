@@ -2,18 +2,25 @@
  * POST /api/auth/dev-login
  * 
  * DEV-ONLY password login for browser testing.
- * Returns 404 in production to remain invisible.
+ * SECURITY: Returns 404 in production BEFORE any imports or processing.
  */
+
+// SECURITY: Early exit in production - must be before any other code
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// Only import dependencies in development
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { getAdminClient } from '@/lib/supabase';
-import { log } from '@/lib/utils/logger';
 
 export async function POST(request: NextRequest) {
-  // Security: Only work in development
-  if (process.env.NODE_ENV !== 'development') {
-    return new NextResponse('Not Found', { status: 404 });
+  // Production: Return 404 immediately
+  if (!isDevelopment) {
+    return new Response(null, { status: 404 });
   }
+
+  // Development-only imports (dynamic to avoid bundling in production)
+  const { cookies } = await import('next/headers');
+  const { getAdminClient } = await import('@/lib/supabase');
+  const { log } = await import('@/lib/utils/logger');
 
   try {
     const body = await request.json();
@@ -129,10 +136,16 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    log.error('[Dev Login] Error:', error);
+    const { log: errorLog } = await import('@/lib/utils/logger');
+    errorLog.error('[Dev Login] Error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
+}
+
+export async function GET() {
+  // Return 404 for any GET requests (e.g., bots probing endpoints)
+  return new Response(null, { status: 404 });
 }

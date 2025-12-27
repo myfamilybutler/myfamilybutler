@@ -1,0 +1,100 @@
+# Security Documentation
+
+## Overview
+
+My Family Butler implements security measures appropriate for a consumer-facing
+family app with plans to scale to 10K+ users.
+
+## Authentication
+
+### Session Management
+
+- **Custom Sessions**: HTTP-only, secure cookies with 90-day expiration
+- **Session Format**: UUID-based user IDs with format validation
+- **Logout**: Clear endpoint at `/api/auth/logout` for session invalidation
+
+### Magic Link Authentication
+
+- Token-based passwordless authentication
+- Tokens expire after single use
+- Rate-limited token generation
+
+### OAuth (Google Calendar)
+
+- Standard OAuth 2.0 flow
+- Tokens stored in database (service-role access only)
+- Automatic token refresh with deduplication
+
+## API Security
+
+### Webhook Verification
+
+- **WhatsApp**: HMAC-SHA256 signature verification (required in production)
+- **Telegram**: Secret token verification
+- Timing-safe comparisons to prevent timing attacks
+- Message deduplication prevents replay attacks
+
+### Input Validation
+
+- Phone number normalization with format validation
+- UUID format validation on all user IDs
+- Message length limits to prevent abuse
+
+## Development Security
+
+### Dev-Only Endpoints
+
+- `/api/auth/dev-login`: Returns 404 in production (checked before any
+  processing)
+- Environment-based feature flags
+
+### Secrets Management
+
+- All secrets in environment variables
+- `.env*` files excluded from git
+- Service role key separated from anon key
+
+## Threat Model
+
+### Current Protections
+
+| Threat            | Mitigation                                    |
+| ----------------- | --------------------------------------------- |
+| Webhook spoofing  | Signature verification (fails closed in prod) |
+| Session hijacking | HTTP-only, secure cookies                     |
+| Injection attacks | UUID validation, parameterized queries        |
+| Replay attacks    | Message deduplication                         |
+
+### Planned Improvements (Phase 2)
+
+| Threat              | Planned Mitigation         |
+| ------------------- | -------------------------- |
+| API abuse           | Rate limiting with Upstash |
+| Credential stuffing | Rate limiting + monitoring |
+| Breach detection    | Audit logging              |
+
+### Accepted Risks
+
+| Risk                          | Rationale                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| Service role has broad access | Mitigated by server-side only usage. Full RLS migration planned for 10K+ scale. |
+| OAuth tokens in plaintext     | Database access requires breach. Supabase provides storage encryption.          |
+
+## Incident Response
+
+### If Service Role Key is Compromised
+
+1. Immediately rotate key in Supabase dashboard
+2. Update environment variables in Vercel
+3. Review audit logs for unauthorized access
+4. Notify affected users if data was accessed
+
+### If User Reports Unauthorized Access
+
+1. Force logout via `/api/auth/logout` (user-initiated)
+2. Review message logs for that user
+3. Reset any connected OAuth tokens
+
+## Security Contacts
+
+For security issues, contact: [Add contact email]
