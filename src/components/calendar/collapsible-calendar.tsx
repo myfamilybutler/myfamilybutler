@@ -17,9 +17,10 @@ import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { CalendarWidget } from './calendar-widget';
+import { DesktopCalendarGrid } from './desktop-calendar-grid';
 import type { CalendarEvent } from '@/types/calendar';
 import { formatDate } from '@/lib/utils';
+import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
 
 interface CollapsibleCalendarProps {
   events: CalendarEvent[];
@@ -45,15 +46,25 @@ export function CollapsibleCalendar({
     return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
   }, [selectedDate]);
 
-  // Count events per day for dots
-  const eventCountByDate = useMemo(() => {
-    const counts: Record<string, number> = {};
+  // Group events by date and get unique colors for dots
+  const eventColorsByDate = useMemo(() => {
+    const colorsByDate: Record<string, string[]> = {};
     for (const event of events) {
       const date = event.event_date;
-      counts[date] = (counts[date] || 0) + 1;
+      if (!colorsByDate[date]) {
+        colorsByDate[date] = [];
+      }
+      // Get color for this event's family member
+      const color = event.family_member && memberColors?.get(event.family_member)
+        ? memberColors.get(event.family_member)!
+        : DEFAULT_MEMBER_COLOR;
+      // Add unique colors (max 3)
+      if (!colorsByDate[date].includes(color) && colorsByDate[date].length < 3) {
+        colorsByDate[date].push(color);
+      }
     }
-    return counts;
-  }, [events]);
+    return colorsByDate;
+  }, [events, memberColors]);
 
   const handleDayClick = (day: Date) => {
     setSelectedDate(day);
@@ -143,18 +154,20 @@ export function CollapsibleCalendar({
       </CardHeader>
 
       <CardContent>
-        {/* Persistent Week Day Headers - matches CalendarWidget exact styling */}
-        <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
-          {weekDays.map((day) => (
-            <div
-              key={day.toISOString()}
-              className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 uppercase"
-            >
-              <span className="hidden sm:inline">{formatDate(day, 'EEE')}</span>
-              <span className="sm:hidden">{formatDate(day, 'EEE').charAt(0)}</span>
-            </div>
-          ))}
-        </div>
+        {/* Persistent Week Day Headers */}
+        {!isExpanded && (
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
+            {weekDays.map((day) => (
+              <div
+                key={day.toISOString()}
+                className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 uppercase"
+              >
+                <span className="hidden sm:inline">{formatDate(day, 'EEE')}</span>
+                <span className="sm:hidden">{formatDate(day, 'EEE').charAt(0)}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           {!isExpanded ? (
@@ -174,7 +187,7 @@ export function CollapsibleCalendar({
               <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                 {weekDays.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd');
-                  const eventCount = eventCountByDate[dateStr] || 0;
+                  const dayColors = eventColorsByDate[dateStr] || [];
                   const isSelected = isSameDay(day, selectedDate);
                   const isTodayDate = isToday(day);
 
@@ -202,13 +215,14 @@ export function CollapsibleCalendar({
                         {format(day, 'd')}
                       </span>
 
-                      {/* Event dots */}
-                      {eventCount > 0 && (
+                      {/* Colored event dots */}
+                      {dayColors.length > 0 && (
                         <div className="flex gap-0.5 mt-1">
-                          {Array.from({ length: Math.min(eventCount, 3) }).map((_, i) => (
+                          {dayColors.map((color, i) => (
                             <div
                               key={i}
-                              className="w-1 h-1 rounded-full bg-emerald-500"
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: color }}
                             />
                           ))}
                         </div>
@@ -219,23 +233,19 @@ export function CollapsibleCalendar({
               </div>
             </motion.div>
           ) : (
-            /* Expanded: Full Calendar (Header hidden to avoid duplication) */
+            /* Expanded: Full Calendar Grid (same as desktop) */
             <motion.div
               key="full-calendar"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
+              className="-mx-6 -mb-6" // Extend to card edges
             >
-              <CalendarWidget
+              <DesktopCalendarGrid
                 events={events}
                 onEventsChanged={onEventsChanged}
-                hideHeader
-                hideWeekdays // Hide internal header
-                month={selectedDate}
-                onMonthChange={setSelectedDate}
                 memberColors={memberColors}
-                className="border-none shadow-none bg-transparent py-0 gap-0"
               />
             </motion.div>
           )}
