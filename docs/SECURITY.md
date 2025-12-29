@@ -15,9 +15,14 @@ family app with plans to scale to 10K+ users.
 
 ### Magic Link Authentication
 
-- Token-based passwordless authentication
-- Tokens expire after single use
-- Rate-limited token generation
+Used for passwordless login from messaging channels:
+
+- **Token generation**: 32-byte random token, SHA-256 hashed before storage
+- **Expiration**: 15 minutes from generation
+- **One-time use**: Token consumed atomically on first use
+- **Grace period**: 30-second window handles browser prefetch protection
+- **Delivery**: Embedded in URL buttons (WhatsApp CTA, Telegram inline keyboard)
+- **Fallback**: Text message with plain link if button API fails
 
 ### OAuth (Google Calendar)
 

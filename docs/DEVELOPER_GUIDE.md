@@ -147,16 +147,29 @@ Stop hardcoding values in your components.
 **WhatsApp/Telegram Users (Custom Token):**
 
 1. User sends message → webhook creates user by phone
-2. User sends "Dashboard" command
-3. `generateDashboardLink()` creates token in `magic_tokens`
-4. Link sent: `/api/auth/magic?token=xxx`
-5. User clicks → token validated → session cookie set
+2. User creates event → confirmation includes URL button with magic link
+3. User taps button → instant login to dashboard
+
+Alternatively, user sends "Dashboard" command:
+
+1. `generateDashboardLink()` creates token in `magic_tokens`
+2. URL button sent with magic link embedded
+3. User taps button → token validated → session cookie set
 
 ### Commands (Available in WhatsApp & Telegram)
 
-- `dashboard` / `link` / `login` - Get dashboard magic link
+- `dashboard` / `link` / `login` - Get URL button for instant dashboard access
 - `start` / `hi` / `hello` - Welcome message
 - `help` / `hilfe` - Show help
+
+### Dashboard URL Buttons
+
+When events are created or "dashboard" is invoked, responses include clickable
+buttons:
+
+- **WhatsApp/360dialog**: CTA URL button (opens directly when tapped)
+- **Telegram**: Inline keyboard URL button
+- **Fallback**: Text message with plain link if button API fails
 
 ## 8. Import Paths
 
@@ -268,4 +281,4 @@ E2E_TEST_PASSWORD=DevTest2024!Secure
 
 ---
 
-_Last updated: 2024-12-25_
+_Last updated: 2024-12-29_

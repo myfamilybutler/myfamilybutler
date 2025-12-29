@@ -56,7 +56,9 @@ WHATSAPP_APP_SECRET=         # App Secret for signature verification
 ```
 User sends message → Bot creates user account → Welcome message sent
          ↓
-User types "Dashboard" → Magic link generated → User clicks to access dashboard
+User creates event → "✅ Event created" + [📅 Open Dashboard] URL button
+         ↓
+User taps button → Instant login (magic link embedded in button)
 ```
 
 ---
@@ -95,7 +97,9 @@ User sends /start → Bot requests phone number via button
          ↓
 User shares phone → Account created/linked → Welcome message sent
          ↓
-User types "Dashboard" → Magic link generated → User clicks to access dashboard
+User creates event → "✅ Event created" + [📅 Open Dashboard] URL button
+         ↓
+User taps button → Instant login via inline keyboard URL
 ```
 
 **Note:** Telegram requires phone sharing via a button due to privacy. Users
@@ -143,7 +147,9 @@ Same as WhatsApp:
 ```
 User sends message → Bot creates user account → Welcome message sent
          ↓
-User types "Dashboard" → Magic link generated → User clicks to access dashboard
+User creates event → "✅ Event created" + [📅 Open Dashboard] URL button
+         ↓
+User taps button → Instant login (magic link embedded in button)
 ```
 
 ---
@@ -163,11 +169,21 @@ ALTER TABLE magic_tokens ADD CONSTRAINT magic_tokens_channel_check
 
 ## User Commands (All Channels)
 
-| Command                        | Description                     |
-| ------------------------------ | ------------------------------- |
-| `dashboard` / `link` / `login` | Get magic link to web dashboard |
-| `start` / `hallo` / `hi`       | Welcome message with usage tips |
-| `help` / `hilfe`               | Show available commands         |
+| Command                        | Description                                 |
+| ------------------------------ | ------------------------------------------- |
+| `dashboard` / `link` / `login` | Get URL button for instant dashboard access |
+| `start` / `hallo` / `hi`       | Welcome message with usage tips             |
+| `help` / `hilfe`               | Show available commands                     |
+
+### Dashboard URL Buttons
+
+When events are created, the confirmation message includes a clickable URL
+button:
+
+- **WhatsApp/360dialog**: CTA URL button (opens link directly when tapped)
+- **Telegram**: Inline keyboard URL button (appears below message)
+
+Magic login tokens are generated inline (15-minute expiry, one-time use).
 
 ---
 
@@ -229,4 +245,4 @@ All channels:
 
 ---
 
-_Last updated: 2024-12-26_
+_Last updated: 2024-12-29_
