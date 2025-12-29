@@ -240,3 +240,82 @@ export async function send360DialogInteractiveMessage(
     return send360DialogMessage(to, bodyText);
   }
 }
+
+/**
+ * URL button for opening links (dashboard, etc.)
+ */
+export interface UrlButton {
+  title: string;
+  url: string;
+}
+
+/**
+ * Send a message with a CTA URL button that opens a link when tapped.
+ * @see https://docs.360dialog.com/docs/360dialog-cloud-api/interactive-messages
+ */
+export async function send360DialogMessageWithUrlButton(
+  to: string,
+  bodyText: string,
+  button: UrlButton
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const apiKey = process.env.D360_API_KEY;
+  const baseUrl = process.env.D360_BASE_URL || DEFAULT_BASE_URL;
+
+  if (!apiKey) {
+    console.error('[360dialog] Missing D360_API_KEY configuration');
+    return { success: false, error: 'Missing 360dialog configuration' };
+  }
+
+  const normalizedTo = to.replace(/\D/g, '');
+  const truncatedBody = truncateMessage(bodyText, MAX_MESSAGE_LENGTH);
+
+  console.log(`[360dialog] Sending CTA URL message to ${maskPhone(normalizedTo)}`);
+
+  try {
+    const response = await fetchWithTimeout(
+      `${baseUrl}/v1/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'D360-API-KEY': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: normalizedTo,
+          type: 'interactive',
+          interactive: {
+            type: 'cta_url',
+            body: { text: truncatedBody },
+            action: {
+              name: 'cta_url',
+              parameters: {
+                display_text: button.title.slice(0, 20), // Max 20 chars
+                url: button.url,
+              },
+            },
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[360dialog] CTA URL API Error:', JSON.stringify(data, null, 2));
+      // Fallback to text message with link
+      return send360DialogMessage(to, `${bodyText}\n\n🔗 ${button.url}`);
+    }
+
+    console.log('[360dialog] CTA URL message sent:', data?.messages?.[0]?.id);
+    return {
+      success: true,
+      messageId: data?.messages?.[0]?.id,
+    };
+  } catch (error) {
+    console.error('[360dialog] CTA URL send error:', error);
+    // Fallback to text message with link
+    return send360DialogMessage(to, `${bodyText}\n\n🔗 ${button.url}`);
+  }
+}

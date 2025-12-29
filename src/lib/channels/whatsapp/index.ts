@@ -9,7 +9,9 @@ export {
   sendWhatsAppMessage,
   markMessageAsRead,
   sendInteractiveMessage,
+  sendMessageWithUrlButton,
   type QuickReplyButton,
+  type UrlButton,
 } from './send';
 
 // Media processing

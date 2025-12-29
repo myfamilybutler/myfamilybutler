@@ -7,11 +7,13 @@
 // Send functions
 export {
   sendTelegramMessage,
+  sendTelegramMessageWithUrlButton,
   requestPhoneNumber,
   removeKeyboard,
   setTelegramWebhook,
   getTelegramWebhookInfo,
   downloadTelegramFile,
+  type TelegramUrlButton,
 } from './send';
 
 // Media processing

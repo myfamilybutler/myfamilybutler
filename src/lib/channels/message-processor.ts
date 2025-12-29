@@ -17,9 +17,10 @@ import {
 } from '@/lib/supabase';
 import { parseReminderIntent } from '@/lib/ai/providers/openai';
 import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
-import { sendWhatsAppMessage, sendInteractiveMessage, type QuickReplyButton } from './whatsapp/send';
-import { sendTelegramMessage, requestPhoneNumber, removeKeyboard } from './telegram/send';
-import { send360DialogMessage, send360DialogInteractiveMessage } from './360dialog/send';
+import { sendWhatsAppMessage, sendInteractiveMessage, sendMessageWithUrlButton, type QuickReplyButton } from './whatsapp/send';
+import { sendTelegramMessage, sendTelegramMessageWithUrlButton, requestPhoneNumber, removeKeyboard } from './telegram/send';
+import { send360DialogMessage, send360DialogInteractiveMessage, send360DialogMessageWithUrlButton } from './360dialog/send';
+import { generateDashboardLink } from '@/lib/supabase';
 import {
   detectLanguage,
   getTemplate,
@@ -87,6 +88,46 @@ export async function sendInteractiveResponse(
     return send360DialogInteractiveMessage(phoneNumber, text, buttons);
   } else {
     return sendInteractiveMessage(phoneNumber, text, buttons);
+  }
+}
+
+/**
+ * Send response with a dashboard URL button that opens the dashboard directly.
+ * Generates a magic login link inline and sends as a CTA URL button.
+ * Falls back to text + link if URL button API fails.
+ */
+export async function sendResponseWithDashboardButton(
+  phoneNumber: string,
+  text: string,
+  channel: MessageChannel,
+  telegramChatId?: number
+): Promise<{ success: boolean; messageId?: string }> {
+  // Generate magic link synchronously before sending
+  const linkResult = await generateDashboardLink(phoneNumber, channel);
+  
+  if (!linkResult.success || !linkResult.link) {
+    console.error(`[${channel.toUpperCase()}] Failed to generate dashboard link:`, linkResult.error);
+    // Fallback to plain text message
+    return sendResponse(phoneNumber, text, channel, telegramChatId);
+  }
+
+  const buttonTitle = '📅 Open Dashboard';
+  const url = linkResult.link;
+
+  if (channel === 'telegram' && telegramChatId) {
+    const result = await sendTelegramMessageWithUrlButton(
+      telegramChatId,
+      text,
+      { text: buttonTitle, url }
+    );
+    return {
+      success: result.success,
+      messageId: result.messageId?.toString(),
+    };
+  } else if (channel === '360dialog') {
+    return send360DialogMessageWithUrlButton(phoneNumber, text, { title: buttonTitle, url });
+  } else {
+    return sendMessageWithUrlButton(phoneNumber, text, { title: buttonTitle, url });
   }
 }
 
@@ -351,18 +392,8 @@ export async function processIncomingMessage(
             .replace('{eventList}', eventList);
         }
 
-        // Send with Quick Reply buttons for dashboard and new event
-        const confirmButtons: QuickReplyButton[] = lang === 'de'
-          ? [
-              { id: 'dashboard', title: '📅 Kalender' },
-              { id: 'new_event', title: '➕ Neuer Termin' },
-            ]
-          : [
-              { id: 'dashboard', title: '📅 Calendar' },
-              { id: 'new_event', title: '➕ New Event' },
-            ];
-
-        await sendInteractiveResponse(phoneNumber, confirmationMessage, confirmButtons, channel, telegramChatId);
+        // Send with dashboard URL button (magic link generated inline)
+        await sendResponseWithDashboardButton(phoneNumber, confirmationMessage, channel, telegramChatId);
         await logMessage(user.id, 'assistant', confirmationMessage, 'text', undefined, channel);
         
         // Track event creation(s)
@@ -425,23 +456,14 @@ async function handleSharedCommand(
   if (['dashboard', 'link', 'login'].includes(lowerMessage)) {
     console.log(`[${channel.toUpperCase()}] Dashboard command from ${phoneNumber}`);
     
-    const { generateDashboardLink } = await import('@/lib/supabase');
-    const result = await generateDashboardLink(phoneNumber, channel);
+    const dashboardMessage =
+      `🔗 *Dein sicherer Dashboard-Link*\n\n` +
+      `Klicke auf den Button, um dein Dashboard zu öffnen.\n\n` +
+      `⏱️ Der Link ist 15 Minuten gültig.`;
 
-    if (result.success && result.link) {
-      const dashboardMessage =
-        `🔗 *Dein sicherer Dashboard-Link*\n\n` +
-        `Klicke auf den folgenden Link, um dein Dashboard zu öffnen:\n\n` +
-        `${result.link}\n\n` +
-        `⏱️ Der Link ist 15 Minuten gültig.`;
-
-      await sendResponse(phoneNumber, dashboardMessage, channel, telegramChatId);
-      await logMessage(userId, 'assistant', dashboardMessage, 'text', undefined, channel);
-    } else {
-      const errorMessage = `❌ Fehler: ${result.error || 'Unbekannter Fehler'}`;
-      await sendResponse(phoneNumber, errorMessage, channel, telegramChatId);
-      await logMessage(userId, 'assistant', errorMessage, 'text', undefined, channel);
-    }
+    // Use URL button for instant dashboard access
+    await sendResponseWithDashboardButton(phoneNumber, dashboardMessage, channel, telegramChatId);
+    await logMessage(userId, 'assistant', dashboardMessage, 'text', undefined, channel);
     return true;
   }
 

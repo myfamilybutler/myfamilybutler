@@ -4,12 +4,13 @@
  * Complete 360dialog WhatsApp integration for the testing stage.
  */
 
-// Send functions
 export {
   send360DialogMessage,
   send360DialogInteractiveMessage,
+  send360DialogMessageWithUrlButton,
   mark360DialogMessageAsRead,
   download360DialogMedia,
+  type UrlButton as D360UrlButton,
 } from './send';
 
 // Media processing

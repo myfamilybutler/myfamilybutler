@@ -192,3 +192,83 @@ export async function sendInteractiveMessage(
     return sendWhatsAppMessage(to, bodyText);
   }
 }
+
+/**
+ * URL button for opening links (dashboard, etc.)
+ */
+export interface UrlButton {
+  title: string;
+  url: string;
+}
+
+/**
+ * Send a message with a CTA URL button that opens a link when tapped.
+ * Unlike Quick Reply buttons which echo text, CTA URL buttons open the URL directly.
+ * @see https://developers.facebook.com/docs/whatsapp/cloud-api/messages/interactive-cta-url-messages
+ */
+export async function sendMessageWithUrlButton(
+  to: string,
+  bodyText: string,
+  button: UrlButton
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_ID;
+  const accessToken = process.env.WHATSAPP_API_TOKEN;
+
+  if (!phoneNumberId || !accessToken) {
+    console.error('Missing Meta WhatsApp configuration');
+    return { success: false, error: 'Missing Meta WhatsApp configuration' };
+  }
+
+  const normalizedTo = to.replace(/\D/g, '');
+  const truncatedBody = truncateMessage(bodyText, MAX_MESSAGE_LENGTH);
+
+  console.log(`[WhatsApp] Sending CTA URL message to ${maskPhone(normalizedTo)}`);
+
+  try {
+    const response = await fetchWithTimeout(
+      `${BASE_URL}/${GRAPH_API_VERSION}/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: normalizedTo,
+          type: 'interactive',
+          interactive: {
+            type: 'cta_url',
+            body: { text: truncatedBody },
+            action: {
+              name: 'cta_url',
+              parameters: {
+                display_text: button.title.slice(0, 20), // Max 20 chars
+                url: button.url,
+              },
+            },
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[WhatsApp] CTA URL API Error:', JSON.stringify(data, null, 2));
+      // Fallback to text message with link
+      return sendWhatsAppMessage(to, `${bodyText}\n\n🔗 ${button.url}`);
+    }
+
+    console.log('[WhatsApp] CTA URL message sent:', data?.messages?.[0]?.id);
+    return {
+      success: true,
+      messageId: data?.messages?.[0]?.id,
+    };
+  } catch (error) {
+    console.error('[WhatsApp] CTA URL send error:', error);
+    // Fallback to text message with link
+    return sendWhatsAppMessage(to, `${bodyText}\n\n🔗 ${button.url}`);
+  }
+}

@@ -73,6 +73,79 @@ export async function sendTelegramMessage(
 }
 
 /**
+ * URL button for Telegram inline keyboard
+ */
+export interface TelegramUrlButton {
+  text: string;
+  url: string;
+}
+
+/**
+ * Send a message with an inline keyboard URL button that opens a link when tapped.
+ * Unlike reply keyboards, inline keyboards appear below the message.
+ * @see https://core.telegram.org/bots/api#inlinekeyboardbutton
+ */
+export async function sendTelegramMessageWithUrlButton(
+  chatId: string | number,
+  text: string,
+  button: TelegramUrlButton,
+  options?: {
+    parseMode?: 'Markdown' | 'HTML';
+  }
+): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!botToken) {
+    console.error('Missing TELEGRAM_BOT_TOKEN environment variable');
+    return { success: false, error: 'Missing Telegram bot configuration' };
+  }
+
+  console.log(`[Telegram] Sending URL button message to ${maskChatId(chatId)}`);
+  
+  const truncatedText = truncateMessage(text, MAX_MESSAGE_LENGTH);
+
+  try {
+    const response = await fetchWithTimeout(
+      `${BASE_URL}/bot${botToken}/sendMessage`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: truncatedText,
+          parse_mode: options?.parseMode,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: button.text, url: button.url }],
+            ],
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      console.error('[Telegram] URL button API Error:', JSON.stringify(data, null, 2));
+      // Fallback to text message with link
+      return sendTelegramMessage(chatId, `${text}\n\n🔗 ${button.url}`, options);
+    }
+
+    console.log('[Telegram] URL button message sent:', data?.result?.message_id);
+    return {
+      success: true,
+      messageId: data?.result?.message_id,
+    };
+  } catch (error) {
+    console.error('[Telegram] URL button send error:', error);
+    // Fallback to text message with link
+    return sendTelegramMessage(chatId, `${text}\n\n🔗 ${button.url}`);
+  }
+}
+
+/**
  * Request phone number from user via contact button
  */
 export async function requestPhoneNumber(
