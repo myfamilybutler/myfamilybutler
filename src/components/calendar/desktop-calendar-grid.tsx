@@ -188,7 +188,7 @@ export function DesktopCalendarGrid({
     >
       <div className="overflow-hidden">
         {/* Header Row: Week number + Day names */}
-        <div className="grid grid-cols-[32px_repeat(7,1fr)] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-slate-200 bg-slate-50">
+        <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-slate-200 bg-slate-50">
           {/* Week number header */}
           <div className="p-2 text-xs font-medium text-slate-400 text-center border-r border-slate-200">
             {t('calendar.week')}
@@ -208,7 +208,7 @@ export function DesktopCalendarGrid({
         {weeks.map((week: Date[], weekIndex: number) => (
           <div 
             key={weekIndex} 
-            className="grid grid-cols-[32px_repeat(7,1fr)] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-slate-100 last:border-b-0"
+            className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-slate-100 last:border-b-0"
           >
             {/* Week number */}
             <div className="p-2 text-xs font-medium text-slate-400 text-center border-r border-slate-100 bg-slate-50/50">

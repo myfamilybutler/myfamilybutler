@@ -157,8 +157,8 @@ export function CollapsibleCalendar({
       <CardContent>
         {/* Persistent Week Day Headers */}
         {!isExpanded && (
-          <div className="grid grid-cols-[32px_repeat(7,1fr)] border-b border-slate-200">
-            <div className="text-center text-[10px] sm:text-xs font-medium text-slate-400 py-2 border-r border-slate-200 flex items-center justify-center">
+          <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50">
+            <div className="text-center text-[10px] sm:text-xs font-medium text-slate-400 p-2 border-r border-slate-200 flex items-center justify-center">
               Wk
             </div>
             {weekDays.map((day) => (
@@ -188,8 +188,8 @@ export function CollapsibleCalendar({
               dragElastic={0.2}
               onDragEnd={handleDragEnd}
             >
-              <div className="grid grid-cols-[32px_repeat(7,1fr)]">
-                <div className="flex items-center justify-center text-xs font-medium text-slate-400 border-r border-slate-200 bg-slate-50/50">
+              <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-slate-100">
+                <div className="flex items-center justify-center text-xs font-medium text-slate-400 border-r border-slate-100 bg-slate-50/50">
                   {getWeekNumber(weekDays[0])}
                 </div>
                 {weekDays.map((day) => {
@@ -203,8 +203,8 @@ export function CollapsibleCalendar({
                       key={dateStr}
                       onClick={() => handleDayClick(day)}
                       className={cn(
-                        'flex flex-col items-center py-2 rounded-lg transition-colors min-h-[48px]',
-                        'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500',
+                        'flex flex-col items-center py-2 transition-colors min-h-[48px] border-r border-slate-100 last:border-r-0',
+                        'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500',
                         isSelected && !isTodayDate && 'bg-emerald-50',
                       )}
                     >
