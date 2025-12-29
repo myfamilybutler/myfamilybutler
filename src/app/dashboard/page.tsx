@@ -46,6 +46,7 @@ export default function DashboardPage() {
           <CollapsibleCalendar
             events={allEvents}
             onEventsChanged={refresh}
+            memberColors={memberColors}
           />
           
           {/* Upcoming Events (full width) */}
@@ -59,6 +60,7 @@ export default function DashboardPage() {
                 pageSize={10}
                 onEventsChanged={refresh}
                 hideHeader
+                memberColors={memberColors}
               />
             </CardContent>
           </Card>

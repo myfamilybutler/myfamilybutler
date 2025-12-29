@@ -3,22 +3,21 @@
 /**
  * Quick Add Sheet
  * 
- * Bottom sheet for quickly creating new events.
+ * Dialog for quickly creating new events.
  * Uses shared EventForm component for consistency with EditEventDialog.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-  SheetDescription,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { EventForm, createEventFormData, isEventFormValid, type EventFormData } from './event-form';
 import { log } from '@/lib/utils/logger';
@@ -42,7 +41,7 @@ export function QuickAddSheet({
     createEventFormData(null, defaultDate)
   );
 
-  // Reset form when sheet opens
+  // Reset form when dialog opens
   useEffect(() => {
     if (open) {
       setFormData(createEventFormData(null, defaultDate));
@@ -91,14 +90,14 @@ export function QuickAddSheet({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-2xl px-5 pb-8 max-h-[85vh] flex flex-col">
-        <SheetHeader className="flex-shrink-0">
-          <SheetTitle>{t('calendar.newEvent')}</SheetTitle>
-          <SheetDescription className="sr-only">
-            {t('calendar.quickAddDescription')}
-          </SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="w-5 h-5 text-emerald-600" />
+            {t('calendar.newEvent')}
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Scrollable form content */}
         <div className="flex-1 overflow-y-auto py-4 px-1">
@@ -109,11 +108,18 @@ export function QuickAddSheet({
           />
         </div>
 
-        <SheetFooter className="flex-shrink-0 pt-4 border-t">
+        <DialogFooter className="flex-shrink-0 border-t pt-4">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="min-h-[44px]"
+          >
+            {t('common.cancel')}
+          </Button>
           <Button
             onClick={handleSave}
             disabled={isLoading || !isEventFormValid(formData)}
-            className="w-full bg-emerald-600 hover:bg-emerald-700"
+            className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px]"
           >
             {isLoading ? (
               <>
@@ -124,8 +130,8 @@ export function QuickAddSheet({
               t('calendar.addEvent')
             )}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

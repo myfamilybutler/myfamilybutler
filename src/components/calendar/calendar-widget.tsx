@@ -40,6 +40,8 @@ export interface CalendarWidgetProps {
   /** Hide the M T W T F S S header row */
   hideWeekdays?: boolean;
   className?: string;
+  /** Map of family member names to their HEX colors */
+  memberColors?: Map<string, string>;
 }
 
 export function CalendarWidget({ 
@@ -50,6 +52,7 @@ export function CalendarWidget({
   month,
   onMonthChange,
   className,
+  memberColors,
 }: CalendarWidgetProps) {
   // Use controlled or uncontrolled mode
   const [internalMonth, setInternalMonth] = useState(new Date());
@@ -306,7 +309,7 @@ export function CalendarWidget({
                               key={event.id}
                               className={cn(
                                 'h-[14px] sm:h-4 rounded px-1 flex items-center w-full',
-                                getMemberColor(event.family_member)
+                                getMemberColor(event.family_member, event.family_member ? memberColors?.get(event.family_member) : undefined)
                               )}
                             >
                               <span className="text-[8px] sm:text-[10px] font-medium text-white truncate leading-none w-full">

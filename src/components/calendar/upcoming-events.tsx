@@ -20,6 +20,8 @@ interface UpcomingEventsProps {
   maxEvents?: number;
   onEventsChanged?: () => void;
   hideHeader?: boolean;
+  /** Map of family member names to their HEX colors */
+  memberColors?: Map<string, string>;
 }
 
 interface ProcessedEvent extends CalendarEvent {
@@ -31,11 +33,12 @@ interface SwipeableEventCardProps {
   onEdit: (event: CalendarEvent) => void;
   onDelete: (eventId: string) => void;
   isDeleting: boolean;
+  memberColors?: Map<string, string>;
 }
 
 
 
-function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEventCardProps) {
+function SwipeableEventCard({ event, onEdit, onDelete, isDeleting, memberColors }: SwipeableEventCardProps) {
   const { t } = useTranslation();
   const x = useMotionValue(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -127,7 +130,7 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
                 <span
                   className={cn(
                     'w-2 h-2 rounded-full',
-                    getMemberColor(event.family_member)
+                    getMemberColor(event.family_member, memberColors?.get(event.family_member))
                   )}
                 />
                 <span className="text-xs text-gray-500">
@@ -152,6 +155,7 @@ export function UpcomingEvents({
   maxEvents = 20, 
   onEventsChanged,
   hideHeader = false,
+  memberColors,
 }: UpcomingEventsProps) {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -332,6 +336,7 @@ export function UpcomingEvents({
                       onEdit={handleEditClick}
                       onDelete={handleDelete}
                       isDeleting={deletingEventId === event.id}
+                      memberColors={memberColors}
                     />
                   ))}
                 </AnimatePresence>

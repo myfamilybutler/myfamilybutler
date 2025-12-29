@@ -25,12 +25,15 @@ interface CollapsibleCalendarProps {
   events: CalendarEvent[];
   onEventsChanged?: () => void;
   defaultExpanded?: boolean;
+  /** Map of family member names to their HEX colors */
+  memberColors?: Map<string, string>;
 }
 
 export function CollapsibleCalendar({
   events,
   onEventsChanged,
   defaultExpanded = false,
+  memberColors,
 }: CollapsibleCalendarProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -231,6 +234,7 @@ export function CollapsibleCalendar({
                 hideWeekdays // Hide internal header
                 month={selectedDate}
                 onMonthChange={setSelectedDate}
+                memberColors={memberColors}
                 className="border-none shadow-none bg-transparent py-0 gap-0"
               />
             </motion.div>
