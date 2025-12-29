@@ -246,6 +246,9 @@ export function CollapsibleCalendar({
                 events={events}
                 onEventsChanged={onEventsChanged}
                 memberColors={memberColors}
+                hideHeader
+                month={selectedDate}
+                onMonthChange={setSelectedDate}
               />
             </motion.div>
           )}
