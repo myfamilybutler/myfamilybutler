@@ -7,6 +7,7 @@ import { log } from '@/lib/utils/logger';
 interface FamilyMember {
   id: string;
   name: string;
+  color?: string;
 }
 
 interface DashboardApiResponse {
@@ -90,7 +91,7 @@ export function useDashboardData() {
         
         if (result.data.familyMembers) {
           for (const member of result.data.familyMembers) {
-            allMembers.push({ id: member.id, name: member.name });
+            allMembers.push({ id: member.id, name: member.name, color: member.color });
           }
         }
         
@@ -160,6 +161,17 @@ export function useDashboardData() {
 
   const allEvents = useMemo(() => [...events, ...googleEvents], [events, googleEvents]);
   const familyMemberNames = useMemo(() => familyMembers.map(m => m.name), [familyMembers]);
+  
+  // Map of family member names to their assigned colors
+  const memberColors = useMemo(() => {
+    const colorMap = new Map<string, string>();
+    for (const member of familyMembers) {
+      if (member.color) {
+        colorMap.set(member.name, member.color);
+      }
+    }
+    return colorMap;
+  }, [familyMembers]);
 
   return {
     events,
@@ -167,6 +179,7 @@ export function useDashboardData() {
     allEvents,
     familyMembers,
     familyMemberNames,
+    memberColors,
     loading,
     refresh: loadAllData,
     dbUser,

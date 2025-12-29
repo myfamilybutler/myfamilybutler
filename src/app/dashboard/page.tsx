@@ -16,7 +16,8 @@ export default function DashboardPage() {
   const { 
     allEvents, 
     refresh, 
-    dbUser 
+    dbUser,
+    memberColors,
   } = useDashboardData();
   
   const [modalDismissed, setModalDismissed] = useState(false);
@@ -68,6 +69,7 @@ export default function DashboardPage() {
           <DesktopCalendarGrid
             events={allEvents}
             onEventsChanged={refresh}
+            memberColors={memberColors}
           />
         </div>
 

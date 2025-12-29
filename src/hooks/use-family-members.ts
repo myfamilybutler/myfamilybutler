@@ -4,6 +4,7 @@ import { log } from '@/lib/utils/logger';
 interface FamilyMember {
   id: string;
   name: string;
+  color?: string;
 }
 
 export function useFamilyMembers() {
@@ -27,7 +28,7 @@ export function useFamilyMembers() {
         
         if (result.data.familyMembers) {
           for (const member of result.data.familyMembers) {
-            allMembers.push({ id: member.id, name: member.name });
+            allMembers.push({ id: member.id, name: member.name, color: member.color });
           }
         }
         

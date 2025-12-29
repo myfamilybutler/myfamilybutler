@@ -45,11 +45,14 @@ const MAX_VISIBLE_EVENTS = 3;
 interface DesktopCalendarGridProps {
   events: CalendarEvent[];
   onEventsChanged?: () => void;
+  /** Map of family member names to their HEX colors */
+  memberColors?: Map<string, string>;
 }
 
 export function DesktopCalendarGrid({
   events,
   onEventsChanged,
+  memberColors,
 }: DesktopCalendarGridProps) {
   const { t, i18n } = useTranslation();
   const selectedMembers = useSelectedMembers();
@@ -80,11 +83,13 @@ export function DesktopCalendarGrid({
     return eventsByDate.get(dayStr) || [];
   }, [eventsByDate]);
   
-  // Get color for a family member - use default emerald for all for now
-  // TODO: Pass member colors from dashboard when family member colors are loaded
-  const getMemberColor = useCallback(() => {
+  // Get color for a family member from the colors map
+  const getMemberColor = useCallback((memberName?: string) => {
+    if (memberName && memberColors?.has(memberName)) {
+      return getMemberColorClass(memberColors.get(memberName));
+    }
     return getMemberColorClass(DEFAULT_MEMBER_COLOR);
-  }, []);
+  }, [memberColors]);
   
   // Navigation handlers
   const handlePrevMonth = useCallback(() => {
@@ -259,7 +264,7 @@ export function DesktopCalendarGrid({
                                   className={cn(
                                     "w-full text-left rounded px-1.5 py-0.5 text-xs font-medium text-white",
                                     "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
-                                    getMemberColor()
+                                    getMemberColor(event.family_member)
                                   )}
                                   onClick={(e) => handleEventClick(event, e)}
                                 >
@@ -311,7 +316,7 @@ export function DesktopCalendarGrid({
                                       <span
                                         className={cn(
                                           "w-3 h-3 rounded-full",
-                                          getMemberColor()
+                                          getMemberColor(event.family_member)
                                         )}
                                       />
                                       <span className="text-xs font-medium">
