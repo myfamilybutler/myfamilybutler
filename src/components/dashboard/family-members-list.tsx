@@ -2,6 +2,7 @@
 
 import { Crown, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
 
 interface FamilyUser {
   id: string;
@@ -13,6 +14,7 @@ interface FamilyUser {
 interface FamilyMember {
   id: string;
   name: string;
+  color?: string; // HEX color code
 }
 
 interface FamilyMembersListProps {
@@ -61,45 +63,53 @@ export function FamilyMembersList({
       ))}
 
       {/* Family Members (non-WhatsApp) */}
-      {familyMembers.map((member) => (
-        <div
-          key={member.id}
-          className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-semibold text-slate-600">
-                {member.name.charAt(0).toUpperCase()}
+      {familyMembers.map((member) => {
+        const memberColor = member.color || DEFAULT_MEMBER_COLOR;
+        
+        return (
+          <div
+            key={member.id}
+            className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              {/* Color avatar with member initial */}
+              <div 
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: memberColor }}
+              >
+                <span className="text-sm font-semibold text-white">
+                  {member.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <span className="text-sm font-medium text-gray-900 truncate">
+                {member.name}
               </span>
             </div>
-            <span className="text-sm font-medium text-gray-900 truncate">
-              {member.name}
-            </span>
+            
+            {/* Edit/Delete buttons - only for admins when showActions is true */}
+            {showActions && isAdmin && (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-600"
+                  onClick={() => onEditMember?.(member)}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-slate-500 hover:text-red-600"
+                  onClick={() => onDeleteMember?.(member)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
           </div>
-          
-          {/* Edit/Delete buttons - only for admins when showActions is true */}
-          {showActions && isAdmin && (
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-600"
-                onClick={() => onEditMember?.(member)}
-              >
-                <Pencil className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-slate-500 hover:text-red-600"
-                onClick={() => onDeleteMember?.(member)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
 
       {users.length === 0 && familyMembers.length === 0 && (
         <p className="text-sm text-gray-400 py-2">No family members yet</p>

@@ -62,6 +62,9 @@
     "updateError": "Fehler beim Aktualisieren des Termins",
     "createError": "Fehler beim Erstellen des Termins",
     "time": "Uhrzeit",
+    "week": "KW",
+    "noTime": "Keine Uhrzeit",
+    "events": "Termine",
     "quickAddDescription": "Schnell einen neuen Termin zu Ihrem Kalender hinzufügen"
   },
   "settings": {
@@ -98,7 +101,9 @@
     "memberUpdated": "Mitglied aktualisiert!",
     "updateMemberError": "Mitglied konnte nicht aktualisiert werden",
     "memberDeleted": "Mitglied gelöscht!",
-    "deleteMemberError": "Mitglied konnte nicht gelöscht werden"
+    "deleteMemberError": "Mitglied konnte nicht gelöscht werden",
+    "memberName": "Name",
+    "memberColor": "Farbe"
   },
   "pwa": {
     "install": "App installieren",

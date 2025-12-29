@@ -178,18 +178,24 @@ export async function addFamilyMember(
 }
 
 /**
- * Edit a family member's name
+ * Edit a family member's name and/or color
  */
 export async function editFamilyMember(
   memberId: string,
   name: string,
-  familyId: string
+  familyId: string,
+  color?: string
 ): Promise<boolean> {
   const admin = getAdminClient();
   
+  const updateData: { name: string; color?: string } = { name };
+  if (color) {
+    updateData.color = color;
+  }
+  
   const { error } = await admin
     .from('family_members')
-    .update({ name })
+    .update(updateData)
     .eq('id', memberId)
     .eq('household_id', familyId); // Security: ensure member belongs to user's family
   
@@ -229,7 +235,7 @@ export async function deleteFamilyMember(
  */
 export async function getFamilyMembers(
   familyId: string
-): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; is_admin: boolean }>; familyMembers: Array<{ id: string; name: string }> }> {
+): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; is_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
   const admin = getAdminClient();
   
   const { data: users, error: usersError } = await admin
@@ -243,7 +249,7 @@ export async function getFamilyMembers(
   
   const { data: familyMembers, error: membersError } = await admin
     .from('family_members')
-    .select('id, name')
+    .select('id, name, color')
     .eq('household_id', familyId);
   
   if (membersError) {

@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CalendarWidget } from '@/components/calendar/calendar-widget';
 import { CollapsibleCalendar } from '@/components/calendar/collapsible-calendar';
 import { UpcomingEvents } from '@/components/calendar/upcoming-events';
+import { DesktopCalendarGrid } from '@/components/calendar/desktop-calendar-grid';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
 import { QuickAddFab } from '@/components/calendar/quick-add-fab';
@@ -63,36 +63,20 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Desktop Layout (side by side) */}
-        <div className="hidden lg:flex lg:gap-6">
-          <aside className="lg:w-80 lg:flex-shrink-0 space-y-4">
-            <Card className="border-gray-200 shadow-sm bg-white">
-              <CardHeader>
-                <h3 className="text-sm font-semibold text-gray-900">Upcoming Events</h3>
-              </CardHeader>
-              <CardContent>
-                <UpcomingEvents
-                  events={allEvents}
-                  pageSize={5}
-                  onEventsChanged={refresh}
-                  hideHeader
-                />
-              </CardContent>
-            </Card>
-          </aside>
-
-          <main className="flex-1">
-            <CalendarWidget
-              events={allEvents}
-              onEventsChanged={refresh}
-            />
-          </main>
+        {/* Desktop Layout (full-width Google Calendar style grid) */}
+        <div className="hidden lg:block">
+          <DesktopCalendarGrid
+            events={allEvents}
+            onEventsChanged={refresh}
+          />
         </div>
 
-        {/* Quick Add FAB (mobile-friendly) */}
-        <QuickAddFab onClick={() => setQuickAddOpen(true)} />
+        {/* Quick Add FAB (mobile only - desktop uses grid click) */}
+        <div className="lg:hidden">
+          <QuickAddFab onClick={() => setQuickAddOpen(true)} />
+        </div>
         
-        {/* Quick Add Bottom Sheet */}
+        {/* Quick Add Bottom Sheet (mobile only) */}
         <QuickAddSheet
           open={quickAddOpen}
           onOpenChange={setQuickAddOpen}

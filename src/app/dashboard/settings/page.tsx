@@ -1,6 +1,5 @@
 'use client';
 
-
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
@@ -18,17 +17,19 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
 import { AccountSecurityCard } from '@/components/settings/account-security-card';
 import { GoogleCalendarConnectButton } from '@/components/settings/google-calendar-connect';
+import { ColorPicker } from '@/components/settings/color-picker';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
+import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
 
 import { FamilyMembersList, type FamilyUser, type FamilyMember } from '@/components/dashboard/family-members-list';
 
 import { useDashboardData } from '@/hooks/use-dashboard-data';
-// ... imports
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -51,6 +52,7 @@ export default function SettingsPage() {
   const [editMemberDialog, setEditMemberDialog] = useState(false);
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [editMemberName, setEditMemberName] = useState('');
+  const [editMemberColor, setEditMemberColor] = useState(DEFAULT_MEMBER_COLOR);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Fetch data - extracted to useCallback so mutations can refetch
@@ -197,7 +199,8 @@ export default function SettingsPage() {
         body: JSON.stringify({ 
           action: 'edit', 
           memberId: selectedMember.id, 
-          name: editMemberName.trim() 
+          name: editMemberName.trim(),
+          color: editMemberColor,
         })
       });
       
@@ -206,6 +209,7 @@ export default function SettingsPage() {
         setEditMemberDialog(false);
         setSelectedMember(null);
         setEditMemberName('');
+        setEditMemberColor(DEFAULT_MEMBER_COLOR);
         fetchData();
       } else {
         const data = await res.json();
@@ -255,6 +259,7 @@ export default function SettingsPage() {
   const openEditDialog = (member: FamilyMember) => {
     setSelectedMember(member);
     setEditMemberName(member.name);
+    setEditMemberColor(member.color || DEFAULT_MEMBER_COLOR);
     setEditMemberDialog(true);
   };
 
@@ -442,20 +447,31 @@ export default function SettingsPage() {
             if (!open) {
               setSelectedMember(null);
               setEditMemberName('');
+              setEditMemberColor(DEFAULT_MEMBER_COLOR);
             }
           }}
           title={t('settings.editMemberTitle')}
           description={
-            <div className="space-y-3">
+            <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 {t('settings.editMemberDesc')}
               </p>
-              <Input
-                value={editMemberName}
-                onChange={(e) => setEditMemberName(e.target.value)}
-                placeholder={t('settings.enterName')}
-                className="mt-2"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="memberName">{t('settings.memberName')}</Label>
+                <Input
+                  id="memberName"
+                  value={editMemberName}
+                  onChange={(e) => setEditMemberName(e.target.value)}
+                  placeholder={t('settings.enterName')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('settings.memberColor')}</Label>
+                <ColorPicker
+                  value={editMemberColor}
+                  onChange={setEditMemberColor}
+                />
+              </div>
             </div>
           }
           confirmText={t('common.save')}

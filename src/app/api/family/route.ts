@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
     
     const { userId } = session;
-    const { action, phoneNumber, email, name, memberId } = await request.json();
+    const { action, phoneNumber, email, name, memberId, color } = await request.json();
     
     if (!action) {
       return NextResponse.json({ error: 'Missing action' }, { status: 400 });
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing memberId or name' }, { status: 400 });
       }
       
-      const success = await editFamilyMember(memberId, name, user.household_id);
+      const success = await editFamilyMember(memberId, name, user.household_id, color);
       
       if (!success) {
         return NextResponse.json({ error: 'Failed to edit family member' }, { status: 500 });

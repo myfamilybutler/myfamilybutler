@@ -62,6 +62,9 @@
     "updateError": "Failed to update event",
     "createError": "Failed to create event",
     "time": "Time",
+    "week": "Wk",
+    "noTime": "No time set",
+    "events": "events",
     "quickAddDescription": "Quickly add a new event to your calendar"
   },
   "settings": {
@@ -98,7 +101,9 @@
     "memberUpdated": "Member updated!",
     "updateMemberError": "Failed to update member",
     "memberDeleted": "Member deleted!",
-    "deleteMemberError": "Failed to delete member"
+    "deleteMemberError": "Failed to delete member",
+    "memberName": "Name",
+    "memberColor": "Color"
   },
   "pwa": {
     "install": "Install App",
