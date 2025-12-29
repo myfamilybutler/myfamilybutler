@@ -126,14 +126,13 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting, memberColors 
               {event.title}
             </p>
             {event.family_member && (
-              <div className="flex items-center gap-1.5 mt-1">
+              <div className="mt-1">
                 <span
                   className={cn(
-                    'w-2 h-2 rounded-full',
+                    'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-white',
                     getMemberColor(event.family_member, memberColors?.get(event.family_member))
                   )}
-                />
-                <span className="text-xs text-gray-500">
+                >
                   {event.family_member}
                 </span>
               </div>

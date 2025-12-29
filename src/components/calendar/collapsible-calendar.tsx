@@ -157,7 +157,7 @@ export function CollapsibleCalendar({
       <CardContent>
         {/* Persistent Week Day Headers */}
         {!isExpanded && (
-          <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50">
+          <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50 -mx-6">
             <div className="text-center text-[10px] sm:text-xs font-medium text-slate-400 p-2 border-r border-slate-200 flex items-center justify-center">
               Wk
             </div>
@@ -182,7 +182,7 @@ export function CollapsibleCalendar({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: swipeDirection === 'right' ? -30 : 30 }}
               transition={{ duration: 0.15 }}
-              className="touch-pan-y"
+              className="touch-pan-y -mx-6"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.2}
