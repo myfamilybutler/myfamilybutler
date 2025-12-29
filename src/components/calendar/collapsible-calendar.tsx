@@ -4,14 +4,15 @@ import { useState, useMemo, useCallback } from 'react';
 import {
   format,
   startOfWeek,
-  addDays,
   addWeeks,
   subWeeks,
   addMonths,
   subMonths,
+  addDays,
   isSameDay,
   isToday,
 } from 'date-fns';
+import { getWeekNumber } from '@/lib/utils/calendar-helpers';
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -156,11 +157,14 @@ export function CollapsibleCalendar({
       <CardContent>
         {/* Persistent Week Day Headers */}
         {!isExpanded && (
-          <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
+          <div className="grid grid-cols-[32px_repeat(7,1fr)] border-b border-slate-200">
+            <div className="text-center text-[10px] sm:text-xs font-medium text-slate-400 py-2 border-r border-slate-200 flex items-center justify-center">
+              Wk
+            </div>
             {weekDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 uppercase"
+                className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-2 uppercase"
               >
                 <span className="hidden sm:inline">{formatDate(day, 'EEE')}</span>
                 <span className="sm:hidden">{formatDate(day, 'EEE').charAt(0)}</span>
@@ -184,7 +188,10 @@ export function CollapsibleCalendar({
               dragElastic={0.2}
               onDragEnd={handleDragEnd}
             >
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+              <div className="grid grid-cols-[32px_repeat(7,1fr)]">
+                <div className="flex items-center justify-center text-xs font-medium text-slate-400 border-r border-slate-200 bg-slate-50/50">
+                  {getWeekNumber(weekDays[0])}
+                </div>
                 {weekDays.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd');
                   const dayColors = eventColorsByDate[dateStr] || [];
