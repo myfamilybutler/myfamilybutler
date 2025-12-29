@@ -35,6 +35,7 @@ import {
 import { cn, formatTime, formatDate } from '@/lib/utils';
 import { getMemberColorClass, DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
 import { getCalendarDays, getWeekNumber, groupEventsByDate } from '@/lib/utils/calendar-helpers';
+import { useSelectedMembers } from '@/stores/filter-store';
 import { QuickAddSheet } from './quick-add-sheet';
 import { EditEventDialog } from './edit-event-dialog';
 import type { CalendarEvent } from '@/types/calendar';
@@ -44,16 +45,14 @@ const MAX_VISIBLE_EVENTS = 3;
 interface DesktopCalendarGridProps {
   events: CalendarEvent[];
   onEventsChanged?: () => void;
-  /** Map of family member names to their colors (from settings) */
-  memberColors?: Map<string, string>;
 }
 
 export function DesktopCalendarGrid({
   events,
   onEventsChanged,
-  memberColors,
 }: DesktopCalendarGridProps) {
   const { t, i18n } = useTranslation();
+  const selectedMembers = useSelectedMembers();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -61,11 +60,19 @@ export function DesktopCalendarGrid({
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   
+  // Filter events based on selected members
+  const filteredEvents = useMemo(() => {
+    if (selectedMembers.length === 0) return events;
+    return events.filter(event => 
+      !event.family_member || selectedMembers.includes(event.family_member)
+    );
+  }, [events, selectedMembers]);
+  
   // Calculate calendar weeks
   const weeks = useMemo(() => getCalendarDays(currentMonth), [currentMonth]);
   
   // Group events by date for efficient lookup
-  const eventsByDate = useMemo(() => groupEventsByDate(events), [events]);
+  const eventsByDate = useMemo(() => groupEventsByDate(filteredEvents), [filteredEvents]);
   
   // Get events for a specific day
   const getEventsForDay = useCallback((day: Date) => {
@@ -73,18 +80,11 @@ export function DesktopCalendarGrid({
     return eventsByDate.get(dayStr) || [];
   }, [eventsByDate]);
   
-  // Get color for a family member
-  const getMemberColor = useCallback((memberName?: string) => {
-    if (!memberName) return getMemberColorClass(DEFAULT_MEMBER_COLOR);
-    
-    // Check if we have a custom color from settings
-    if (memberColors?.has(memberName)) {
-      return getMemberColorClass(memberColors.get(memberName));
-    }
-    
-    // Fall back to default color assignment
+  // Get color for a family member - use default emerald for all for now
+  // TODO: Pass member colors from dashboard when family member colors are loaded
+  const getMemberColor = useCallback(() => {
     return getMemberColorClass(DEFAULT_MEMBER_COLOR);
-  }, [memberColors]);
+  }, []);
   
   // Navigation handlers
   const handlePrevMonth = useCallback(() => {
@@ -175,9 +175,9 @@ export function DesktopCalendarGrid({
         
         <CardContent className="p-0">
           {/* Calendar Grid */}
-          <div className="overflow-x-auto">
+          <div className="overflow-hidden">
             {/* Header Row: Week number + Day names */}
-            <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-slate-200 bg-slate-50">
+            <div className="grid grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-slate-200 bg-slate-50">
               {/* Week number header */}
               <div className="p-2 text-xs font-medium text-slate-400 text-center border-r border-slate-200">
                 {t('calendar.week')}
@@ -200,7 +200,7 @@ export function DesktopCalendarGrid({
               return (
                 <div 
                   key={weekIndex}
-                  className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-slate-100 last:border-b-0"
+                  className="grid grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-slate-100 last:border-b-0"
                 >
                   {/* Week number */}
                   <div className="p-2 text-xs font-medium text-slate-400 text-center bg-slate-50/50 border-r border-slate-100 flex items-start justify-center pt-3">
@@ -257,18 +257,20 @@ export function DesktopCalendarGrid({
                               <HoverCardTrigger asChild>
                                 <button
                                   className={cn(
-                                    "w-full text-left rounded px-1.5 py-0.5 text-xs font-medium text-white truncate",
+                                    "w-full text-left rounded px-1.5 py-0.5 text-xs font-medium text-white",
                                     "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
-                                    getMemberColor(event.family_member)
+                                    getMemberColor()
                                   )}
                                   onClick={(e) => handleEventClick(event, e)}
                                 >
-                                  {!event.is_all_day && event.event_time && (
-                                    <span className="font-bold mr-1">
-                                      {formatTime(event.event_time)}
-                                    </span>
-                                  )}
-                                  {event.title}
+                                  <span className="block truncate">
+                                    {!event.is_all_day && event.event_time && (
+                                      <span className="font-bold mr-1">
+                                        {formatTime(event.event_time)}
+                                      </span>
+                                    )}
+                                    {event.title}
+                                  </span>
                                 </button>
                               </HoverCardTrigger>
                               <HoverCardContent 
@@ -309,7 +311,7 @@ export function DesktopCalendarGrid({
                                       <span
                                         className={cn(
                                           "w-3 h-3 rounded-full",
-                                          getMemberColor(event.family_member)
+                                          getMemberColor()
                                         )}
                                       />
                                       <span className="text-xs font-medium">

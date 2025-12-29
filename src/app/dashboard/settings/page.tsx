@@ -474,9 +474,9 @@ export default function SettingsPage() {
               </div>
             </div>
           }
-          confirmText={t('common.save')}
           onConfirm={handleEditMember}
           loading={actionLoading}
+          variant="default"
         />
         
         {/* Delete Member Dialog */}
