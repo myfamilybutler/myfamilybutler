@@ -33,6 +33,12 @@ export const ExtractedEventSchema = z.object({
   family_member: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  recurrence: z.object({
+    frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']),
+    interval: z.number().default(1),
+    by_day: z.array(z.string()).optional(),
+    is_recurring: z.literal(true),
+  }).optional().nullable(),
 });
 
 /**
@@ -43,6 +49,8 @@ export const EventExtractorResponseSchema = z.object({
   events: z.array(ExtractedEventSchema).optional(),
   needs_clarification: z.boolean(),
   clarification_question: z.string().optional().nullable(),
+  unknown_entities_mentioned: z.array(z.string()).optional(),
+  suggested_action: z.enum(['create_event', 'dashboard_redirect', 'clarify']).optional(),
   confidence: z.number().min(0).max(1).optional(),
 });
 
