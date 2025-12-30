@@ -96,6 +96,17 @@ export function Navbar() {
                     {t('common.dashboard')}
                   </Link>
                 </DropdownMenuItem>
+                {dbUser?.is_admin && (
+                  <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/admin" className="flex items-center gap-2 cursor-pointer font-bold text-amber-700 hover:text-amber-800 hover:bg-amber-50">
+                      <LayoutDashboard className="w-4 h-4" />
+                      {t('common.admin')} (Admin)
+                    </Link>
+                  </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/settings" className="flex items-center gap-2 cursor-pointer">
                     <Settings className="w-4 h-4" />

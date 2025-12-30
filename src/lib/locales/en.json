@@ -20,7 +20,8 @@
     "success": "Success",
     "prevMonth": "Previous month",
     "nextMonth": "Next month",
-    "filters": "Filters"
+    "filters": "Filters",
+    "admin": "Admin Dashboard"
   },
   "calendar": {
     "upcomingEvents": "Upcoming Events",

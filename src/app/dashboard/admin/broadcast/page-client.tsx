@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Send, Terminal } from 'lucide-react';
+import { Loader2, Send, Terminal, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function BroadcastClient() {
@@ -109,11 +109,11 @@ export function BroadcastClient() {
               onClick={() => handleSend(true)}
               disabled={loading}
             >
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Is Test?'}
-              Send Test
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
+              Send Preview
             </Button>
             <Button 
-              className="w-full bg-red-600 hover:bg-red-700" 
+              className="flex-1 bg-red-600 hover:bg-red-700" 
               onClick={() => handleSend(false)}
               disabled={loading}
             >

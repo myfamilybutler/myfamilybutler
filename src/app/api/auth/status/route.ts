@@ -29,6 +29,7 @@ export async function GET() {
         return NextResponse.json({
           authenticated: true,
           userId: user.id,
+          user: user, // Return full DB user profile
         });
       }
     }

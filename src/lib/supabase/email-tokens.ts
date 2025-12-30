@@ -21,7 +21,11 @@ export async function generateEmailLoginToken(
 ): Promise<{ success: boolean; link?: string; user?: User; error?: string }> {
     const admin = getAdminClient();
     const normalizedEmail = email.toLowerCase().trim();
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // Force localhost in development to avoid env var mishaps
+    const isDev = process.env.NODE_ENV === 'development';
+    const baseUrl = isDev 
+      ? 'http://localhost:3000' 
+      : (process.env.NEXT_PUBLIC_APP_URL || 'https://myfamilybutler.com');
 
     // 1. Find user by linked_email
     const { data: user, error: userError } = await admin

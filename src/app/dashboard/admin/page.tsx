@@ -17,7 +17,13 @@ export default async function AdminOverviewPage() {
     redirect('/login');
   }
 
-  const { data: user } = await admin.from('users').select('is_admin').eq('id', session.userId).single();
+  // Verify admin status
+  const { data: user, error } = await admin.from('users').select('id, is_admin, display_name').eq('id', session.userId).single();
+  
+  if (error) {
+    // Silent fail safely
+  }
+
   if (!user?.is_admin) {
     redirect('/dashboard');
   }

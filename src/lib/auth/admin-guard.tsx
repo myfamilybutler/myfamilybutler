@@ -3,26 +3,38 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
-import { Loader2 } from 'lucide-react';
+
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { dbUser, loading } = useAuthStore();
+  const { dbUser, user, loading } = useAuthStore();
+
 
   useEffect(() => {
-    if (!loading && (!dbUser || !dbUser.is_admin)) {
+    // 1. If auth loading is done, but we have no session -> Redirect
+    if (!loading && !user && !dbUser) {
+        console.warn('AdminGuard: No user found, redirecting');
+        router.replace('/dashboard'); // or login
+        return;
+    }
+
+    // 2. If Auth User exists but DB User is missing -> 
+    // NOW HANDLED BY AuthProvider/StatusAPI. We just wait.
+    
+    // 3. If we HAVE dbUser, check Admin Status
+    if (!loading && dbUser && !dbUser.is_admin) {
       console.warn('Unauthorized access attempt to Admin Dashboard');
       router.replace('/dashboard');
     }
-  }, [dbUser, loading, router]);
+  }, [dbUser, user, loading, router]);
 
-  if (loading || !dbUser?.is_admin) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+  if (loading || (user && !dbUser)) {
+    // Standard Loading State - No Spinner (Rule: No custom animations)
+    return null; 
   }
+  
+  // If dbUser loaded but not admin -> Return null (effect will redirect)
+  if (dbUser && !dbUser.is_admin) return null;
 
   return <>{children}</>;
 }
