@@ -1,10 +1,25 @@
 import { getAdminClient } from '@/lib/supabase';
 import { AILogsClient } from '@/app/dashboard/admin/ai-logs/page-client';
+import { validateSession } from '@/lib/auth/helpers';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AILogsPage() {
   const admin = getAdminClient();
+
+  // 1. Security Check
+  let session;
+  try {
+    session = await validateSession();
+  } catch {
+    redirect('/login');
+  }
+
+  const { data: user } = await admin.from('users').select('is_admin').eq('id', session.userId).single();
+  if (!user?.is_admin) {
+    redirect('/dashboard');
+  }
 
   // Fetch recent interactions
   const { data: logs, error } = await admin
