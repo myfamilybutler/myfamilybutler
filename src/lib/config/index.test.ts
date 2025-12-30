@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { APP_CONFIG } from './config';
+import { APP_CONFIG } from './index';
 
 describe('APP_CONFIG', () => {
   it('should have correct localization settings', () => {

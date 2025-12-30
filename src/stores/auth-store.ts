@@ -14,6 +14,7 @@ export interface DbUser {
   whatsapp_verified?: boolean | null;
   onboarding_modal_shown?: boolean;
   onboarding_source?: 'whatsapp' | 'telegram' | 'invite' | 'web';
+  is_admin?: boolean;
   created_at?: string;
 }
 

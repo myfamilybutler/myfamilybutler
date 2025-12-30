@@ -1,6 +1,6 @@
 import { format, type Locale } from 'date-fns';
 import { enUS, de } from 'date-fns/locale';
-import i18n from '@/lib/i18n';
+import i18n from '@/lib/config/i18n';
 
 const locales: Record<string, Locale> = {
   en: enUS,

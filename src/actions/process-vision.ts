@@ -16,7 +16,7 @@ import {
   NO_EVENTS_RESPONSE,
   type VisionExtractionResponse,
   type VisionEvent 
-} from '@/lib/agents/vision-agent';
+} from '@/lib/ai/agents/vision-agent';
 import { createEvent } from '@/lib/supabase';
 
 // ===========================================

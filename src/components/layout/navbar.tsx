@@ -18,14 +18,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { stopImpersonating } from '@/actions/admin-auth';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
-import i18n from '@/lib/i18n';
+import i18n from '@/lib/config/i18n';
 import { FamilyFilter } from './family-filter';
 
 export function Navbar() {
   const router = useRouter();
   const { t } = useTranslation();
   const { user, dbUser, signOut } = useAuthStore();
+  
+  const [isImpersonating, setIsImpersonating] = useState(false);
+
+  useEffect(() => {
+    // Check for cookie on mount to avoid hydration mismatch
+    if (typeof document !== 'undefined') {
+      // Use setTimeout to push state update to next tick, avoiding "synchronous setState" lint error
+      setTimeout(() => {
+        setIsImpersonating(document.cookie.includes('impersonate_id'));
+      }, 0);
+    }
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -36,7 +50,21 @@ export function Navbar() {
   const displayIdentifier = dbUser?.display_name || dbUser?.linked_email || dbUser?.phone_number || user?.email || 'Account';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+    <div className="flex flex-col">
+      {isImpersonating && (
+        <div className="flex w-full items-center justify-center gap-4 bg-amber-500 p-2 text-sm font-bold text-white">
+          <span>⚠️ You are impersonating a user</span>
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => stopImpersonating()}
+            className="h-6 text-xs"
+          >
+            Exit Impersonation
+          </Button>
+        </div>
+      )}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -101,5 +129,6 @@ export function Navbar() {
         </div>
       </div>
     </header>
+    </div>
   );
 }
