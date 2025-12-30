@@ -24,6 +24,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+    }).catch((err) => {
+      console.error('AuthProvider: session check failed', err);
+    }).finally(() => {
       setLoading(false);
     });
 
