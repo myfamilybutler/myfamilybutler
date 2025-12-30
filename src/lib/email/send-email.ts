@@ -6,7 +6,7 @@
  */
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.EMAIL_FROM || 'My Family Butler <onboarding@resend.dev>';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'My Family Butler <onboarding@resend.dev>';
 
 interface SendEmailResult {
     success: boolean;
