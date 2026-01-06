@@ -81,6 +81,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  * POST - Handle incoming Meta WhatsApp webhook events
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  console.log('!!! WEBHOOK ENTRY HIT - Timestamp: ' + new Date().toISOString());
+  console.log('[Webhook] Headers:', Object.fromEntries(request.headers));
   // Provider on/off switch - return 200 but don't process if disabled
   if (!isProviderEnabled('whatsapp_business')) {
     console.log('[WhatsApp Webhook] Provider disabled, ignoring webhook');

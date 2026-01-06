@@ -115,7 +115,7 @@ CREATE POLICY "Service role can manage examples" ON prompt_examples
 -- ---------------------------------------------------------------------------
 -- 4. Useful views for analytics
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE VIEW ai_daily_metrics AS
+CREATE OR REPLACE VIEW ai_daily_metrics WITH (security_invoker = true) AS
 SELECT 
   DATE(created_at) as date,
   prompt_version,
