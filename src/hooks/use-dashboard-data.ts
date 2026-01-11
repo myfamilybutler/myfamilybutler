@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { useAuthStore, type DbUser } from '@/stores/auth-store';
 import type { CalendarEvent } from '@/types/calendar';
 import { log } from '@/lib/utils/logger';
@@ -12,9 +11,17 @@ interface DashboardApiResponse {
   error?: string;
 }
 
+interface SyncResponse {
+  success: boolean;
+  created?: number;
+  updated?: number;
+  deleted?: number;
+  linked?: number;
+  errors?: string[];
+}
+
 export function useDashboardData() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
   const { members: familyMembers, memberNames: familyMemberNames, memberColors, loading: familyLoading } = useFamilyData();
   const [loading, setLoading] = useState(true);
   const dbUser = useAuthStore((state) => state.dbUser);
@@ -46,41 +53,40 @@ export function useDashboardData() {
     }
   }, []);
 
-  const fetchGoogleEvents = useCallback(async (): Promise<CalendarEvent[]> => {
+  const triggerGoogleSync = useCallback(async (): Promise<boolean> => {
     try {
-      const now = new Date();
-      const start = startOfMonth(addMonths(now, -1)).toISOString();
-      const end = endOfMonth(addMonths(now, 2)).toISOString();
-
-      const response = await fetch(`/api/calendar/google-events?start=${start}&end=${end}`);
-      const result = await response.json();
-
-      if (!response.ok || !result.events) {
-        return [];
+      const response = await fetch('/api/calendar/sync', { method: 'POST' });
+      const result: SyncResponse = await response.json();
+      
+      if (!response.ok) return false;
+      
+      // Return true if any changes happened
+      const hasChanges = (
+        (result.created || 0) > 0 || 
+        (result.updated || 0) > 0 || 
+        (result.deleted || 0) > 0 || 
+        (result.linked || 0) > 0
+      );
+      
+      if (hasChanges) {
+        log.info(`[Dashboard] Sync changes: +${result.created} ~${result.updated} -${result.deleted}`);
       }
-
-      return result.events.map((e: CalendarEvent) => ({
-        ...e,
-        source: 'google' as const,
-      }));
+      
+      return hasChanges;
     } catch (error) {
-      log.error('Failed to fetch Google events:', error);
-      return [];
+      log.error('[Dashboard] Sync trigger failed:', error);
+      return false;
     }
   }, []);
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
     
-    // Step 1: Fetch dashboard data and Google events in parallel
-    const [dashboardResponse, gEvents] = await Promise.all([
-      fetchEventsData(),
-      fetchGoogleEvents(),
-    ]);
+    // Step 1: Initial load from Database (Fast)
+    const dashboardResponse = await fetchEventsData();
     
     if (!isMounted.current) return;
     
-    // Update user state immediately using ref (avoids callback recreation)
     if (dashboardResponse?.user) {
       setDbUserRef.current(dashboardResponse.user);
     }
@@ -88,26 +94,34 @@ export function useDashboardData() {
     if (dashboardResponse?.events) {
       setEvents(dashboardResponse.events.map((e: CalendarEvent) => ({ 
         ...e, 
-        source: 'app' as const 
+        source: e.source || 'app'
       })));
     }
+
+    setLoading(false); // Show data immediately
+
+    // Step 2: Trigger Sync in background
+    // If sync makes changes, we reload the data
+    const hasChanges = await triggerGoogleSync();
     
-    if (gEvents) {
-      setGoogleEvents(gEvents);
+    if (hasChanges && isMounted.current) {
+      log.debug('[Dashboard] Sync reported changes, refreshing data...');
+      const updatedResponse = await fetchEventsData();
+      
+      if (updatedResponse?.events && isMounted.current) {
+        setEvents(updatedResponse.events.map((e: CalendarEvent) => ({ 
+          ...e, 
+          source: e.source || 'app'
+        })));
+      }
     }
-    
-    setLoading(false);
-  }, [fetchEventsData, fetchGoogleEvents]);
+  }, [fetchEventsData, triggerGoogleSync]);
 
   useEffect(() => {
     const abortController = new AbortController();
     isMounted.current = true;
     
-    // Wrap in async IIFE to avoid sync setState warning
     void (async () => {
-      // Pass signal to loadAllData if we were to support it, 
-      // but for now checking isMounted is enough for state safety.
-      // Ideally pass signal to fetch calls.
       if (isMounted.current) {
         await loadAllData(); 
       }
@@ -118,12 +132,14 @@ export function useDashboardData() {
       abortController.abort();
     };
   }, [loadAllData]);
-
-  const allEvents = useMemo(() => [...events, ...googleEvents], [events, googleEvents]);
+  
+  // Memoized to prevent unnecessary re-renders downstream
+  // Since we merged googleEvents into events via DB sync, we just use events
+  const allEvents = useMemo(() => events, [events]);
 
   return {
     events,
-    googleEvents,
+    googleEvents: [], // Deprecated: google events are now in 'events'
     allEvents,
     familyMembers,
     familyMemberNames,
