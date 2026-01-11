@@ -177,7 +177,7 @@ export function AddMemberDialog({
                 onChange={(e) => setInvitePhone(e.target.value)}
                 placeholder="+43 660 1234567" 
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 They will receive an invite when they message our WhatsApp bot.
               </p>
             </div>
@@ -199,7 +199,7 @@ export function AddMemberDialog({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="grandma@example.com" 
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 We will send them a magic link to join the family.
               </p>
             </div>
@@ -220,7 +220,7 @@ export function AddMemberDialog({
                 onChange={(e) => setMemberName(e.target.value)}
                 placeholder="e.g. Grandma, Kids" 
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 For members who don&apos;t use the app but participate in tasks/events.
               </p>
             </div>

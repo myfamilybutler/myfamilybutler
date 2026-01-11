@@ -5,6 +5,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { I18nProvider } from "@/components/providers/i18n-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from '@/components/layout/theme-provider';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,16 +50,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <PostHogProvider>
-          <I18nProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </I18nProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <I18nProvider>
+              <AuthProvider>
+                  {children}
+              </AuthProvider>
+            </I18nProvider>
+          </ThemeProvider>
         </PostHogProvider>
         <Toaster />
       </body>

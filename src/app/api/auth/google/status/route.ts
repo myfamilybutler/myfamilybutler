@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
 import { hasGoogleToken, getSelectedCalendar } from '@/lib/auth/vault';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/auth/google/status
  * 

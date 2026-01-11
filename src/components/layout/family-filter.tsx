@@ -42,8 +42,8 @@ export function FamilyFilter() {
           <Users className="w-5 h-5" />
           {hasActiveFilters && (
             <Badge 
-              variant="secondary" 
-              className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 flex items-center justify-center text-xs bg-emerald-600 text-white"
+              variant="success" 
+              className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 flex items-center justify-center text-xs bg-emerald-600 dark:bg-emerald-500 text-white"
             >
               {selectedMembers.length}
             </Badge>
@@ -57,12 +57,14 @@ export function FamilyFilter() {
               {t('calendar.filterByMember')}
             </span>
             {hasActiveFilters && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={clearFilters}
-                className="text-xs text-slate-500 hover:text-slate-800 transition-colors"
+                className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground hover:bg-transparent"
               >
                 {t('calendar.clear')}
-              </button>
+              </Button>
             )}
           </div>
           

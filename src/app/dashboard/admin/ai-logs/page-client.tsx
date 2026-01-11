@@ -125,7 +125,7 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
                        </TableCell>
                        <TableCell>
                          {log.was_successful ? (
-                           <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Success</Badge>
+                           <Badge variant="success">Success</Badge>
                          ) : (
                            <Badge variant="destructive">Error</Badge>
                          )}

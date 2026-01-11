@@ -44,7 +44,7 @@ export async function GET() {
 
     // Generate OAuth URL
     const url = getGoogleOAuthUrl(state);
-
+    
     return NextResponse.json({ url });
 
   } catch (error) {

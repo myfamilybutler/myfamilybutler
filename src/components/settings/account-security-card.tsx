@@ -234,7 +234,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
           {/* Display Name */}
           <div className="space-y-2">
             <Label htmlFor="displayName" className="flex items-center gap-2">
-              <User className="w-4 h-4 text-gray-500" />
+              <User className="w-4 h-4 text-muted-foreground" />
               Display Name
             </Label>
             
@@ -256,8 +256,8 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center justify-between p-2 rounded-md border border-transparent hover:border-gray-200 hover:bg-slate-50 transition-colors group">
-                <span className="font-medium text-gray-900 ml-1">{displayName || 'No name set'}</span>
+              <div className="flex items-center justify-between p-2 rounded-md border border-transparent hover:border-border hover:bg-accent transition-colors group">
+                <span className="font-medium text-foreground ml-1">{displayName || 'No name set'}</span>
                 <Button 
                   onClick={() => setIsEditingName(true)} 
                   variant="ghost" 
@@ -272,27 +272,27 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
           </div>
 
           {/* Divider */}
-          <div className="border-t border-gray-100 pt-4">
-            <p className="text-sm font-medium text-gray-700 mb-3">Login Methods</p>
+          <div className="border-t border-border pt-4">
+            <p className="text-sm font-medium text-foreground/80 mb-3">Login Methods</p>
           </div>
 
           {/* Email - from Supabase Auth */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                 <Mail className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Email</p>
+                <p className="font-medium text-foreground">Email</p>
                 {email ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{email}</span>
+                    <span className="text-sm text-muted-foreground">{email}</span>
                     {isEmailVerified ? (
-                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                      <Badge variant="success">
                         <Check className="w-3 h-3 mr-1" /> Verified
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                      <Badge variant="warning">
                         Not Verified
                       </Badge>
                     )}
@@ -332,22 +332,22 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
           </div>
 
           {/* Phone Number */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                <Phone className="w-5 h-5 text-emerald-600" />
+              <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 rounded-full flex items-center justify-center">
+                <Phone className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Phone Number</p>
+                <p className="font-medium text-foreground">Phone Number</p>
                 {dbUser?.phone_number ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{maskPhone(dbUser.phone_number)}</span>
+                    <span className="text-sm text-muted-foreground">{maskPhone(dbUser.phone_number)}</span>
                     {dbUser?.whatsapp_verified ? (
-                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                      <Badge variant="success">
                         <Check className="w-3 h-3 mr-1" /> WhatsApp
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                      <Badge variant="info">
                         Phone added
                       </Badge>
                     )}
@@ -370,22 +370,22 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
           </div>
 
           {/* Telegram */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-blue-500" />
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-950 rounded-full flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-blue-500 dark:text-blue-400" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">Telegram</p>
+                <p className="font-medium text-foreground">Telegram</p>
                 {dbUser?.telegram_chat_id ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Connected</span>
-                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                    <span className="text-sm text-muted-foreground">Connected</span>
+                    <Badge variant="success">
                       <Check className="w-3 h-3 mr-1" /> Telegram
                     </Badge>
                   </div>
                 ) : (
-                  <span className="text-sm text-gray-400">Not connected – Message @FamilyButlerBot</span>
+                  <span className="text-sm text-muted-foreground/60">Not connected – Message @FamilyButlerBot</span>
                 )}
               </div>
             </div>

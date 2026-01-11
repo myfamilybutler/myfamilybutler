@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -27,22 +27,18 @@ import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
 import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
 
-import { FamilyMembersList, type FamilyUser, type FamilyMember } from '@/components/dashboard/family-members-list';
+import { FamilyMembersList, type FamilyMember } from '@/components/dashboard/family-members-list';
 
 import { useDashboardData } from '@/hooks/use-dashboard-data';
+import { useFamilyData } from '@/stores/family-store';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { dbUser, signOut } = useAuthStore(); // dbUser will be hydrated by useDashboardData
-  // Trigger global data fetch to ensure dbUser is fresh
+  const { dbUser, signOut } = useAuthStore();
   const { refresh: refreshDashboard } = useDashboardData();
+  const { users, profileMembers, hasHousehold, isHouseholdAdmin, loading: familyLoading, refetch: refetchFamily } = useFamilyData();
   
-  const [members, setMembers] = useState<FamilyUser[]>([]);
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-
   // Dialog states
   const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
   const [deleteFamilyDialog, setDeleteFamilyDialog] = useState(false);
@@ -55,52 +51,19 @@ export default function SettingsPage() {
   const [editMemberColor, setEditMemberColor] = useState(DEFAULT_MEMBER_COLOR);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Fetch data - extracted to useCallback so mutations can refetch
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch('/api/family');
-      const data = await res.json();
-      
-      if (data.success) {
-        setMembers(data.data.users || []);
-        setFamilyMembers(data.data.familyMembers || []);
-        setIsAdmin(data.data.isAdmin || false);
-      } else {
-        console.warn('Family fetch failed:', data.error);
-      }
-    } catch (error) {
-      console.error('Error fetching family data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   // Combined update handler
   const handleDataUpdate = useCallback(async () => {
     await Promise.all([
       refreshDashboard(),
-      fetchData()
+      refetchFamily()
     ]);
-  }, [refreshDashboard, fetchData]);
+  }, [refreshDashboard, refetchFamily]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-  
-  // Fetch immediately - the API validates session server-side
-  // On direct page load, dbUser may not be populated (cookie-based auth),
-  // but the API will work correctly with the session cookie
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-  
   // Handle logout
   const handleLogout = async () => {
     await signOut();
     router.push('/login');
   };
-  
-  // Handle add/invite member logic moved to AddMemberDialog
   
   // Handle data export (GDPR: Right to portability)
   const handleExportData = async () => {
@@ -210,7 +173,7 @@ export default function SettingsPage() {
         setSelectedMember(null);
         setEditMemberName('');
         setEditMemberColor(DEFAULT_MEMBER_COLOR);
-        fetchData();
+        refetchFamily();
       } else {
         const data = await res.json();
         toast.error(data.error || t('settings.updateMemberError'));
@@ -242,7 +205,7 @@ export default function SettingsPage() {
         toast.success(t('settings.memberDeleted'));
         setDeleteMemberDialog(false);
         setSelectedMember(null);
-        fetchData();
+        refetchFamily();
       } else {
         const data = await res.json();
         toast.error(data.error || t('settings.deleteMemberError'));
@@ -274,16 +237,17 @@ export default function SettingsPage() {
       <DashboardLayout>
         <div className="space-y-6 max-w-2xl mx-auto">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{t('settings.title')}</h1>
-            <p className="text-gray-500 mt-1">{t('settings.description')}</p>
+            <h1 className="text-2xl font-bold text-foreground">{t('settings.title')}</h1>
+            <p className="text-muted-foreground mt-1">{t('settings.description')}</p>
           </div>
           
           {/* Account & Security Section */}
           <AccountSecurityCard 
-          dbUser={dbUser} 
-          loading={loading} 
-          onUpdate={handleDataUpdate} 
-        />  
+            dbUser={dbUser} 
+            loading={familyLoading} 
+            onUpdate={handleDataUpdate} 
+          />  
+          
           {/* Family Section */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -293,34 +257,39 @@ export default function SettingsPage() {
                   {t('settings.familyMembers')}
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  {isAdmin ? t('settings.adminRole') : t('settings.memberRole')}
+                  {isHouseholdAdmin ? t('settings.adminRole') : t('settings.memberRole')}
                 </CardDescription>
               </div>
-              {isAdmin && (
+              {hasHousehold ? (
                 <Button size="sm" onClick={() => setAddMemberDialog(true)}>
                   <Plus className="w-4 h-4 mr-2" />
                   {t('settings.addMember')}
                 </Button>
+              ) : (
+                <Button size="sm" onClick={() => router.push('/onboarding')}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Family
+                </Button>
               )}
             </CardHeader>
             <CardContent className="space-y-3">
-              {loading ? (
+              {familyLoading ? (
                 <div className="animate-pulse space-y-2">
-                  <div className="h-10 bg-slate-100 rounded"></div>
-                  <div className="h-10 bg-slate-100 rounded"></div>
+                  <div className="h-10 bg-muted rounded"></div>
+                  <div className="h-10 bg-muted rounded"></div>
                 </div>
               ) : (
                 <FamilyMembersList
-                  users={members}
-                  familyMembers={familyMembers}
-                  isAdmin={isAdmin}
+                  users={users}
+                  familyMembers={profileMembers}
+                  isAdmin={isHouseholdAdmin}
                   showActions={true}
                   onEditMember={openEditDialog}
                   onDeleteMember={openDeleteDialog}
                 />
               )}
               
-              {!isAdmin && (
+              {!isHouseholdAdmin && (
                 <Button
                   variant="outline"
                   className="w-full mt-4 text-orange-600 border-orange-200 hover:bg-orange-50"
@@ -350,9 +319,9 @@ export default function SettingsPage() {
           </Card>
           
           {/* GDPR Section */}
-          <Card>
+          <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-gray-900">{t('settings.gdprTitle')}</CardTitle>
+              <CardTitle className="text-foreground">{t('settings.gdprTitle')}</CardTitle>
               <CardDescription>
                 {t('settings.gdprDesc')}
               </CardDescription>
@@ -367,7 +336,7 @@ export default function SettingsPage() {
                 {t('settings.exportData')}
               </Button>
               
-              {isAdmin && (
+              {isHouseholdAdmin && (
                 <Button
                   variant="outline"
                   className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50"
@@ -404,7 +373,7 @@ export default function SettingsPage() {
         <AddMemberDialog 
           open={addMemberDialog} 
           onOpenChange={setAddMemberDialog}
-          onSuccess={fetchData}
+          onSuccess={refetchFamily}
         />
         
         {/* Delete Account Dialog */}

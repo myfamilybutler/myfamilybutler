@@ -19,7 +19,8 @@ export interface User {
   email_verified?: boolean;  // Whether linked_email has been verified
   household_id?: string;
   display_name?: string;
-  is_admin: boolean;
+  is_admin: boolean;  // Super admin (internal team only)
+  is_household_admin: boolean;  // Household owner/admin
   telegram_chat_id?: string;
   whatsapp_verified?: boolean;
   onboarding_modal_shown?: boolean;  // Has user seen the dashboard modal?

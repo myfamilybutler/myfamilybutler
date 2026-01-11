@@ -232,20 +232,30 @@ async function performPullFromGoogle(
       log.debug(`[Sync] Batch deleted ${toDelete.length} events`);
     }
 
-    // Batch update (individual updates, but minimal)
-    for (const { id, data } of toUpdate) {
-      await admin.from('events').update(data).eq('id', id);
+    // Parallel batch update (instead of sequential)
+    if (toUpdate.length > 0) {
+      await Promise.all(
+        toUpdate.map(({ id, data }) => 
+          admin.from('events').update(data).eq('id', id)
+        )
+      );
+      log.debug(`[Sync] Batch updated ${toUpdate.length} events`);
     }
 
-    // Batch link
-    for (const { id, googleEventId } of toLink) {
-      await admin
-        .from('events')
-        .update({ 
-          google_event_id: googleEventId,
-          google_synced_at: new Date().toISOString(),
-        })
-        .eq('id', id);
+    // Parallel batch link (instead of sequential)
+    if (toLink.length > 0) {
+      await Promise.all(
+        toLink.map(({ id, googleEventId }) =>
+          admin
+            .from('events')
+            .update({ 
+              google_event_id: googleEventId,
+              google_synced_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+        )
+      );
+      log.debug(`[Sync] Batch linked ${toLink.length} events`);
     }
 
     // Batch insert

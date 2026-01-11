@@ -187,7 +187,7 @@ export function CalendarWidget({
 
   return (
     <>
-      <Card className={cn("bg-white", className)}>
+      <Card className={cn("bg-card", className)}>
         {!hideHeader && (
         <CardHeader className="border-b-0">
           <div className="flex items-center justify-between">
@@ -197,7 +197,7 @@ export function CalendarWidget({
                 variant="ghost" 
                 size="icon" 
                 onClick={handlePrevMonth}
-                className="h-8 w-8 hover:bg-slate-100"
+                className="h-8 w-8 hover:bg-muted"
                 aria-label={t('common.prevMonth')}
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -206,7 +206,7 @@ export function CalendarWidget({
                 variant="ghost" 
                 size="icon" 
                 onClick={handleNextMonth}
-                className="h-8 w-8 hover:bg-slate-100"
+                className="h-8 w-8 hover:bg-muted"
                 aria-label={t('common.nextMonth')}
               >
                 <ChevronRight className="w-4 h-4" />
@@ -214,7 +214,7 @@ export function CalendarWidget({
             </div>
             
             {/* Month/Year title */}
-            <h2 className="text-lg font-bold text-gray-900 capitalize">
+            <h2 className="text-lg font-bold text-foreground capitalize">
               {formatDate(currentMonth, 'MMMM yyyy')}
             </h2>
             
@@ -240,7 +240,7 @@ export function CalendarWidget({
               {weekDays.map((day) => (
                 <div
                   key={day}
-                  className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-1 uppercase"
+                  className="text-center text-[10px] sm:text-xs font-medium text-muted-foreground py-1 uppercase"
                 >
                   <span className="hidden sm:inline">{day}</span>
                   <span className="sm:hidden">{day.charAt(0)}</span>
@@ -287,9 +287,9 @@ export function CalendarWidget({
                         onClick={() => handleDayClick(day)}
                         className={cn(
                           'relative min-h-[52px] sm:min-h-[72px] p-0.5 sm:p-1 rounded-lg text-sm transition-colors flex flex-col items-start text-left',
-                          'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1',
-                          !isCurrentMonth && 'opacity-30 bg-slate-50/50',
-                          isTodayDate && 'bg-emerald-50/50 ring-1 ring-emerald-200'
+                          'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1',
+                          !isCurrentMonth && 'opacity-30 bg-muted/50',
+                          isTodayDate && 'bg-emerald-50/50 dark:bg-emerald-900/20 ring-1 ring-emerald-200 dark:ring-emerald-800'
                         )}
                       >
                         {/* Day number */}
@@ -320,7 +320,7 @@ export function CalendarWidget({
                           
                           {/* Overflow indicator */}
                           {overflowCount > 0 && (
-                            <div className="text-[9px] sm:text-[10px] text-gray-400 font-medium px-1">
+                            <div className="text-[9px] sm:text-[10px] text-muted-foreground font-medium px-1">
                               +{overflowCount} {t('calendar.more')}
                             </div>
                           )}

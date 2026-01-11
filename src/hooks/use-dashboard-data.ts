@@ -3,12 +3,7 @@ import { startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { useAuthStore, type DbUser } from '@/stores/auth-store';
 import type { CalendarEvent } from '@/types/calendar';
 import { log } from '@/lib/utils/logger';
-
-interface FamilyMember {
-  id: string;
-  name: string;
-  color?: string;
-}
+import { useFamilyData } from '@/stores/family-store';
 
 interface DashboardApiResponse {
   success: boolean;
@@ -20,7 +15,7 @@ interface DashboardApiResponse {
 export function useDashboardData() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const { members: familyMembers, memberNames: familyMemberNames, memberColors, loading: familyLoading } = useFamilyData();
   const [loading, setLoading] = useState(true);
   const dbUser = useAuthStore((state) => state.dbUser);
   const setDbUser = useAuthStore((state) => state.setDbUser);
@@ -74,46 +69,14 @@ export function useDashboardData() {
     }
   }, []);
 
-  const fetchFamilyMembers = useCallback(async (): Promise<FamilyMember[]> => {
-    try {
-      const response = await fetch('/api/family');
-      const result = await response.json();
-
-      if (response.ok && result.success && result.data) {
-        const allMembers: FamilyMember[] = [];
-        
-        if (result.data.users) {
-          for (const user of result.data.users) {
-            const name = user.display_name || user.phone_number;
-            if (name) allMembers.push({ id: user.id, name });
-          }
-        }
-        
-        if (result.data.familyMembers) {
-          for (const member of result.data.familyMembers) {
-            allMembers.push({ id: member.id, name: member.name, color: member.color });
-          }
-        }
-        
-        return allMembers;
-      }
-      
-      // Log non-success responses for debugging
-      if (!response.ok) {
-        log.warn('Family members fetch failed:', response.status, result.error);
-      }
-      return [];
-    } catch (error) {
-      log.error('Family members fetch error:', error);
-      return [];
-    }
-  }, []);
-
   const loadAllData = useCallback(async () => {
     setLoading(true);
     
-    // Step 1: Fetch dashboard data first to get user (required for family members)
-    const dashboardResponse = await fetchEventsData();
+    // Step 1: Fetch dashboard data and Google events in parallel
+    const [dashboardResponse, gEvents] = await Promise.all([
+      fetchEventsData(),
+      fetchGoogleEvents(),
+    ]);
     
     if (!isMounted.current) return;
     
@@ -129,22 +92,12 @@ export function useDashboardData() {
       })));
     }
     
-    // Step 2: Check if user has household_id before fetching family members
-    // This prevents 404 errors when user doesn't have a household yet
-    const hasHousehold = dashboardResponse?.user?.household_id;
+    if (gEvents) {
+      setGoogleEvents(gEvents);
+    }
     
-    // Fetch Google events and family members in parallel (if applicable)
-    const [gEvents, members] = await Promise.all([
-      fetchGoogleEvents(),
-      hasHousehold ? fetchFamilyMembers() : Promise.resolve([]),
-    ]);
-
-    if (!isMounted.current) return;
-    
-    setGoogleEvents(gEvents);
-    setFamilyMembers(members);
     setLoading(false);
-  }, [fetchEventsData, fetchGoogleEvents, fetchFamilyMembers]); // Note: setDbUser removed from dependencies
+  }, [fetchEventsData, fetchGoogleEvents]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -160,18 +113,6 @@ export function useDashboardData() {
   }, [loadAllData]);
 
   const allEvents = useMemo(() => [...events, ...googleEvents], [events, googleEvents]);
-  const familyMemberNames = useMemo(() => familyMembers.map(m => m.name), [familyMembers]);
-  
-  // Map of family member names to their assigned colors
-  const memberColors = useMemo(() => {
-    const colorMap = new Map<string, string>();
-    for (const member of familyMembers) {
-      if (member.color) {
-        colorMap.set(member.name, member.color);
-      }
-    }
-    return colorMap;
-  }, [familyMembers]);
 
   return {
     events,
@@ -180,7 +121,7 @@ export function useDashboardData() {
     familyMembers,
     familyMemberNames,
     memberColors,
-    loading,
+    loading: loading || familyLoading,
     refresh: loadAllData,
     dbUser,
   };

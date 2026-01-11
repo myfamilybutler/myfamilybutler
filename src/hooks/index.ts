@@ -10,3 +10,10 @@ export { usePwaInstall } from './use-pwa-install';
 // Dashboard Data Hook
 export { useDashboardData } from './use-dashboard-data';
 
+// Family Data Hook (re-exported from stores for backward compatibility)
+export { 
+  useFamilyData, 
+  useFamilyMemberNames, 
+  useMemberColorGetter,
+  type FamilyMember,
+} from '@/stores/family-store';

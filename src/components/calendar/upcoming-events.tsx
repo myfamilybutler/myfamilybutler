@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/lib/utils';
 import { useSelectedMembers } from '@/stores/filter-store';
+import { useFamilyData } from '@/stores/family-store';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
@@ -20,8 +21,6 @@ interface UpcomingEventsProps {
   maxEvents?: number;
   onEventsChanged?: () => void;
   hideHeader?: boolean;
-  /** Map of family member names to their HEX colors */
-  memberColors?: Map<string, string>;
 }
 
 interface ProcessedEvent extends CalendarEvent {
@@ -33,12 +32,12 @@ interface SwipeableEventCardProps {
   onEdit: (event: CalendarEvent) => void;
   onDelete: (eventId: string) => void;
   isDeleting: boolean;
-  memberColors?: Map<string, string>;
 }
 
 
 
-function SwipeableEventCard({ event, onEdit, onDelete, isDeleting, memberColors }: SwipeableEventCardProps) {
+function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEventCardProps) {
+  const { memberColors } = useFamilyData();
   const { t } = useTranslation();
   const x = useMotionValue(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -110,19 +109,19 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting, memberColors 
         onDragStart={() => setIsDragging(true)}
         onDragEnd={handleDragEnd}
         style={{ x }}
-        className="relative bg-gray-50/80 hover:bg-gray-100/80 transition-colors cursor-grab active:cursor-grabbing"
+        className="relative bg-muted/50 hover:bg-muted transition-colors cursor-grab active:cursor-grabbing"
         onClick={() => !isDragging && x.get() === 0 && onEdit(event)}
       >
         <div className="flex items-start gap-3 p-3">
           <div className="flex-shrink-0 w-20 text-right">
-            <span className="text-sm font-semibold text-gray-900">
+            <span className="text-sm font-semibold text-foreground">
               {event.is_all_day ? t('calendar.allDay') : formatTime(event.event_time)}
             </span>
-            <p className="text-xs text-gray-500">{event.dateLabel}</p>
+            <p className="text-xs text-muted-foreground">{event.dateLabel}</p>
           </div>
           
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               {event.title}
             </p>
             {event.family_member && (
@@ -139,8 +138,8 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting, memberColors 
             )}
           </div>
 
-          <div className="flex-shrink-0 flex items-center text-gray-300">
-            <div className="w-1 h-8 bg-gray-200 rounded-full" />
+          <div className="flex-shrink-0 flex items-center text-muted-foreground/30">
+            <div className="w-1 h-8 bg-border rounded-full" />
           </div>
         </div>
       </motion.div>
@@ -154,7 +153,6 @@ export function UpcomingEvents({
   maxEvents = 20, 
   onEventsChanged,
   hideHeader = false,
-  memberColors,
 }: UpcomingEventsProps) {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -278,13 +276,13 @@ export function UpcomingEvents({
   if (allUpcomingEvents.length === 0 && !hasActiveFilters) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-900">{t('calendar.upcomingEvents')}</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t('calendar.upcomingEvents')}</h3>
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-            <Clock className="w-6 h-6 text-gray-300" />
+            <Clock className="w-6 h-6 text-muted-foreground/50" />
           </div>
-          <p className="text-sm text-gray-500">{t('calendar.noEvents')}</p>
-          <p className="text-xs text-gray-400 mt-1">{t('calendar.scheduleClear')}</p>
+          <p className="text-sm text-muted-foreground">{t('calendar.noEvents')}</p>
+          <p className="text-xs text-muted-foreground/80 mt-1">{t('calendar.scheduleClear')}</p>
         </div>
       </div>
     );
@@ -295,9 +293,9 @@ export function UpcomingEvents({
       <div className="space-y-3">
         {!hideHeader && (
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-sm font-semibold text-foreground">
               {t('calendar.upcomingEvents')}
-              <span className="ml-2 text-xs font-normal text-gray-400">
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
                 ({totalEvents})
               </span>
             </h3>
@@ -319,8 +317,8 @@ export function UpcomingEvents({
           {groupedEvents.map((group) => (
             <div key={group.dateLabel}>
               {/* Sticky date header */}
-              <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm py-1.5 -mx-1 px-1 border-b border-gray-100">
-                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1.5 -mx-1 px-1 border-b border-border">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {group.dateLabel}
                 </span>
               </div>
@@ -335,7 +333,6 @@ export function UpcomingEvents({
                       onEdit={handleEditClick}
                       onDelete={handleDelete}
                       isDeleting={deletingEventId === event.id}
-                      memberColors={memberColors}
                     />
                   ))}
                 </AnimatePresence>
@@ -352,11 +349,11 @@ export function UpcomingEvents({
                 variant="ghost"
                 size="sm"
                 onClick={handleShowMore}
-                className="w-full text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                className="w-full text-muted-foreground hover:text-foreground hover:bg-accent"
               >
                 <ChevronDown className="w-4 h-4 mr-1" />
                 {t('calendar.showMore', { count: Math.min(pageSize, remainingEvents) })}
-                <span className="ml-1 text-gray-400">
+                <span className="ml-1 text-muted-foreground/60">
                   ({t('calendar.remaining', { count: remainingEvents })})
                 </span>
               </Button>
@@ -367,7 +364,7 @@ export function UpcomingEvents({
                 variant="ghost"
                 size="sm"
                 onClick={handleShowLess}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground/80 hover:text-muted-foreground"
               >
                 <ChevronUp className="w-4 h-4 mr-1" />
                 {t('calendar.showLess')}

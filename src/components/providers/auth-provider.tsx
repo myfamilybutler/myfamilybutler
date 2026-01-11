@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
+import { useFamilyDataSync } from '@/stores/family-store';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface AuthProviderProps {
@@ -16,7 +17,13 @@ interface AuthProviderProps {
  * This provider is primarily for backward compatibility with any legacy web registrations.
  */
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setUser, setDbUser, setLoading } = useAuthStore();
+  // Select actions individually to prevent re-rendering on state changes
+  const setUser = useAuthStore((s) => s.setUser);
+  const setDbUser = useAuthStore((s) => s.setDbUser);
+  const setLoading = useAuthStore((s) => s.setLoading);
+  
+  // Sync family data when auth state changes
+  useFamilyDataSync();
 
   useEffect(() => {
     const supabase = getSupabase();

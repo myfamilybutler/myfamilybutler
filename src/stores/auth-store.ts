@@ -14,7 +14,8 @@ export interface DbUser {
   whatsapp_verified?: boolean | null;
   onboarding_modal_shown?: boolean;
   onboarding_source?: 'whatsapp' | 'telegram' | 'invite' | 'web';
-  is_admin?: boolean;
+  is_admin?: boolean;  // Super admin (internal team only)
+  is_household_admin?: boolean;  // Household owner/admin
   created_at?: string;
 }
 

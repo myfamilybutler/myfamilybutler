@@ -28,12 +28,12 @@ export async function createFamilyForUser(
     return null;
   }
   
-  // Update user to be admin of this family
+  // Update user to be household admin of this family
   const { error: updateError } = await admin
     .from('users')
     .update({ 
       household_id: household.id,
-      is_admin: true,
+      is_household_admin: true,  // Household owner, NOT super admin
       display_name: displayName
     })
     .eq('id', userId);
@@ -70,6 +70,9 @@ export async function checkPendingInvite(
 
 /**
  * Accept an invite and join family
+ * 
+ * ATOMIC-ISH: Executes both updates in parallel and rolls back invite
+ * status if user update fails to maintain consistency.
  */
 export async function acceptInvite(
   userId: string,
@@ -78,23 +81,34 @@ export async function acceptInvite(
 ): Promise<boolean> {
   const admin = getAdminClient();
   
-  const { error: inviteError } = await admin
-    .from('household_invites')
-    .update({ status: 'accepted' })
-    .eq('id', inviteId);
+  // Execute both updates in parallel for speed
+  const [inviteResult, userResult] = await Promise.all([
+    admin
+      .from('household_invites')
+      .update({ status: 'accepted' })
+      .eq('id', inviteId),
+    admin
+      .from('users')
+      .update({ household_id: familyId, is_household_admin: false })
+      .eq('id', userId),
+  ]);
   
-  if (inviteError) {
-    console.error('Error accepting invite:', inviteError);
+  // Check for invite update failure
+  if (inviteResult.error) {
+    console.error('Error accepting invite:', inviteResult.error);
     return false;
   }
   
-  const { error: userError } = await admin
-    .from('users')
-    .update({ household_id: familyId, is_admin: false })
-    .eq('id', userId);
-  
-  if (userError) {
-    console.error('INCONSISTENCY: Invite accepted but user link failed', { inviteId, userId, familyId });
+  // Check for user update failure - rollback invite if so
+  if (userResult.error) {
+    console.error('Error linking user to family, rolling back invite...', userResult.error);
+    
+    // Rollback: revert invite status to pending
+    await admin
+      .from('household_invites')
+      .update({ status: 'pending' })
+      .eq('id', inviteId);
+    
     return false;
   }
   
@@ -235,30 +249,32 @@ export async function deleteFamilyMember(
  */
 export async function getFamilyMembers(
   familyId: string
-): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; is_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
+): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; is_household_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
   const admin = getAdminClient();
   
-  const { data: users, error: usersError } = await admin
-    .from('users')
-    .select('id, display_name, phone_number, is_admin')
-    .eq('household_id', familyId);
+  // Parallel fetch: users and family members at the same time
+  const [usersResult, membersResult] = await Promise.all([
+    admin
+      .from('users')
+      .select('id, display_name, phone_number, is_household_admin')
+      .eq('household_id', familyId),
+    admin
+      .from('family_members')
+      .select('id, name, color')
+      .eq('household_id', familyId),
+  ]);
   
-  if (usersError) {
-    console.error('Error fetching family users:', usersError);
+  if (usersResult.error) {
+    console.error('Error fetching family users:', usersResult.error);
   }
   
-  const { data: familyMembers, error: membersError } = await admin
-    .from('family_members')
-    .select('id, name, color')
-    .eq('household_id', familyId);
-  
-  if (membersError) {
-    console.error('Error fetching family members:', membersError);
+  if (membersResult.error) {
+    console.error('Error fetching family members:', membersResult.error);
   }
   
   return {
-    users: users ?? [],
-    familyMembers: familyMembers ?? []
+    users: usersResult.data ?? [],
+    familyMembers: membersResult.data ?? []
   };
 }
 

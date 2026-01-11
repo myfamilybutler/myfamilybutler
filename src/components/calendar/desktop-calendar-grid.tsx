@@ -37,6 +37,7 @@ import { cn, formatTime, formatDate } from '@/lib/utils';
 import { getMemberColorClass, DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
 import { getCalendarDays, getWeekNumber, groupEventsByDate } from '@/lib/utils/calendar-helpers';
 import { useSelectedMembers } from '@/stores/filter-store';
+import { useFamilyData } from '@/stores/family-store';
 import { QuickAddSheet } from './quick-add-sheet';
 import { EditEventDialog } from './edit-event-dialog';
 import type { CalendarEvent } from '@/types/calendar';
@@ -46,8 +47,6 @@ const MAX_VISIBLE_EVENTS = 3;
 interface DesktopCalendarGridProps {
   events: CalendarEvent[];
   onEventsChanged?: () => void;
-  /** Map of family member names to their HEX colors */
-  memberColors?: Map<string, string>;
   /** Hide the header navigation (for embedded mode) */
   hideHeader?: boolean;
   /** Controlled month from parent */
@@ -59,11 +58,11 @@ interface DesktopCalendarGridProps {
 export function DesktopCalendarGrid({
   events,
   onEventsChanged,
-  memberColors,
   hideHeader = false,
   month,
   onMonthChange,
 }: DesktopCalendarGridProps) {
+  const { memberColors } = useFamilyData();
   const { t, i18n } = useTranslation();
   const selectedMembers = useSelectedMembers();
   const isDragging = useRef(false);
@@ -188,16 +187,16 @@ export function DesktopCalendarGrid({
     >
       <div className="overflow-hidden">
         {/* Header Row: Week number + Day names */}
-        <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-slate-200 bg-slate-50">
+        <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border bg-muted/50">
           {/* Week number header */}
-          <div className="p-2 text-xs font-medium text-slate-400 text-center border-r border-slate-200">
+          <div className="p-2 text-xs font-medium text-muted-foreground text-center border-r border-border">
             {t('calendar.week')}
           </div>
           {/* Day names */}
           {weekDays.map((day, i) => (
             <div
               key={i}
-              className="p-2 text-xs font-medium text-slate-600 text-center uppercase tracking-wider"
+              className="p-2 text-xs font-medium text-foreground/70 text-center uppercase tracking-wider"
             >
               {day}
             </div>
@@ -208,10 +207,10 @@ export function DesktopCalendarGrid({
         {weeks.map((week: Date[], weekIndex: number) => (
           <div 
             key={weekIndex} 
-            className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-slate-100 last:border-b-0"
+            className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border last:border-b-0"
           >
             {/* Week number */}
-            <div className="p-2 text-xs font-medium text-slate-400 text-center border-r border-slate-100 bg-slate-50/50">
+            <div className="p-2 text-xs font-medium text-muted-foreground text-center border-r border-border bg-muted/20">
               {getWeekNumber(week[0])}
             </div>
             
@@ -227,9 +226,9 @@ export function DesktopCalendarGrid({
                 <div
                   key={dayIndex}
                   className={cn(
-                    "min-h-[60px] sm:min-h-[100px] border-r border-slate-100 last:border-r-0 cursor-pointer transition-colors",
-                    "hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500",
-                    !isCurrentMonth && "bg-slate-50/30"
+                    "min-h-[60px] sm:min-h-[100px] border-r border-border last:border-r-0 cursor-pointer transition-colors",
+                    "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500",
+                    !isCurrentMonth && "bg-muted/10 text-muted-foreground/50"
                   )}
                   onClick={() => handleCellClick(day)}
                   role="button"
@@ -250,8 +249,8 @@ export function DesktopCalendarGrid({
                         isTodayDate 
                           ? "bg-emerald-500 text-white" 
                           : isCurrentMonth 
-                            ? "text-gray-900" 
-                            : "text-gray-400"
+                            ? "text-foreground" 
+                            : "text-muted-foreground"
                       )}
                     >
                       {format(day, 'd')}
@@ -337,7 +336,7 @@ export function DesktopCalendarGrid({
                     
                     {/* Overflow indicator */}
                     {overflowCount > 0 && (
-                      <div className="text-xs text-slate-400 font-medium px-1.5">
+                      <div className="text-xs text-muted-foreground font-medium px-1.5">
                         +{overflowCount} {t('calendar.more')}
                       </div>
                     )}
@@ -355,10 +354,10 @@ export function DesktopCalendarGrid({
     <>
       {hideHeader ? (
         // Embedded mode: just the grid, no Card wrapper
-        <div className="bg-white">{calendarContent}</div>
+        <div className="bg-card">{calendarContent}</div>
       ) : (
         // Standalone mode: full Card with header
-        <Card className="bg-white">
+        <Card className="bg-card border-border">
           <CardHeader className="border-b-0">
             <div className="flex items-center justify-between">
               {/* Month navigation */}
@@ -367,7 +366,7 @@ export function DesktopCalendarGrid({
                   variant="ghost" 
                   size="icon" 
                   onClick={handlePrevMonth}
-                  className="h-8 w-8 hover:bg-slate-100"
+                  className="h-8 w-8 hover:bg-accent"
                   aria-label={t('common.prevMonth')}
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -376,7 +375,7 @@ export function DesktopCalendarGrid({
                   variant="ghost" 
                   size="icon" 
                   onClick={handleNextMonth}
-                  className="h-8 w-8 hover:bg-slate-100"
+                  className="h-8 w-8 hover:bg-accent"
                   aria-label={t('common.nextMonth')}
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -384,7 +383,7 @@ export function DesktopCalendarGrid({
               </div>
               
               {/* Month/Year title */}
-              <h2 className="text-xl font-bold text-gray-900 capitalize">
+              <h2 className="text-xl font-bold text-foreground capitalize">
                 {formatDate(currentMonth, 'MMMM yyyy')}
               </h2>
               

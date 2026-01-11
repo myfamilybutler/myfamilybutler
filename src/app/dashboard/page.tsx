@@ -9,7 +9,7 @@ import { ProtectedRoute } from '@/components/auth/protected-route';
 import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
 import { QuickAddFab } from '@/components/calendar/quick-add-fab';
 import { QuickAddSheet } from '@/components/calendar/quick-add-sheet';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useDashboardData } from '@/hooks';
 
 export default function DashboardPage() {
@@ -17,7 +17,6 @@ export default function DashboardPage() {
     allEvents, 
     refresh, 
     dbUser,
-    memberColors,
   } = useDashboardData();
   
   const [modalDismissed, setModalDismissed] = useState(false);
@@ -46,21 +45,15 @@ export default function DashboardPage() {
           <CollapsibleCalendar
             events={allEvents}
             onEventsChanged={refresh}
-            memberColors={memberColors}
           />
           
           {/* Upcoming Events (full width) */}
-          <Card className="border-gray-200 shadow-sm bg-white">
-            <CardHeader>
-              <h3 className="text-sm font-semibold text-gray-900">Upcoming Events</h3>
-            </CardHeader>
-            <CardContent>
+          <Card className="border-border shadow-sm bg-card">
+            <CardContent className="pt-6">
               <UpcomingEvents
                 events={allEvents}
                 pageSize={10}
                 onEventsChanged={refresh}
-                hideHeader
-                memberColors={memberColors}
               />
             </CardContent>
           </Card>
@@ -71,7 +64,6 @@ export default function DashboardPage() {
           <DesktopCalendarGrid
             events={allEvents}
             onEventsChanged={refresh}
-            memberColors={memberColors}
           />
         </div>
 
@@ -90,3 +82,4 @@ export default function DashboardPage() {
     </ProtectedRoute>
   );
 }
+

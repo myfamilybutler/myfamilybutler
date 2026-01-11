@@ -48,7 +48,7 @@ export function GoogleCalendarConnectButton({
 
   const checkConnectionStatus = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/google/status');
+      const response = await fetch(`/api/auth/google/status?t=${Date.now()}`);
       const data = await response.json();
       setIsConnected(data.connected);
       
@@ -189,8 +189,8 @@ export function GoogleCalendarConnectButton({
     return (
       <div className="flex flex-col gap-3">
         {/* Connected Status */}
-        <Button variant="outline" disabled className="w-full text-emerald-600 border-emerald-200">
-          <Check className="w-4 h-4 mr-2" />
+        <Button variant="outline" disabled className="w-full">
+          <Check className="w-4 h-4 mr-2 text-emerald-600" />
           Google Calendar Connected
         </Button>
 

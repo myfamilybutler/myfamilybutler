@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import i18n from '@/lib/config/i18n';
 import { FamilyFilter } from './family-filter';
+import { ThemeToggle } from './theme-toggle';
 
 export function Navbar() {
   const router = useRouter();
@@ -72,10 +73,11 @@ export function Navbar() {
             <div className="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center">
               <MessageCircle className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-gray-900">FamilyButler</span>
+            <span className="font-semibold text-foreground">My Family Butler</span>
           </Link>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <FamilyFilter />
 
             {/* User Dropdown */}
@@ -83,7 +85,7 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 text-gray-700 hover:text-gray-900 hover:bg-slate-100"
+                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-accent"
                 >
                   <span className="text-sm font-medium">{displayIdentifier}</span>
                   <ChevronDown className="w-4 h-4" />
@@ -100,7 +102,7 @@ export function Navbar() {
                   <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard/admin" className="flex items-center gap-2 cursor-pointer font-bold text-amber-700 hover:text-amber-800 hover:bg-amber-50">
+                    <Link href="/dashboard/admin" className="flex items-center gap-2 cursor-pointer font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30">
                       <LayoutDashboard className="w-4 h-4" />
                       {t('common.admin')} (Admin)
                     </Link>

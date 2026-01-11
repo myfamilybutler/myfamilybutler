@@ -9,7 +9,7 @@
  * This is a CONTROLLED component - all state is managed by the parent.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { MapPin } from 'lucide-react';
 import { format, parseISO, addHours } from 'date-fns';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import { FamilyMemberSelector } from './family-member-selector';
 import type { CalendarEvent } from '@/types/calendar';
+import { useFamilyData } from '@/stores/family-store';
 
 export interface EventFormData {
   title: string;
@@ -121,57 +122,16 @@ export function EventForm({
   autoFocus = false,
 }: EventFormProps) {
   const { t } = useTranslation();
-  const [fetchedMembers, setFetchedMembers] = useState<string[]>([]);
+  const { memberNames } = useFamilyData();
 
-  // Fetch family members if not provided
-  useEffect(() => {
-    if (availableFamilyMembers.length === 0 && fetchedMembers.length === 0) {
-      let cancelled = false;
-      
-      const fetchFamilyMembers = async () => {
-        try {
-          const response = await fetch('/api/family');
-          const result = await response.json();
-          
-          if (cancelled) return;
-          
-          if (result.success && result.data) {
-            const allNames: string[] = [];
-            
-            if (result.data.users) {
-              for (const user of result.data.users) {
-                const name = user.display_name || user.phone_number;
-                if (name) allNames.push(name);
-              }
-            }
-            
-            if (result.data.familyMembers) {
-              for (const member of result.data.familyMembers) {
-                allNames.push(member.name);
-              }
-            }
-            
-            setFetchedMembers(allNames);
-          }
-        } catch {
-          // Silently fail - not critical
-        }
-      };
-      
-      fetchFamilyMembers();
-      
-      return () => { cancelled = true; };
-    }
-  }, [availableFamilyMembers.length, fetchedMembers.length]);
-
-  // Combine provided and fetched members
+  // Combine provided and hook-sourced members
   const allMembers = useMemo(() => {
-    const combined = new Set([...availableFamilyMembers, ...fetchedMembers]);
+    const combined = new Set([...availableFamilyMembers, ...memberNames]);
     if (data.familyMember) {
       combined.add(data.familyMember);
     }
     return Array.from(combined).sort();
-  }, [availableFamilyMembers, fetchedMembers, data.familyMember]);
+  }, [availableFamilyMembers, memberNames, data.familyMember]);
 
   // Update handler
   const updateField = <K extends keyof EventFormData>(field: K, value: EventFormData[K]) => {

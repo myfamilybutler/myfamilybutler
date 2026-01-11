@@ -7,8 +7,8 @@ import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
 interface FamilyUser {
   id: string;
   display_name?: string;
-  phone_number: string;
-  is_admin: boolean;
+  phone_number?: string;
+  is_household_admin?: boolean;  // Household owner, not super admin
 }
 
 interface FamilyMember {
@@ -40,20 +40,20 @@ export function FamilyMembersList({
       {users.map((user) => (
         <div
           key={user.id}
-          className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
+          className="flex items-center justify-between p-3 rounded-xl hover:bg-accent transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-semibold text-emerald-700">
-                {(user.display_name || user.phone_number).charAt(0).toUpperCase()}
+            <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-950 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                {(user.display_name || user.phone_number || '').charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-sm font-medium text-gray-900 truncate block">
+              <span className="text-sm font-medium text-foreground truncate block">
                 {user.display_name || user.phone_number}
               </span>
-              {user.is_admin && (
-                <span className="text-xs text-emerald-600 flex items-center gap-1">
+              {user.is_household_admin && (
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                   <Crown className="w-3 h-3" /> Admin
                 </span>
               )}
@@ -69,7 +69,7 @@ export function FamilyMembersList({
         return (
           <div
             key={member.id}
-            className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
+            className="flex items-center justify-between p-3 rounded-xl hover:bg-accent transition-colors"
           >
             <div className="flex items-center gap-3">
               {/* Color avatar with member initial */}
@@ -81,7 +81,7 @@ export function FamilyMembersList({
                   {member.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <span className="text-sm font-medium text-gray-900 truncate">
+              <span className="text-sm font-medium text-foreground truncate">
                 {member.name}
               </span>
             </div>
@@ -92,7 +92,7 @@ export function FamilyMembersList({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-600"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
                   onClick={() => onEditMember?.(member)}
                 >
                   <Pencil className="w-4 h-4" />
@@ -100,7 +100,7 @@ export function FamilyMembersList({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-slate-500 hover:text-red-600"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
                   onClick={() => onDeleteMember?.(member)}
                 >
                   <Trash2 className="w-4 h-4" />

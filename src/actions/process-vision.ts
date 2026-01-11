@@ -314,12 +314,9 @@ export async function processVisionMessage(
       };
     }
 
-    // Step 3: Save events to database
-    let eventsCreated = 0;
-    const savedEvents: VisionEvent[] = [];
-
-    for (const event of extraction.events) {
-      const created = await createEvent(householdId, userId, {
+    // Step 3: Save events to database in parallel (instead of sequential N+1)
+    const eventPromises = extraction.events.map(event => 
+      createEvent(householdId, userId, {
         title: event.title,
         event_date: event.event_date,
         event_time: event.event_time ?? undefined,
@@ -328,14 +325,23 @@ export async function processVisionMessage(
         family_member: event.family_member ?? undefined,
         location: event.location ?? undefined,
         description: event.description ?? undefined,
-      });
+      })
+    );
 
-      if (created) {
+    const results = await Promise.allSettled(eventPromises);
+    
+    const savedEvents: VisionEvent[] = [];
+    let eventsCreated = 0;
+    
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
         eventsCreated++;
-        savedEvents.push(event);
-        console.log(`[VisionAgent] Created event: "${event.title}" on ${event.event_date}`);
+        savedEvents.push(extraction.events[index]);
+        console.log(`[VisionAgent] Created event: "${extraction.events[index].title}" on ${extraction.events[index].event_date}`);
+      } else if (result.status === 'rejected') {
+        console.error(`[VisionAgent] Failed to create event: ${extraction.events[index].title}`, result.reason);
       }
-    }
+    });
 
     return {
       success: true,
@@ -383,12 +389,9 @@ export async function processLocalImage(
       };
     }
 
-    // Save events to database
-    let eventsCreated = 0;
-    const savedEvents: VisionEvent[] = [];
-
-    for (const event of extraction.events) {
-      const created = await createEvent(householdId, userId, {
+    // Save events to database in parallel
+    const eventPromises = extraction.events.map(event =>
+      createEvent(householdId, userId, {
         title: event.title,
         event_date: event.event_date,
         event_time: event.event_time ?? undefined,
@@ -397,13 +400,20 @@ export async function processLocalImage(
         family_member: event.family_member ?? undefined,
         location: event.location ?? undefined,
         description: event.description ?? undefined,
-      });
+      })
+    );
 
-      if (created) {
+    const results = await Promise.allSettled(eventPromises);
+    
+    const savedEvents: VisionEvent[] = [];
+    let eventsCreated = 0;
+    
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
         eventsCreated++;
-        savedEvents.push(event);
+        savedEvents.push(extraction.events[index]);
       }
-    }
+    });
 
     return {
       success: true,

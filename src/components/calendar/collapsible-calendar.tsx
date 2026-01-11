@@ -15,28 +15,26 @@ import {
 import { getWeekNumber } from '@/lib/utils/calendar-helpers';
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { DesktopCalendarGrid } from './desktop-calendar-grid';
 import type { CalendarEvent } from '@/types/calendar';
-import { formatDate } from '@/lib/utils';
 import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
+import { useFamilyData } from '@/stores/family-store';
 
 interface CollapsibleCalendarProps {
   events: CalendarEvent[];
   onEventsChanged?: () => void;
   defaultExpanded?: boolean;
-  /** Map of family member names to their HEX colors */
-  memberColors?: Map<string, string>;
 }
 
 export function CollapsibleCalendar({
   events,
   onEventsChanged,
   defaultExpanded = false,
-  memberColors,
 }: CollapsibleCalendarProps) {
+  const { memberColors } = useFamilyData();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right'>('right');
@@ -56,7 +54,7 @@ export function CollapsibleCalendar({
         colorsByDate[date] = [];
       }
       // Get color for this event's family member
-      const color = event.family_member && memberColors?.get(event.family_member)
+      const color = event.family_member && memberColors.get(event.family_member)
         ? memberColors.get(event.family_member)!
         : DEFAULT_MEMBER_COLOR;
       // Add unique colors (max 3)
@@ -108,7 +106,7 @@ export function CollapsibleCalendar({
   }, [handlePrevWeek, handleNextWeek]);
 
   return (
-    <Card className="border-gray-200 shadow-sm overflow-hidden bg-white">
+    <Card className="border-border shadow-sm overflow-hidden bg-card">
       {/* Header - consistent layout with navigation */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div className="flex items-center justify-between w-full gap-2">
@@ -118,7 +116,7 @@ export function CollapsibleCalendar({
               variant="ghost"
               size="sm"
               onClick={isExpanded ? handlePrevMonth : handlePrevWeek}
-              className="h-8 w-8 p-0 text-gray-500 hover:bg-gray-100"
+              className="h-8 w-8 p-0 text-muted-foreground hover:bg-accent"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -126,14 +124,14 @@ export function CollapsibleCalendar({
               variant="ghost"
               size="sm"
               onClick={isExpanded ? handleNextMonth : handleNextWeek}
-              className="h-8 w-8 p-0 text-gray-500 hover:bg-gray-100"
+              className="h-8 w-8 p-0 text-muted-foreground hover:bg-accent"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
           
           {/* Title */}
-          <h2 className="text-base font-semibold text-gray-900 capitalize flex-1 text-center">
+          <h2 className="text-base font-semibold text-foreground capitalize flex-1 text-center">
             {formatDate(selectedDate, 'MMMM yyyy')}
           </h2>
           
@@ -142,7 +140,7 @@ export function CollapsibleCalendar({
             variant="ghost"
             size="sm"
             onClick={toggleExpanded}
-            className="h-8 w-8 p-0 text-gray-500 hover:bg-gray-100"
+            className="h-8 w-8 p-0 text-muted-foreground hover:bg-accent"
             aria-label={isExpanded ? 'Collapse calendar' : 'Expand calendar'}
           >
             {isExpanded ? (
@@ -157,14 +155,14 @@ export function CollapsibleCalendar({
       <CardContent>
         {/* Persistent Week Day Headers */}
         {!isExpanded && (
-          <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50 -mx-6">
-            <div className="text-center text-[10px] sm:text-xs font-medium text-slate-400 p-2 border-r border-slate-200 flex items-center justify-center">
+          <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/50 -mx-6">
+            <div className="text-center text-[10px] sm:text-xs font-medium text-muted-foreground p-2 border-r border-border flex items-center justify-center">
               Wk
             </div>
             {weekDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className="text-center text-[10px] sm:text-xs font-medium text-gray-500 py-2 uppercase"
+                className="text-center text-[10px] sm:text-xs font-medium text-muted-foreground py-2 uppercase"
               >
                 <span className="hidden sm:inline">{formatDate(day, 'EEE')}</span>
                 <span className="sm:hidden">{formatDate(day, 'EEE').charAt(0)}</span>
@@ -188,8 +186,8 @@ export function CollapsibleCalendar({
               dragElastic={0.2}
               onDragEnd={handleDragEnd}
             >
-              <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-slate-100">
-                <div className="flex items-center justify-center text-xs font-medium text-slate-400 border-r border-slate-100 bg-slate-50/50">
+              <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-border">
+                <div className="flex items-center justify-center text-xs font-medium text-muted-foreground border-r border-border bg-muted/20">
                   {getWeekNumber(weekDays[0])}
                 </div>
                 {weekDays.map((day) => {
@@ -203,9 +201,9 @@ export function CollapsibleCalendar({
                       key={dateStr}
                       onClick={() => handleDayClick(day)}
                       className={cn(
-                        'flex flex-col items-center py-2 transition-colors min-h-[48px] border-r border-slate-100 last:border-r-0',
-                        'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500',
-                        isSelected && !isTodayDate && 'bg-emerald-50',
+                        'flex flex-col items-center py-2 transition-colors min-h-[48px] border-r border-border last:border-r-0',
+                        'hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500',
+                        isSelected && !isTodayDate && 'bg-emerald-500/10',
                       )}
                     >
                       {/* Day number (No day name, already in header) */}
@@ -216,7 +214,7 @@ export function CollapsibleCalendar({
                             ? 'text-white bg-emerald-600'
                             : isSelected
                             ? 'text-emerald-700 bg-emerald-100'
-                            : 'text-gray-700'
+                            : 'text-foreground'
                         )}
                       >
                         {format(day, 'd')}
@@ -252,7 +250,6 @@ export function CollapsibleCalendar({
               <DesktopCalendarGrid
                 events={events}
                 onEventsChanged={onEventsChanged}
-                memberColors={memberColors}
                 hideHeader
                 month={selectedDate}
                 onMonthChange={setSelectedDate}

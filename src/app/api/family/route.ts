@@ -33,7 +33,7 @@ export async function GET() {
     // Get user and their family using validated session userId
     const { data: user, error } = await admin
       .from('users')
-      .select('household_id, is_admin')
+      .select('household_id, is_household_admin')
       .eq('id', userId)
       .single();
     
@@ -48,7 +48,7 @@ export async function GET() {
       success: true,
       data: {
         familyId: user.household_id,
-        isAdmin: user.is_admin,
+        isHouseholdAdmin: user.is_household_admin ?? false,  // Household admin, not super admin
         users: members.users,
         familyMembers: members.familyMembers,
         pendingInvites: pendingInvites
@@ -86,18 +86,58 @@ export async function POST(request: NextRequest) {
     // Get user using validated session userId
     const { data: user, error } = await admin
       .from('users')
-      .select('id, household_id, is_admin, display_name')
+      .select('id, household_id, is_household_admin, display_name')
       .eq('id', userId)
       .single();
     
-    if (error || !user?.household_id) {
+    if (error) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Allow creation of household if user doesn't have one
+    if (action === 'create') {
+      if (user.household_id) {
+        return NextResponse.json({ error: 'User already has a family' }, { status: 400 });
+      }
+      
+      const { data: household, error: createError } = await admin
+        .from('households')
+        .insert({ name: name || 'My Family' })
+        .select()
+        .single();
+      
+      if (createError || !household) {
+        log.error('Create household error:', createError);
+        return NextResponse.json({ error: 'Failed to create family' }, { status: 500 });
+      }
+      
+      // Update user
+      const { error: updateError } = await admin
+        .from('users')
+        .update({ 
+          household_id: household.id,
+          is_household_admin: true
+        })
+        .eq('id', user.id);
+        
+      if (updateError) {
+        await admin.from('households').delete().eq('id', household.id);
+        log.error('Link user to household error:', updateError);
+        return NextResponse.json({ error: 'Failed to link user to family' }, { status: 500 });
+      }
+      
+      return NextResponse.json({ success: true, householdId: household.id });
+    }
+    
+    // For other actions, require household
+    if (!user?.household_id) {
       return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
 
-    // Admin check removed for 'invite' action to allow family members to invite others
-    if (!user.is_admin && action !== 'invite' && action !== 'inviteEmail' && action !== 'add') {
-      return NextResponse.json({ error: 'Only admin can manage members' }, { status: 403 });
+    // Household admin check for edit/delete actions - all members can invite/add
+    if (!user.is_household_admin && action !== 'invite' && action !== 'inviteEmail' && action !== 'add') {
+      return NextResponse.json({ error: 'Only household admin can edit/delete members' }, { status: 403 });
     }
     
     if (action === 'invite' && phoneNumber) {
@@ -210,7 +250,7 @@ export async function DELETE(request: NextRequest) {
     // Get user using validated session userId
     const { data: user, error } = await admin
       .from('users')
-      .select('id, household_id, is_admin')
+      .select('id, household_id, is_household_admin')
       .eq('id', userId)
       .single();
     
@@ -218,10 +258,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
-    if (action === 'leave' && !user.is_admin) {
+    // Non-household-admin can leave the family
+    if (action === 'leave' && !user.is_household_admin) {
       const { error: updateError } = await admin
         .from('users')
-        .update({ household_id: null, is_admin: false })
+        .update({ household_id: null, is_household_admin: false })
         .eq('id', user.id);
       
       if (updateError) {
@@ -231,10 +272,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
     
-    if (action === 'deleteFamily' && user.is_admin) {
+    // Only household admin can delete the family
+    if (action === 'deleteFamily' && user.is_household_admin) {
       await admin
         .from('users')
-        .update({ household_id: null, is_admin: false })
+        .update({ household_id: null, is_household_admin: false })
         .eq('household_id', user.household_id);
       
       const { error: deleteError } = await admin

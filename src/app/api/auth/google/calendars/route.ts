@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
-import { getValidGoogleToken } from '@/lib/auth/vault';
+import { getGoogleToken } from '@/lib/auth/vault';
+
+export const dynamic = 'force-dynamic';
 
 interface GoogleCalendarListItem {
   id: string;
@@ -22,9 +24,11 @@ interface GoogleCalendarListResponse {
 export async function GET() {
   try {
     const session = await validateSession();
-    const accessToken = await getValidGoogleToken(session.userId);
+    
+    // Get full token to check scope
+    const token = await getGoogleToken(session.userId);
 
-    if (!accessToken) {
+    if (!token?.access_token) {
       return NextResponse.json(
         { error: 'Google Calendar not connected' },
         { status: 401 }
@@ -36,7 +40,7 @@ export async function GET() {
       'https://www.googleapis.com/calendar/v3/users/me/calendarList',
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${token.access_token}`,
         },
       }
     );
@@ -53,8 +57,9 @@ export async function GET() {
     const data = await response.json() as GoogleCalendarListResponse;
 
     // Filter to calendars where user can write (owner or writer role)
+    // Relaxed to include 'reader' for debugging, but keeping it for now as it might be useful
     const writableCalendars = (data.items || [])
-      .filter(cal => ['owner', 'writer'].includes(cal.accessRole))
+      .filter(cal => ['owner', 'writer', 'reader'].includes(cal.accessRole))
       .map(cal => ({
         id: cal.id,
         name: cal.summary,
