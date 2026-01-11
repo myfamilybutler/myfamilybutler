@@ -148,6 +148,16 @@ export async function findOrCreateUserByEmail(
     .select()
     .single();
 
+  // 3. Handle race condition: another request created user first
+  if (error?.code === '23505') {
+    const { data } = await admin
+      .from('users')
+      .select('*')
+      .eq('linked_email', normalizedEmail)
+      .single();
+    return { user: data as User | null, isNewUser: false };
+  }
+
   if (error) {
     console.error('Error creating user by email:', error);
     return { user: null, isNewUser: false, error: error.message };

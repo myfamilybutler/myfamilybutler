@@ -13,34 +13,7 @@ import { generateResponseWithFallback, parseEventWithFallback } from '@/lib/ai';
 import { createEvent } from '@/lib/supabase';
 import { send360DialogInteractiveMessage } from '@/lib/channels/360dialog/send';
 
-// ===========================================
-// Deduplication
-// ===========================================
-const PROCESSED_MESSAGES = new Map<string, number>();
-const MESSAGE_TTL_MS = 5 * 60 * 1000;
-const CLEANUP_INTERVAL_MS = 60 * 1000;
 
-let cleanupInterval: ReturnType<typeof setInterval> | null = null;
-function ensureCleanupInterval() {
-  if (!cleanupInterval) {
-    cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      for (const [id, timestamp] of PROCESSED_MESSAGES.entries()) {
-        if (now - timestamp > MESSAGE_TTL_MS) {
-          PROCESSED_MESSAGES.delete(id);
-        }
-      }
-    }, CLEANUP_INTERVAL_MS);
-    if (cleanupInterval.unref) cleanupInterval.unref();
-  }
-}
-
-function isDuplicateMessage(messageId: string): boolean {
-  ensureCleanupInterval();
-  if (PROCESSED_MESSAGES.has(messageId)) return true;
-  PROCESSED_MESSAGES.set(messageId, Date.now());
-  return false;
-}
 
 // ===========================================
 // Types (360dialog uses Meta Cloud API format)

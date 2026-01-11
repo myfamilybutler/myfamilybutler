@@ -48,8 +48,8 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
   // Prepare chart data (Last 7 days mock or simple distribution)
   // For now, let's just bin latency for a histogram feel or success/fail count
   const chartData = [
-    { name: 'Success', value: stats.successRate, fill: '#22c55e' },
-    { name: 'Failure', value: 100 - stats.successRate, fill: '#ef4444' },
+    { name: 'Success', value: stats.successRate, fill: 'hsl(var(--chart-2))' },
+    { name: 'Failure', value: 100 - stats.successRate, fill: 'hsl(var(--destructive))' },
   ];
 
   return (

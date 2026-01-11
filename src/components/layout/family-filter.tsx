@@ -34,16 +34,16 @@ export function FamilyFilter() {
           variant="ghost"
           size="sm"
           className={cn(
-            "flex items-center gap-2 text-gray-700 hover:text-gray-900 hover:bg-slate-100 relative",
-            hasActiveFilters && "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
+            "flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-accent relative",
+            hasActiveFilters && "text-primary bg-primary/10 hover:bg-primary/20"
           )}
           aria-label={t('common.filters')}
         >
           <Users className="w-5 h-5" />
           {hasActiveFilters && (
             <Badge 
-              variant="success" 
-              className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 flex items-center justify-center text-xs bg-emerald-600 dark:bg-emerald-500 text-white"
+              variant="default" 
+              className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 flex items-center justify-center text-xs"
             >
               {selectedMembers.length}
             </Badge>
@@ -91,7 +91,7 @@ export function FamilyFilter() {
                     style={{ backgroundColor: memberColor }}
                   />
                   <span className="flex-1 text-left truncate">{member.name}</span>
-                  {isSelected && <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
+                  {isSelected && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
                 </button>
               );
             })}

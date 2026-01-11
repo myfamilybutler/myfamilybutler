@@ -8,6 +8,7 @@ interface FamilyUser {
   id: string;
   display_name?: string;
   phone_number?: string;
+  linked_email?: string;
   is_household_admin?: boolean;  // Household owner, not super admin
 }
 
@@ -45,12 +46,12 @@ export function FamilyMembersList({
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-950 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                {(user.display_name || user.phone_number || '').charAt(0).toUpperCase()}
+                {(user.display_name || user.phone_number || user.linked_email || '').charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <span className="text-sm font-medium text-foreground truncate block">
-                {user.display_name || user.phone_number}
+                {user.display_name || user.phone_number || user.linked_email}
               </span>
               {user.is_household_admin && (
                 <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">

@@ -275,14 +275,14 @@ export async function deleteFamilyMember(
  */
 export async function getFamilyMembers(
   familyId: string
-): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; is_household_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
+): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; linked_email?: string; is_household_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
   const admin = getAdminClient();
   
   // Parallel fetch: users and family members at the same time
   const [usersResult, membersResult] = await Promise.all([
     admin
       .from('users')
-      .select('id, display_name, phone_number, is_household_admin')
+      .select('id, display_name, phone_number, linked_email, is_household_admin')
       .eq('household_id', familyId),
     admin
       .from('family_members')

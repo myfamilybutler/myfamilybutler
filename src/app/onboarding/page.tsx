@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/auth-store';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Users, ArrowRight, Loader2 } from 'lucide-react';
@@ -13,6 +15,15 @@ export default function OnboardingPage() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [familyName, setFamilyName] = useState('');
+  const { dbUser } = useAuthStore();
+  const router = useRouter();
+
+  // Redirect if user already has a family
+  useEffect(() => {
+    if (dbUser?.household_id) {
+      router.push('/dashboard');
+    }
+  }, [dbUser, router]);
 
   const handleCreateFamily = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +46,12 @@ export default function OnboardingPage() {
         // Force refresh to update user state
         window.location.href = '/dashboard';
       } else {
+        // If user already has a family (race condition or pre-assigned), redirect
+        if (data.error === 'User already has a family') {
+          toast.success(t('onboarding.familyExists', 'You already have a family. Redirecting...'));
+          window.location.href = '/dashboard';
+          return;
+        }
         toast.error(data.error || 'Failed to create family');
       }
     } catch (error) {
