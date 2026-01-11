@@ -120,20 +120,11 @@ export async function findOrCreateUserByEmail(
   const admin = getAdminClient();
   const normalizedEmail = email.toLowerCase().trim();
 
-  // 1. Try to find existing user by email (we need to query the auth table or our public table if we sync emails)
-  // Assuming 'users' table has an email column or we rely on phone?
-  // Our schema seems to rely on phone_number as primary identity for now.
-  // We should check if we have an email column. Based on register page we do have email login.
-  
-  // Checking `src/app/api/auth/email-login/route.ts` implies we use email for magic links.
-  // The `users` table likely has an `email` column based on typical Supabase setup, but let's be sure.
-  // In `db-users.ts` findAll selects `*`. 
-  
-  // Let's assume we can query by email.
+  // 1. Try to find existing user by linked_email
   const { data: existing } = await admin
     .from('users')
     .select('*')
-    .eq('email', normalizedEmail)
+    .eq('linked_email', normalizedEmail)
     .maybeSingle();
 
   if (existing) {
@@ -141,19 +132,13 @@ export async function findOrCreateUserByEmail(
   }
 
   // 2. Create new user
-  // Determine a placeholder phone number if required? 
-  // If `phone_number` is unique/required, we might have an issue if we only have email.
-  // However, `findOrCreateUser` uses phone.
-  
-  // Strategy: If we support email-only users, we insert. 
-  // If schema requires phone, we might need to handle that. 
-  // Let's assume we can insert with just email or null phone if schema allows.
-  // Given `email-login` exists, we probably support email.
+  // We insert into 'linked_email' instead of 'email'
+  // 'phone_number' is optional now (handled by DB constraint: check(phone OR linked_email))
   
   const { data: newUser, error } = await admin
     .from('users')
     .insert({
-      email: normalizedEmail,
+      linked_email: normalizedEmail,
       display_name: displayName,
       subscription_status: 'free',
       onboarding_source: 'email_invite',
@@ -163,7 +148,6 @@ export async function findOrCreateUserByEmail(
     .single();
 
   if (error) {
-    // If phone is required and we didn't provide it, this will fail.
     console.error('Error creating user by email:', error);
     return { user: null, isNewUser: false };
   }
