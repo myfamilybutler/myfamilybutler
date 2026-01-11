@@ -1,8 +1,9 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { getAdminClient } from '@/lib/supabase';
 
 export interface ValidSession {
   userId: string;
-  type: 'custom';
+  type: 'custom' | 'supabase';
 }
 
 /**
@@ -10,16 +11,35 @@ export interface ValidSession {
  * Throws an error if no valid session is found.
  * 
  * Currently supports:
- * - Custom Session Cookies (from Magic Link / Telegram / WhatsApp)
- * 
- * NOTE: Supabase Auth (Email/Google/Facebook) requires middleware setup
- * with @supabase/ssr. That flow bypasses this function and uses 
- * Supabase's built-in session handling.
+ * 1. Supabase Auth (Standard) - Checks headers and cookies
+ * 2. Custom Session Cookies (Legacy/Magic Link/Telegram/WhatsApp)
  */
 export async function validateSession(): Promise<ValidSession> {
   const cookieStore = await cookies();
+  const headersList = await headers();
+
+  // 1. SUPABASE AUTH CHECK (Priority)
+  // Check for standard Supabase session via Authorization header or cookies
+  const supabaseToken = headersList.get('authorization')?.replace('Bearer ', '');
   
-  // Check Custom Session Cookies (Secure, HttpOnly)
+  // If no header, check standard Supabase cookie (depends on project name, usually sb-<ref>-auth-token)
+  // Since we don't know the exact ref, we might skip checking specific cookie names unless standard.
+  // However, the client (browser) usually sends the token in the Authorization header if using Supabase Client.
+  // Exception: Server Components/API routes called from browser navigation.
+  
+  if (supabaseToken) {
+    const admin = getAdminClient();
+    const { data: { user }, error } = await admin.auth.getUser(supabaseToken);
+    
+    if (user && !error) {
+      return {
+        userId: user.id,
+        type: 'supabase'
+      };
+    }
+  }
+
+  // 2. CUSTOM SESSION CHECK (Legacy/WhatsApp/Magic Link)
   const sessionAuth = cookieStore.get('session_authenticated');
   const sessionUserId = cookieStore.get('session_user_id');
   const sessionImpersonateId = cookieStore.get('impersonate_id');
