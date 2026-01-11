@@ -269,60 +269,77 @@ export async function fetchGoogleEvents(
 
   try {
     const { calendarId } = await getSelectedCalendar(userId);
-    const params = new URLSearchParams({
-      timeMin,
-      timeMax,
-      singleEvents: 'true',
-      orderBy: 'startTime',
-      maxResults: '250',
-    });
-
-    const response = await fetch(
-      `${getCalendarEventsUrl(calendarId)}?${params}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+    let allEvents: GoogleCalendarEvent[] = [];
+    let pageToken: string | undefined = undefined;
+    
+    do {
+      const params = new URLSearchParams({
+        timeMin,
+        timeMax,
+        singleEvents: 'true',
+        orderBy: 'startTime',
+        maxResults: '250',
+      });
+      
+      if (pageToken) {
+        params.set('pageToken', pageToken);
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('[GoogleCalendar] Failed to fetch events:', errorData);
-      return [];
-    }
+      const response = await fetch(
+        `${getCalendarEventsUrl(calendarId)}?${params}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
 
-    const data = await response.json() as {
-      items?: Array<{
-        id: string;
-        summary?: string;
-        description?: string;
-        location?: string;
-        start?: { dateTime?: string; date?: string; timeZone?: string };
-        end?: { dateTime?: string; date?: string; timeZone?: string };
-      }>;
-    };
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('[GoogleCalendar] Failed to fetch events:', errorData);
+        // If we have partial data, maybe return it? Or just throw.
+        // For now, let's break and return what we have (or empty if first page failed)
+        if (allEvents.length > 0) break;
+        return [];
+      }
 
-    const events: GoogleCalendarEvent[] = (data.items || []).map((item) => ({
-      id: item.id,
-      summary: item.summary || 'Untitled Event',
-      description: item.description,
-      location: item.location,
-      start: {
-        dateTime: item.start?.dateTime,
-        date: item.start?.date,
-        timeZone: item.start?.timeZone || TIMEZONE,
-      },
-      end: {
-        dateTime: item.end?.dateTime,
-        date: item.end?.date,
-        timeZone: item.end?.timeZone || TIMEZONE,
-      },
-    }));
+      const data = await response.json() as {
+        items?: Array<{
+          id: string;
+          summary?: string;
+          description?: string;
+          location?: string;
+          start?: { dateTime?: string; date?: string; timeZone?: string };
+          end?: { dateTime?: string; date?: string; timeZone?: string };
+        }>;
+        nextPageToken?: string;
+      };
 
-    console.log(`[GoogleCalendar] Fetched ${events.length} events`);
-    return events;
+      const pageEvents: GoogleCalendarEvent[] = (data.items || []).map((item) => ({
+        id: item.id,
+        summary: item.summary || 'Untitled Event',
+        description: item.description,
+        location: item.location,
+        start: {
+          dateTime: item.start?.dateTime,
+          date: item.start?.date,
+          timeZone: item.start?.timeZone || TIMEZONE,
+        },
+        end: {
+          dateTime: item.end?.dateTime,
+          date: item.end?.date,
+          timeZone: item.end?.timeZone || TIMEZONE,
+        },
+      }));
+
+      allEvents = [...allEvents, ...pageEvents];
+      pageToken = data.nextPageToken;
+
+    } while (pageToken);
+
+    console.log(`[GoogleCalendar] Fetched ${allEvents.length} events (total)`);
+    return allEvents;
   } catch (error) {
     console.error('[GoogleCalendar] Error fetching events:', error);
     return [];

@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminClient, updateEvent, deleteEvent, createEventReminder } from '@/lib/supabase';
+import { getAdminClient, updateEvent, deleteEvent, createEventReminder, createEvent } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 
 export async function GET() {
@@ -204,8 +204,8 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      // Import createEvent dynamically to avoid circular imports
-      const { createEvent } = await import('@/lib/supabase/db-events');
+      // Use static import (fixed circular dependency panic)
+      // const { createEvent } = await import('@/lib/supabase/db-events');
       
       const event = await createEvent(user.household_id, userId, {
         title,

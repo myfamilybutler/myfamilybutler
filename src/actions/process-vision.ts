@@ -76,12 +76,13 @@ async function downloadWhatsAppMedia(mediaId: string): Promise<Buffer> {
     throw new Error('No URL in media info response');
   }
 
-  // Step 2: Download the actual image
-  const imageResponse = await fetch(mediaInfo.url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+    // Step 2: Download the actual image
+    const imageResponse = await fetch(mediaInfo.url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      signal: AbortSignal.timeout(10000), // 10s timeout
+    });
 
   if (!imageResponse.ok) {
     throw new Error(`Failed to download image: ${imageResponse.status}`);

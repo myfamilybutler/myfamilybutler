@@ -45,6 +45,33 @@ export interface ProcessMessageInput {
 }
 
 // ===========================================
+// Deduplication (Database-backed)
+// ===========================================
+
+export async function isMessageProcessed(messageId: string, channel: MessageChannel): Promise<boolean> {
+  const admin = getAdminClient();
+  
+  // 1. Try to insert (atomic check-and-set)
+  const expiresAt = new Date();
+  expiresAt.setMinutes(expiresAt.getMinutes() + 15); // 15 min TTL
+
+  const { error } = await admin
+    .from('processed_messages')
+    .insert({
+      message_id: messageId,
+      channel,
+      expires_at: expiresAt.toISOString()
+    });
+
+  // If insert fails (unique constraint violation), it's a duplicate
+  if (error && error.code === '23505') {
+    return true; 
+  }
+  
+  return false;
+}
+
+// ===========================================
 // Send Response (Channel-Agnostic)
 // ===========================================
 
@@ -151,6 +178,12 @@ export async function processIncomingMessage(
   try {
     console.log(`[${channel.toUpperCase()}] Processing message from ${phoneNumber} (${contactName || 'Unknown'})`);
     console.log(`[${channel.toUpperCase()}] Message content: "${userMessage}" (${messageType})`);
+
+    // 0. Deduplication Check (Persistent)
+    if (await isMessageProcessed(messageId, channel)) {
+      console.log(`[${channel.toUpperCase()}] Ignored duplicate message: ${messageId}`);
+      return;
+    }
 
     // Find or create user (returns isNewUser flag for welcome message)
     const { user, isNewUser } = await findOrCreateUser(phoneNumber, channel);
@@ -332,20 +365,15 @@ export async function processIncomingMessage(
     if (currentHouseholdId && extractionResult.events.length > 0) {
       console.log(`[${channel.toUpperCase()}] Creating ${extractionResult.events.length} event(s)`);
 
-      const createdEvents = [];
-      for (const eventIntent of extractionResult.events) {
-        const event = await createEvent(
-          currentHouseholdId!, // Asserted: checked in condition above
-          user.id,
-          {
+      // Parallel creation to avoid N+1
+      const createdEvents = (await Promise.all(
+        extractionResult.events.map(eventIntent => 
+          createEvent(currentHouseholdId!, user.id, {
             ...eventIntent,
             source_message_id: messageId
-          }
-        );
-        if (event) {
-          createdEvents.push(event);
-        }
-      }
+          })
+        )
+      )).filter(e => e !== null);
 
       if (createdEvents.length > 0) {
         let confirmationMessage: string;

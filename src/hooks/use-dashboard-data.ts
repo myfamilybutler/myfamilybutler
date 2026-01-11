@@ -100,15 +100,22 @@ export function useDashboardData() {
   }, [fetchEventsData, fetchGoogleEvents]);
 
   useEffect(() => {
+    const abortController = new AbortController();
     isMounted.current = true;
     
     // Wrap in async IIFE to avoid sync setState warning
     void (async () => {
-      await loadAllData();
+      // Pass signal to loadAllData if we were to support it, 
+      // but for now checking isMounted is enough for state safety.
+      // Ideally pass signal to fetch calls.
+      if (isMounted.current) {
+        await loadAllData(); 
+      }
     })();
     
     return () => {
       isMounted.current = false;
+      abortController.abort();
     };
   }, [loadAllData]);
 

@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     // Send logic with simple Promise.all (chunking recommended for huge lists, 
     // but OK for MVP with < 100 users)
     // Send logic with batching to avoid rate limits
-    const CHUNK_SIZE = 5;
+    const CHUNK_SIZE = 50;
     for (let i = 0; i < targetUsers.length; i += CHUNK_SIZE) {
       const chunk = targetUsers.slice(i, i + CHUNK_SIZE);
       

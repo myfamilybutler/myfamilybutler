@@ -41,8 +41,10 @@ export async function GET() {
       return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
-    const members = await getFamilyMembers(user.household_id);
-    const pendingInvites = await getPendingInvites(user.household_id);
+    const [members, pendingInvites] = await Promise.all([
+      getFamilyMembers(user.household_id),
+      getPendingInvites(user.household_id)
+    ]);
     
     return NextResponse.json({
       success: true,

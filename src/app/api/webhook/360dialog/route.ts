@@ -132,12 +132,14 @@ async function processMessage(message: D360Message, contact?: D360Contact): Prom
 
     console.log(`[360dialog] Processing ${message.type} from ${maskPhone(phoneNumber)} (${contactName || 'Unknown'})`);
 
-    // Deduplication
-    if (isDuplicateMessage(messageId)) {
+    // Deduplication (Persistent)
+    // We import this from message-processor to share the table logic
+    const { isMessageProcessed } = await import('@/lib/channels/message-processor');
+    if (await isMessageProcessed(messageId, '360dialog')) {
       console.log(`[360dialog] Duplicate message ignored: ${messageId}`);
       return;
     }
-
+    
     // Mark as read (fire and forget)
     mark360DialogMessageAsRead(messageId).catch(() => { /* ignored */ });
 

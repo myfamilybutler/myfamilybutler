@@ -81,38 +81,19 @@ export async function acceptInvite(
 ): Promise<boolean> {
   const admin = getAdminClient();
   
-  // Execute both updates in parallel for speed
-  const [inviteResult, userResult] = await Promise.all([
-    admin
-      .from('household_invites')
-      .update({ status: 'accepted' })
-      .eq('id', inviteId),
-    admin
-      .from('users')
-      .update({ household_id: familyId, is_household_admin: false })
-      .eq('id', userId),
-  ]);
+  // Use atomic RPC transaction instead of fragile client-side logic
+  const { data, error } = await admin.rpc('accept_household_invite', {
+    p_user_id: userId,
+    p_invite_id: inviteId,
+    p_household_id: familyId
+  });
   
-  // Check for invite update failure
-  if (inviteResult.error) {
-    console.error('Error accepting invite:', inviteResult.error);
+  if (error) {
+    console.error('Error accepting invite (RPC):', error);
     return false;
   }
   
-  // Check for user update failure - rollback invite if so
-  if (userResult.error) {
-    console.error('Error linking user to family, rolling back invite...', userResult.error);
-    
-    // Rollback: revert invite status to pending
-    await admin
-      .from('household_invites')
-      .update({ status: 'pending' })
-      .eq('id', inviteId);
-    
-    return false;
-  }
-  
-  return true;
+  return data === true;
 }
 
 /**
