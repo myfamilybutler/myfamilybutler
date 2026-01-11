@@ -142,6 +142,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only household admin can edit/delete members' }, { status: 403 });
     }
     
+    // ACTION: removeUser - Unlink a user from the family
+    if (action === 'removeUser') {
+      if (!memberId) {
+        return NextResponse.json({ error: 'Missing memberId (userId)' }, { status: 400 });
+      }
+      
+      // Ensure target is actually in the same family
+      const { data: targetUser } = await admin
+        .from('users')
+        .select('household_id')
+        .eq('id', memberId)
+        .single();
+        
+      if (!targetUser || targetUser.household_id !== user.household_id) {
+        return NextResponse.json({ error: 'User does not belong to your family' }, { status: 403 });
+      }
+
+      // Unlink user
+      const { error: removeError } = await admin
+        .from('users')
+        .update({ 
+          household_id: null,
+          is_household_admin: false 
+        })
+        .eq('id', memberId);
+        
+      if (removeError) {
+        log.error('Remove user error:', removeError);
+        return NextResponse.json({ error: 'Failed to remove user' }, { status: 500 });
+      }
+      
+      return NextResponse.json({ success: true });
+    }
+    
     if (action === 'invite' && phoneNumber) {
       const token = await createFamilyInvite(user.household_id, phoneNumber, user.id);
       

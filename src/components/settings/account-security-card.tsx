@@ -6,13 +6,9 @@ import {
   Phone,
   MessageCircle,
   Check,
-  Plus,
-  Pencil,
   Loader2,
   Shield,
-  User,
-  Save,
-  X
+  User
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -45,7 +41,8 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
 
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState(dbUser?.display_name || '');
-  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDialogOpen, setNameDialogOpen] = useState(false);
+  const [newName, setNewName] = useState('');
   const [resendingVerification, setResendingVerification] = useState(false);
 
   // Sync displayName with dbUser prop changes
@@ -66,12 +63,13 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       const res = await fetch('/api/account', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName }),
+        body: JSON.stringify({ displayName: newName }),
       });
 
       if (res.ok) {
         toast.success('Name updated successfully');
-        setIsEditingName(false);
+        setNameDialogOpen(false);
+        setDisplayName(newName);
         onUpdate?.();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -85,10 +83,6 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
     }
   };
 
-  const handleCancelEditName = () => {
-    setDisplayName(dbUser?.display_name || '');
-    setIsEditingName(false);
-  };
 
   const handleResendVerification = async () => {
     if (!email) return;
@@ -232,163 +226,146 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Display Name */}
-          <div className="space-y-2">
-            <Label htmlFor="displayName" className="flex items-center gap-2">
-              <User className="w-4 h-4 text-muted-foreground" />
-              Display Name
-            </Label>
-            
-            {isEditingName ? (
-              <div className="flex gap-2">
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your name"
-                  className="flex-1"
-                  autoFocus
-                />
-                <Button onClick={handleSaveDisplayName} disabled={saving} size="icon" className="shrink-0">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                </Button>
-                <Button onClick={handleCancelEditName} disabled={saving} variant="outline" size="icon" className="shrink-0">
-                  <X className="w-4 h-4" />
-                </Button>
+          <div 
+            onClick={() => {
+              setNewName(displayName);
+              setNameDialogOpen(true);
+            }}
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/50 rounded-lg gap-4 hover:bg-muted transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
+                <User className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </div>
-            ) : (
-              <div className="flex items-center justify-between p-2 rounded-md border border-transparent hover:border-border hover:bg-accent transition-colors group">
-                <span className="font-medium text-foreground ml-1">{displayName || 'No name set'}</span>
-                <Button 
-                  onClick={() => setIsEditingName(true)} 
-                  variant="ghost" 
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Pencil className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
+              <div className="min-w-0 overflow-hidden">
+                <p className="font-medium text-foreground leading-tight">Display Name</p>
+                <div className="flex items-center h-5 mt-0.5">
+                  <span className="text-sm text-muted-foreground truncate">{displayName || 'No name set'}</span>
+                </div>
               </div>
-            )}
+            </div>
+            <div className="hidden sm:block w-px h-8" />
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-border pt-4">
-            <p className="text-sm font-medium text-foreground/80 mb-3">Login Methods</p>
-          </div>
+          {/* Divider removed for uniform flow */}
 
           {/* Email - from Supabase Auth */}
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <Mail className="w-5 h-5 text-blue-600" />
+          <div 
+            onClick={() => {
+              setNewEmail(email || '');
+              setEmailDialogOpen(true);
+            }}
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/50 rounded-lg gap-4 hover:bg-muted transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-950 rounded-full flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900 transition-colors">
+                <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
-              <div>
-                <p className="font-medium text-foreground">Email</p>
+              <div className="min-w-0 overflow-hidden">
+                <p className="font-medium text-foreground leading-tight">Email</p>
                 {email ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{email}</span>
+                  <div className="flex items-center gap-2 h-5 mt-0.5">
+                    <span className="text-sm text-muted-foreground truncate">{email}</span>
                     {isEmailVerified ? (
-                      <Badge variant="success">
+                      <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
                         <Check className="w-3 h-3 mr-1" /> Verified
                       </Badge>
                     ) : (
-                      <Badge variant="warning">
+                      <Badge variant="warning" className="shrink-0 py-0 h-4 flex items-center">
                         Not Verified
                       </Badge>
                     )}
                   </div>
                 ) : (
-                  <span className="text-sm text-gray-400">Not set</span>
+                  <div className="flex items-center h-5 mt-0.5">
+                    <span className="text-sm text-gray-400">Not set</span>
+                  </div>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {!isEmailVerified && email && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleResendVerification}
-                  disabled={resendingVerification}
-                >
-                  {resendingVerification ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Mail className="w-4 h-4 mr-2" />
-                  )}
-                  Resend
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setNewEmail(email || '');
-                  setEmailDialogOpen(true);
+            {!isEmailVerified && email ? (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 py-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleResendVerification();
                 }}
+                disabled={resendingVerification}
               >
-                {email ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                {resendingVerification ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Mail className="w-4 h-4 mr-2" />
+                )}
+                Resend
               </Button>
-            </div>
+            ) : (
+              <div className="hidden sm:block w-px h-8" />
+            )}
           </div>
 
           {/* Phone Number */}
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-950 rounded-full flex items-center justify-center">
+          <div 
+            onClick={() => {
+              setNewPhone(dbUser?.phone_number || '');
+              setPhoneDialogOpen(true);
+            }}
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/50 rounded-lg gap-4 hover:bg-muted transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 w-10 h-10 bg-emerald-100 dark:bg-emerald-950 rounded-full flex items-center justify-center group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900 transition-colors">
                 <Phone className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <div>
-                <p className="font-medium text-foreground">Phone Number</p>
+              <div className="min-w-0 overflow-hidden">
+                <p className="font-medium text-foreground leading-tight">Phone Number</p>
                 {dbUser?.phone_number ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{maskPhone(dbUser.phone_number)}</span>
+                  <div className="flex items-center gap-2 h-5 mt-0.5">
+                    <span className="text-sm text-muted-foreground truncate">{maskPhone(dbUser.phone_number)}</span>
                     {dbUser?.whatsapp_verified ? (
-                      <Badge variant="success">
+                      <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
                         <Check className="w-3 h-3 mr-1" /> WhatsApp
                       </Badge>
                     ) : (
-                      <Badge variant="info">
+                      <Badge variant="info" className="shrink-0 py-0 h-4 flex items-center">
                         Phone added
                       </Badge>
                     )}
                   </div>
                 ) : (
-                  <span className="text-sm text-gray-400">Not set – Add for WhatsApp access</span>
+                  <div className="flex items-center h-5 mt-0.5">
+                    <span className="text-sm text-gray-400">Not set – Add for WhatsApp access</span>
+                  </div>
                 )}
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setNewPhone(dbUser?.phone_number || '');
-                setPhoneDialogOpen(true);
-              }}
-            >
-              {dbUser?.phone_number ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            </Button>
+            <div className="hidden sm:block w-px h-8" />
           </div>
 
           {/* Telegram */}
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-950 rounded-full flex items-center justify-center">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/50 rounded-lg gap-4 hover:bg-muted transition-colors group">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-950 rounded-full flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900 transition-colors">
                 <MessageCircle className="w-5 h-5 text-blue-500 dark:text-blue-400" />
               </div>
-              <div>
-                <p className="font-medium text-foreground">Telegram</p>
+              <div className="min-w-0 overflow-hidden">
+                <p className="font-medium text-foreground leading-tight">Telegram</p>
                 {dbUser?.telegram_chat_id ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 h-5 mt-0.5">
                     <span className="text-sm text-muted-foreground">Connected</span>
-                    <Badge variant="success">
+                    <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
                       <Check className="w-3 h-3 mr-1" /> Telegram
                     </Badge>
                   </div>
                 ) : (
-                  <span className="text-sm text-muted-foreground/60">Not connected – Message @FamilyButlerBot</span>
+                  <div className="flex items-center h-5 mt-0.5">
+                    <span className="text-sm text-muted-foreground/60 truncate">Not connected – Message @FamilyButlerBot</span>
+                  </div>
                 )}
               </div>
             </div>
+            <div className="hidden sm:block w-px h-8" />
           </div>
         </CardContent>
       </Card>
@@ -462,6 +439,41 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
             <Button onClick={handleSaveEmail} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Send Verification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Display Name Dialog */}
+      <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-slate-600" />
+              Change Display Name
+            </DialogTitle>
+            <DialogDescription>
+              How should we call you? This name will be visible to your family members.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Display Name</Label>
+              <Input
+                id="name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Enter your name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveDisplayName} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

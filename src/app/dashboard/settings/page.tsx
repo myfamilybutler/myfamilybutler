@@ -192,17 +192,21 @@ export default function SettingsPage() {
     
     setActionLoading(true);
     try {
+      // Check if this is a user (account holder) or a profile member
+      // profileMembers data has 'color', users (account holders) don't have it in the list
+      const isUser = users.some(u => u.id === selectedMember.id);
+      
       const res = await fetch('/api/family', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          action: 'deleteMember', 
+          action: isUser ? 'removeUser' : 'deleteMember', 
           memberId: selectedMember.id 
         })
       });
       
       if (res.ok) {
-        toast.success(t('settings.memberDeleted'));
+        toast.success(isUser ? t('settings.userRemoved') : t('settings.memberDeleted'));
         setDeleteMemberDialog(false);
         setSelectedMember(null);
         refetchFamily();

@@ -232,7 +232,7 @@ export function UpcomingEvents({
           dateLabel = t('calendar.tomorrow');
         } else {
           // Format based on current language
-          const formatStr = i18n.language === 'de' ? 'EEE, d. MMM' : 'EEE, MMM d';
+          const formatStr = i18n.language === 'de' ? 'dd.MM.yyyy' : 'EEE, MMM d';
           dateLabel = formatDate(parseISO(event.event_date), formatStr);
         }
         return { ...event, dateLabel };
@@ -316,15 +316,8 @@ export function UpcomingEvents({
         <div className="space-y-3">
           {groupedEvents.map((group) => (
             <div key={group.dateLabel}>
-              {/* Sticky date header */}
-              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1.5 -mx-1 px-1 border-b border-border">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {group.dateLabel}
-                </span>
-              </div>
-              
               {/* Events for this date */}
-              <div className="space-y-2 mt-2">
+              <div className="space-y-2">
                 <AnimatePresence mode="popLayout">
                   {group.events.map((event) => (
                     <SwipeableEventCard

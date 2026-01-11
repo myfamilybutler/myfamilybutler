@@ -60,6 +60,18 @@ export function FamilyMembersList({
               )}
             </div>
           </div>
+
+          {/* Remove user button (for admins, except self) */}
+          {showActions && isAdmin && !user.is_household_admin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+              onClick={() => onDeleteMember?.({ id: user.id, name: user.display_name || user.phone_number || user.linked_email || 'User' })}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ))}
 
