@@ -35,10 +35,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Find or Create User
-    const { user, isNewUser } = await findOrCreateUserByEmail(invite.email);
+    const { user, isNewUser, error: createUserError } = await findOrCreateUserByEmail(invite.email);
     
     if (!user) {
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+        return NextResponse.json({ 
+          error: 'Failed to create user', 
+          details: createUserError || 'Unknown DB Error'
+        }, { status: 500 });
     }
 
     // 4. Accept the invite automatically
