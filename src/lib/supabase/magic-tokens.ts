@@ -4,6 +4,7 @@
 import crypto from 'crypto';
 import type { User } from '@/types';
 import { getAdminClient } from './client';
+import { normalizePhone, findUserByIdentifier } from './identity';
 
 /**
  * Generate a custom magic link for dashboard access
@@ -14,15 +15,15 @@ export async function generateDashboardLink(
 ): Promise<{ success: boolean; link?: string; error?: string }> {
   try {
     const admin = getAdminClient();
-    const normalizedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+    const normalizedPhone = normalizePhone(phoneNumber);
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    // 1. Get User ID
-    const { data: user } = await admin
-      .from('users')
-      .select('id')
-      .eq('phone_number', normalizedPhone)
-      .single();
+    if (!normalizedPhone) {
+      return { success: false, error: 'Invalid phone number format.' };
+    }
+
+    // 1. Get User using unified identity resolution
+    const user = await findUserByIdentifier({ phone: normalizedPhone });
     
     if (!user) return { success: false, error: 'User not found.' };
 

@@ -3,14 +3,18 @@
 // ===========================================
 import { NextRequest, NextResponse } from 'next/server';
 import type { TelegramUpdate } from '@/types';
-import { getAdminClient } from '@/lib/supabase';
-import { getFamilyMembers } from '@/lib/supabase';
+import { 
+  getFamilyMembers,
+  unifiedFindOrCreateUser,
+  findUserByIdentifier,
+} from '@/lib/supabase';
 import { processIncomingMessage, handleTelegramPhoneReceived } from '@/lib/channels/message-processor';
 import { requestPhoneNumber, sendTelegramMessage, downloadTelegramFile } from '@/lib/channels/telegram/send';
 import { processLocalImage } from '@/actions/process-vision';
 import { processTelegramVoiceMessage } from '@/lib/channels/telegram/media';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyTelegramSecretToken, maskChatId } from '@/lib/utils/security';
+import { trackIdentityLinked, trackUserCreated, trackDuplicatePrevented } from '@/lib/analytics';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -106,60 +110,56 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`[Telegram Webhook] Received phone number from ${maskChatId(chatId)}`);
       const phoneNumber = message.contact.phone_number;
       
-      // Normalize phone number
-      const normalizedPhone = phoneNumber.startsWith('+') 
-        ? phoneNumber 
-        : `+${phoneNumber}`;
+      // Use unified identity module - handles phone normalization and user lookup/creation
+      const { user, isNewUser, wasLinked, error } = await unifiedFindOrCreateUser({
+        phone: phoneNumber,
+        telegramChatId: chatId.toString(),
+        displayName: firstName,
+        channel: 'telegram',
+        verifyPhone: true,  // Phone shared via Telegram = implicitly verified
+      });
       
-      // Store the telegram_chat_id on the user record
-      const admin = getAdminClient();
-      
-      // Check if user exists with this phone
-      const { data: existingUser } = await admin
-        .from('users')
-        .select('id, telegram_chat_id')
-        .eq('phone_number', normalizedPhone)
-        .single();
-      
-      if (existingUser) {
-        // Update user with telegram_chat_id
-        await admin
-          .from('users')
-          .update({ telegram_chat_id: chatId.toString() })
-          .eq('id', existingUser.id);
-      } else {
-        // Create new user with phone and telegram_chat_id
-        await admin
-          .from('users')
-          .insert({
-            phone_number: normalizedPhone,
-            telegram_chat_id: chatId.toString(),
-            subscription_status: 'free',
-          });
+      if (!user) {
+        console.error(`[Telegram Webhook] Failed to create/find user for phone:`, error);
+        await sendTelegramMessage(chatId, '❌ Fehler bei der Registrierung. Bitte versuche es später erneut.');
+        return NextResponse.json({ ok: true });
       }
       
       // Remove from pending
       PENDING_PHONE_REQUESTS.delete(chatId);
       
-      // Send confirmation
-      await handleTelegramPhoneReceived(chatId, normalizedPhone, firstName);
+      // Send appropriate welcome message based on whether this was a new account or linked
+      if (wasLinked && !isNewUser) {
+        // User already had an account (e.g., from WhatsApp) - we just linked Telegram
+        console.log(`[Telegram Webhook] Linked Telegram to existing user ${user.id}`);
+        // Track identity linking in PostHog
+        trackIdentityLinked(user.id, 'telegram', 'telegram');
+        await sendTelegramMessage(
+          chatId,
+          `✅ *Telegram verbunden!*\n\nDein Telegram wurde mit deinem bestehenden Account verknüpft. Alle deine Termine und Einstellungen sind verfügbar.\n\nSchreib "dashboard" für deinen Dashboard-Link!`,
+          { parseMode: 'Markdown' }
+        );
+      } else if (isNewUser) {
+        // Completely new user - track creation
+        trackUserCreated(user.id, 'telegram', !!user.phone_number, !!user.linked_email, true);
+        await handleTelegramPhoneReceived(chatId, user.phone_number || phoneNumber, firstName);
+      } else {
+        // Existing user, telegram was already linked - duplicate prevented
+        trackDuplicatePrevented(user.id, 'telegram', 'telegram');
+        await sendTelegramMessage(chatId, `👋 Willkommen zurück, ${firstName}!`);
+      }
       
       return NextResponse.json({ ok: true });
     }
     
     // Check if user is linked (has shared phone number)
-    const admin = getAdminClient();
-    const { data: linkedUser, error: linkError } = await admin
-      .from('users')
-      .select('*')
-      .eq('telegram_chat_id', chatId.toString())
-      .single();
+    const linkedUser = await findUserByIdentifier({ telegramChatId: chatId.toString() });
     
-    console.log(`[Telegram Webhook] User lookup for ${chatId}: found=${!!linkedUser}, error=${linkError?.message || 'none'}, phone=${linkedUser?.phone_number || 'none'}`);
+    console.log(`[Telegram Webhook] User lookup for ${maskChatId(chatId)}: found=${!!linkedUser}, phone=${linkedUser?.phone_number ? 'yes' : 'none'}`);
     
     if (!linkedUser) {
       // User not linked - request phone number
-      console.log(`[Telegram Webhook] User ${chatId} not linked, requesting phone`);
+      console.log(`[Telegram Webhook] User ${maskChatId(chatId)} not linked, requesting phone`);
       
       // Add to pending
       PENDING_PHONE_REQUESTS.set(chatId, { timestamp: Date.now() });

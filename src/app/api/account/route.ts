@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/supabase';
+import { getAdminClient, normalizePhone } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 
 /**
@@ -98,9 +98,24 @@ export async function PUT(request: NextRequest) {
     }
     
     // Build update object
-    const updateData: Record<string, string> = {};
+    const updateData: Record<string, unknown> = {};
     if (displayName !== undefined) updateData.display_name = displayName;
-    if (phoneNumber !== undefined) updateData.phone_number = phoneNumber;
+    
+    // Normalize and validate phone number using identity module
+    if (phoneNumber !== undefined) {
+      if (phoneNumber === '' || phoneNumber === null) {
+        // Allow clearing phone number
+        updateData.phone_number = null;
+        updateData.phone_verified = false;
+      } else {
+        const normalized = normalizePhone(phoneNumber);
+        if (!normalized) {
+          return NextResponse.json({ error: 'Invalid phone number format. Please use format: +43 660 1234567' }, { status: 400 });
+        }
+        updateData.phone_number = normalized;
+        updateData.phone_verified = false; // Needs to be verified via messaging
+      }
+    }
     
     // Update user
     const { error: updateError } = await admin

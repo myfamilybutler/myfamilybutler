@@ -17,6 +17,7 @@ export interface User {
   phone_number?: string;
   linked_email?: string;  // Email for desktop magic link login
   email_verified?: boolean;  // Whether linked_email has been verified
+  phone_verified?: boolean;  // Whether phone has been verified via messaging channel
   household_id?: string;
   display_name?: string;
   is_admin: boolean;  // Super admin (internal team only)
@@ -24,9 +25,10 @@ export interface User {
   telegram_chat_id?: string;
   whatsapp_verified?: boolean;
   onboarding_modal_shown?: boolean;  // Has user seen the dashboard modal?
-  onboarding_source?: 'whatsapp' | 'telegram' | 'invite';  // How they first registered
+  onboarding_source?: 'whatsapp' | 'telegram' | 'invite' | 'email_invite';  // How they first registered
   subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';
   stripe_customer_id?: string;
+  identity_linked_at?: string;  // When additional identifiers were linked
   created_at: string;
   updated_at: string;
 }

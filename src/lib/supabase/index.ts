@@ -5,7 +5,8 @@
  * 
  * Module structure:
  * - client.ts       - Client configuration
- * - db-users.ts     - User operations
+ * - identity.ts     - Unified identity resolution (NEW - use this!)
+ * - db-users.ts     - User operations (legacy, being deprecated)
  * - db-messages.ts  - Message operations
  * - db-reminders.ts - Reminder operations
  * - db-events.ts    - Event operations
@@ -17,7 +18,24 @@
 // Client
 export { getSupabase, getAdminClient } from './client';
 
-// Users
+// ============================================
+// Identity Resolution (NEW - Preferred API)
+// ============================================
+export {
+  normalizePhone,
+  findUserByIdentifier,
+  findOrCreateUser as unifiedFindOrCreateUser,
+  linkIdentifierToUser,
+  markPhoneVerified,
+  type FindOrCreateResult,
+} from './identity';
+
+// ============================================
+// Users (Legacy - prefer identity.ts for new code)
+// ============================================
+/**
+ * @deprecated Use unifiedFindOrCreateUser from identity.ts instead
+ */
 export {
   findOrCreateUser,
   findOrCreateUserByEmail,
@@ -79,3 +97,4 @@ export {
   validateEmailLoginToken,
   cleanupExpiredEmailTokens,
 } from './email-tokens';
+

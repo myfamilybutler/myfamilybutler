@@ -323,13 +323,18 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 {dbUser?.phone_number ? (
                   <div className="flex items-center gap-2 h-5 mt-0.5">
                     <span className="text-sm text-muted-foreground truncate">{maskPhone(dbUser.phone_number)}</span>
+                    {/* Phone is verified if whatsapp_verified, phone_verified, or has telegram */}
                     {dbUser?.whatsapp_verified ? (
                       <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
                         <Check className="w-3 h-3 mr-1" /> WhatsApp
                       </Badge>
+                    ) : dbUser?.phone_verified || dbUser?.telegram_chat_id ? (
+                      <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
+                        <Check className="w-3 h-3 mr-1" /> Verified
+                      </Badge>
                     ) : (
-                      <Badge variant="info" className="shrink-0 py-0 h-4 flex items-center">
-                        Phone added
+                      <Badge variant="warning" className="shrink-0 py-0 h-4 flex items-center">
+                        Pending
                       </Badge>
                     )}
                   </div>
@@ -379,7 +384,12 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
               {dbUser?.phone_number ? 'Change Phone Number' : 'Add Phone Number'}
             </DialogTitle>
             <DialogDescription>
-              Enter your phone number with country code (e.g., +43 660 1234567)
+              Enter your phone number with country code (e.g., +43 660 1234567).
+              {!dbUser?.phone_verified && (
+                <span className="block mt-1 text-amber-600 dark:text-amber-500">
+                  Your phone will be verified when you send a WhatsApp or Telegram message from this number.
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

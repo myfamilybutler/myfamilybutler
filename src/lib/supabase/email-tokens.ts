@@ -7,6 +7,7 @@
 import crypto from 'crypto';
 import type { User } from '@/types';
 import { getAdminClient } from './client';
+import { findUserByIdentifier } from './identity';
 
 const EMAIL_TOKEN_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes (email delays)
 const EMAIL_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
@@ -27,22 +28,16 @@ export async function generateEmailLoginToken(
       ? 'http://localhost:3000' 
       : (process.env.NEXT_PUBLIC_APP_URL || 'https://myfamilybutler.com');
 
-    // 1. Find user by linked_email
-    const { data: user, error: userError } = await admin
-        .from('users')
-        .select('*')
-        .eq('linked_email', normalizedEmail)
-        .maybeSingle();
-
-    if (userError) {
-        console.error('[Email Token] Error finding user:', userError);
-        return { success: false, error: 'Database error' };
-    }
+    // 1. Find user by email using unified identity resolution
+    const user = await findUserByIdentifier({ email: normalizedEmail });
 
     if (!user) {
-        // Don't reveal if email exists or not for security
-        console.log(`[Email Token] No user found with linked_email: ${normalizedEmail}`);
-        return { success: false, error: 'No account exists with this email. Start with WhatsApp first!' };
+        // Improved error message with actionable suggestion
+        console.log(`[Email Token] No user found with email: ${normalizedEmail}`);
+        return { 
+            success: false, 
+            error: 'Kein Account mit dieser Email gefunden. Starte mit WhatsApp oder verknüpfe deine Email in den Einstellungen.' 
+        };
     }
 
     // 2. Rate limiting: Check recent tokens for this email

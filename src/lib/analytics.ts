@@ -165,6 +165,95 @@ export function trackFeatureUsed(
   }).catch(console.error);
 }
 
+// ===========================================
+// Identity Tracking (for identity resolution)
+// ===========================================
+
+export type IdentifierType = 'phone' | 'email' | 'telegram';
+export type IdentitySource = 'whatsapp' | 'telegram' | 'web' | 'settings' | 'invite';
+
+/**
+ * Track when a new identifier is linked to an existing user
+ */
+export function trackIdentityLinked(
+  userId: string,
+  identifierType: IdentifierType,
+  source: IdentitySource
+): void {
+  getClient().then(client => {
+    if (!client) return;
+    
+    client.capture({
+      distinctId: userId,
+      event: 'identity_linked',
+      properties: {
+        identifier_type: identifierType,
+        source,
+        linked_at: new Date().toISOString(),
+      },
+    });
+    
+    // Also increment a user property for total linked identifiers
+    client.capture({
+      distinctId: userId,
+      event: '$set',
+      properties: {
+        $set_once: { first_identity_linked: new Date().toISOString() },
+        $set: { last_identity_linked: new Date().toISOString() },
+      },
+    });
+  }).catch(console.error);
+}
+
+/**
+ * Track when a new user is created
+ */
+export function trackUserCreated(
+  userId: string,
+  source: IdentitySource,
+  hasPhone: boolean,
+  hasEmail: boolean,
+  hasTelegram: boolean
+): void {
+  getClient().then(client => {
+    if (!client) return;
+    
+    client.capture({
+      distinctId: userId,
+      event: 'user_created',
+      properties: {
+        source,
+        has_phone: hasPhone,
+        has_email: hasEmail,
+        has_telegram: hasTelegram,
+        created_at: new Date().toISOString(),
+      },
+    });
+  }).catch(console.error);
+}
+
+/**
+ * Track when duplicate was prevented (user found instead of created)
+ */
+export function trackDuplicatePrevented(
+  userId: string,
+  matchedBy: IdentifierType,
+  source: IdentitySource
+): void {
+  getClient().then(client => {
+    if (!client) return;
+    
+    client.capture({
+      distinctId: userId,
+      event: 'duplicate_prevented',
+      properties: {
+        matched_by: matchedBy,
+        source,
+      },
+    });
+  }).catch(console.error);
+}
+
 /**
  * Flush pending events (call on graceful shutdown)
  */

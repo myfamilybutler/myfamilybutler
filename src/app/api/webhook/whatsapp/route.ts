@@ -4,19 +4,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { MetaWebhookBody, MetaMessage } from '@/types';
 import {
-  findOrCreateUser,
+  unifiedFindOrCreateUser,
   logMessage,
   checkPendingInvite,
   acceptInvite,
-  getFamilyMembers
+  getFamilyMembers,
+  getAdminClient,
 } from '@/lib/supabase';
-import { getAdminClient } from '@/lib/supabase';
 import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/channels/whatsapp/send';
 import { handleCommand } from '@/lib/channels/whatsapp/commands';
 import { processIntents } from '@/lib/channels/whatsapp/intents';
 import { processImageMessage, processVoiceMessage as processVoiceMedia } from '@/lib/channels/whatsapp/media';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyWhatsAppSignature, maskPhone } from '@/lib/utils/security';
+import { trackIdentityLinked, trackUserCreated, trackDuplicatePrevented } from '@/lib/analytics';
 
 // ===========================================
 // Deduplication: Prevent processing same message twice
@@ -175,11 +176,16 @@ async function processMessage(
     // Mark message as read (async, don't wait)
     markMessageAsRead(messageId).catch(() => { });
 
-    // Find or create user
-    const { user, isNewUser } = await findOrCreateUser(phoneNumber, 'whatsapp');
+    // Find or create user using unified identity resolution
+    // verifyPhone: true because they're messaging us from this number (implicit verification)
+    const { user, isNewUser, wasLinked, error: identityError } = await unifiedFindOrCreateUser({
+      phone: phoneNumber,
+      channel: 'whatsapp',
+      verifyPhone: true,  // Implicit verification - they're messaging from this phone
+    });
 
     if (!user) {
-      console.error(`[Webhook] Failed to find/create user: ${phoneNumber}`);
+      console.error(`[Webhook] Failed to find/create user: ${phoneNumber}`, identityError);
       await sendWhatsAppMessage(
         phoneNumber,
         'Sorry, there was an error. Please try again later.'
@@ -187,12 +193,25 @@ async function processMessage(
       return;
     }
 
+    // Log if this message linked a new identifier (e.g., phone was added to existing email-based account)
+    if (wasLinked) {
+      console.log(`[Webhook] User ${user.id} had phone linked via WhatsApp message`);
+      // Track identity linking in PostHog
+      trackIdentityLinked(user.id, 'phone', 'whatsapp');
+    } else if (isNewUser) {
+      // Track new user creation
+      trackUserCreated(user.id, 'whatsapp', true, !!user.linked_email, false);
+    } else {
+      // Existing user found - duplicate prevented
+      trackDuplicatePrevented(user.id, 'phone', 'whatsapp');
+    }
+
     // Mark user as WhatsApp verified (they've sent us a message)
     if (!user.whatsapp_verified) {
       const admin = getAdminClient();
       await admin
         .from('users')
-        .update({ whatsapp_verified: true })
+        .update({ whatsapp_verified: true, phone_verified: true })
         .eq('id', user.id);
     }
 
