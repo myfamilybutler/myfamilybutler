@@ -97,13 +97,49 @@ export async function acceptInvite(
 }
 
 /**
+ * Create an Open Invite (Link only, no specific user)
+ * Returns the invite token
+ */
+export async function createOpenInvite(
+  familyId: string,
+  invitedBy: string,
+  expiresInDays: number = 7
+): Promise<string | null> {
+  const admin = getAdminClient();
+  const token = randomUUID();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+
+  const { data, error } = await admin
+    .from('household_invites')
+    .insert({
+      household_id: familyId,
+      invited_by: invitedBy,
+      status: 'pending',
+      token: token,
+      expires_at: expiresAt.toISOString(),
+      // No email or phone_number
+    })
+    .select('token')
+    .single();
+
+  if (error || !data) {
+    console.error('Error creating open invite:', error);
+    return null;
+  }
+
+  return data.token;
+}
+
+/**
  * Create an invite for a phone number
+ * Returns the token so it can be shared manually if needed
  */
 export async function createFamilyInvite(
   familyId: string,
   phoneNumber: string,
   invitedBy: string
-): Promise<boolean> {
+): Promise<string | null> {
   const admin = getAdminClient();
   
   // Check if user already exists and is in another household
@@ -115,37 +151,46 @@ export async function createFamilyInvite(
   
   if (existingUser?.household_id) {
     console.error('User already belongs to a family');
-    return false;
+    return null;
   }
   
   // Check if invite already exists
   const { data: existingInvite } = await admin
     .from('household_invites')
-    .select('id')
+    .select('id, token')
     .eq('household_id', familyId)
     .eq('phone_number', phoneNumber)
     .eq('status', 'pending')
     .single();
   
-  if (existingInvite) {
-    return true; // Already invited
+  if (existingInvite?.token) {
+    return existingInvite.token;
   }
   
-  const { error } = await admin
+  // Generate secure token
+  const token = randomUUID();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+
+  const { data, error } = await admin
     .from('household_invites')
     .insert({
       household_id: familyId,
       phone_number: phoneNumber,
       invited_by: invitedBy,
-      status: 'pending'
-    });
+      status: 'pending',
+      token: token,
+      expires_at: expiresAt.toISOString()
+    })
+    .select('token')
+    .single();
   
-  if (error) {
+  if (error || !data) {
     console.error('Error creating invite:', error);
-    return false;
+    return null;
   }
   
-  return true;
+  return data.token;
 }
 
 /**
@@ -286,48 +331,37 @@ export async function getPendingInvites(
  */
 export async function getInviteByToken(
   token: string
-): Promise<{ householdId: string; inviteId: string; invitedBy: string } | null> {
+): Promise<{ householdId: string; inviteId: string; invitedBy: string; email?: string; phoneNumber?: string } | null> {
   const admin = getAdminClient();
   
-  // 1. Try to find by explicit token column (Email invites)
-  const { data: tokenInvite } = await admin
+  // 1. Find by token (Universal for Email, Phone, and Open Invites)
+  const { data: invite } = await admin
     .from('household_invites')
-    .select('id, household_id, invited_by, expires_at')
+    .select('id, household_id, invited_by, expires_at, email, phone_number')
     .eq('token', token)
     .eq('status', 'pending')
     .single();
 
-  if (tokenInvite) {
+  if (invite) {
      // Check expiration
-     if (tokenInvite.expires_at && new Date(tokenInvite.expires_at) < new Date()) {
+     if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
          return null; 
      }
 
      return { 
-        householdId: tokenInvite.household_id, 
-        inviteId: tokenInvite.id,
-        invitedBy: tokenInvite.invited_by
+        householdId: invite.household_id, 
+        inviteId: invite.id,
+        invitedBy: invite.invited_by,
+        email: invite.email ?? undefined,
+        phoneNumber: invite.phone_number ?? undefined
       };
   }
 
-  // 2. Fallback: Try QR code format (stored in phone_number)
-  const qrPhoneNumber = `qr:${token}`;
-  const { data, error } = await admin
-    .from('household_invites')
-    .select('id, household_id, invited_by')
-    .eq('phone_number', qrPhoneNumber)
-    .eq('status', 'pending')
-    .single();
+  // Legacy fallback removed as we are standardizing on tokens now.
+  // The migration adds tokens to all future invites.
+  // Old invites without tokens will just expire naturally or need re-issue.
   
-  if (error || !data) {
-    return null;
-  }
-  
-  return { 
-    householdId: data.household_id, 
-    inviteId: data.id,
-    invitedBy: data.invited_by
-  };
+  return null;
 }
 
 /**

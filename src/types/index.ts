@@ -41,9 +41,12 @@ export interface FamilyMember {
 export interface FamilyInvite {
   id: string;
   household_id: string;
-  phone_number: string;
+  phone_number?: string; // Optional for open invites
+  email?: string;       // Optional for open invites
+  token: string;        // Required for all invites now
   invited_by?: string;
   status: 'pending' | 'accepted' | 'expired';
+  expires_at?: string;
   created_at: string;
 }
 

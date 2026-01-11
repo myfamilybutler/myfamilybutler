@@ -275,20 +275,28 @@ function LoginContent() {
                 </form>
               )}
 
-              <div className="mt-6 pt-6 border-t border-border text-center">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Noch kein Konto?
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Starte einfach auf{' '}
-                  <a
-                    href="https://wa.me/436601234567?text=Start"
-                    className="text-emerald-600 hover:underline font-medium"
-                  >
-                    WhatsApp
-                  </a>
-                  {' '}– dein Konto wird automatisch erstellt.
-                </p>
+                <div className="mt-6 pt-6 border-t border-border text-center space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  <p className="mb-2">Noch kein Konto?</p>
+                  <div className="flex flex-col gap-2">
+                    <p>
+                      Starte auf{' '}
+                      <a
+                        href="https://wa.me/436601234567?text=Start"
+                        className="text-emerald-600 hover:underline font-medium"
+                      >
+                        WhatsApp
+                      </a>
+                    </p>
+                    <span className="text-xs text-muted-foreground">- oder -</span>
+                    <Link 
+                      href={`/register${searchParams.get('returnUrl') ? `?returnUrl=${searchParams.get('returnUrl')}` : ''}`}
+                      className="text-emerald-600 hover:underline font-medium"
+                    >
+                      Mit Email registrieren
+                    </Link>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

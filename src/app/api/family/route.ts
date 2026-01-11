@@ -143,17 +143,21 @@ export async function POST(request: NextRequest) {
     }
     
     if (action === 'invite' && phoneNumber) {
-      const success = await createFamilyInvite(user.household_id, phoneNumber, user.id);
+      const token = await createFamilyInvite(user.household_id, phoneNumber, user.id);
       
-      if (!success) {
+      if (!token) {
         return NextResponse.json({ 
           error: 'Failed to create invite. User may already be in another family.' 
         }, { status: 400 });
       }
       
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const joinLink = `${baseUrl}/invite/join?token=${token}`;
+
       return NextResponse.json({ 
         success: true, 
-        message: 'Invite created. Ask them to message the My Family Butler WhatsApp.' 
+        message: 'Invite created. You can share this link:',
+        link: joinLink
       });
     }
 
@@ -166,7 +170,8 @@ export async function POST(request: NextRequest) {
       
       // Send email
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      const joinLink = `${baseUrl}/invite/join?id=${inviteId}`;
+      // Use token instead of id for secure auto-login
+      const joinLink = `${baseUrl}/invite/join?token=${inviteId}`;
       
       const emailResult = await sendInviteEmail(email, joinLink, user.display_name);
       

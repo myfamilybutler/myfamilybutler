@@ -81,8 +81,14 @@ export default function RegisterPage() {
       setSuccess(true);
       
       // Redirect to onboarding after short delay
+      // Redirect to onboarding or returnUrl
       setTimeout(() => {
-        router.push('/onboarding');
+        const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+        if (returnUrl) {
+           router.push(returnUrl);
+        } else {
+           router.push('/onboarding');
+        }
       }, 1500);
     } catch (err) {
       console.error('Error signing up:', err);

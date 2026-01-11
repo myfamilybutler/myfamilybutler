@@ -1,7 +1,9 @@
 
 import { redirect } from 'next/navigation';
-import { getInviteByToken, getInviteById, acceptInvite } from '@/lib/supabase';
+
+// Imports removed as logic moved to client component
 import { validateSession } from '@/lib/auth/helpers';
+import { AutoJoiner } from './auto-joiner';
 
 interface JoinPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -9,7 +11,12 @@ interface JoinPageProps {
 
 export default async function JoinPage({ searchParams }: JoinPageProps) {
   const params = await searchParams;
-  const token = params.token as string | undefined;
+  // Support both token (new) and id (legacy/email) which might actually be a token
+  const token = (params.token || params.id) as string | undefined;
+  // If we have an explicit ID that is NOT a token (e.g. strict ID lookup), we kept it as params.id
+  // But strictly speaking, our email invite returns a token. 
+  // Let's assume 'id' in query might be a token if 'token' is missing.
+  
   const inviteId = params.id as string | undefined;
 
   if (!token && !inviteId) {
@@ -22,35 +29,16 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
     const session = await validateSession();
     userId = session.userId;
   } catch {
-    // Not authenticated - redirect to login
-    // Encoded redirect ensures they come back here after login
-    const queryParam = token ? `token=${token}` : `id=${inviteId}`;
-    const returnUrl = encodeURIComponent(`/invite/join?${queryParam}`);
-    redirect(`/login?returnUrl=${returnUrl}`);
+    // Not authenticated
   }
 
-  // 2. Lookup invite
-  let invite = null;
-  
-  if (token) {
-      // QR Code invite
-      invite = await getInviteByToken(token);
-  } else if (inviteId) {
-      // Email invite
-      invite = await getInviteById(inviteId);
-  }
-
-  if (!invite) {
-    redirect('/dashboard?error=invalid_or_expired_invite');
-  }
-
-  // 3. Accept invite
-  const success = await acceptInvite(userId, invite.inviteId, invite.householdId);
-
-  if (!success) {
-    redirect('/dashboard?error=invite_failed');
-  }
-
-  // 4. Redirect to dashboard on success
-  redirect('/dashboard?joined=true');
+  // Render Client Component to handle the join process (Auth or Claim)
+  // This provides a consistent "Joining..." UI and handles both flows.
+  return (
+      <AutoJoiner 
+        token={token} 
+        inviteId={inviteId} 
+        isLoggedIn={!!userId} 
+      />
+  );
 }

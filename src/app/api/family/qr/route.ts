@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { createFamilyInvite, getAdminClient } from '@/lib/supabase';
+import { createOpenInvite, getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 import { log } from '@/lib/utils/logger';
 
@@ -32,14 +32,10 @@ export async function POST() {
       return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
-    // Generate unique token
-    const token = crypto.randomUUID();
-    const qrInvitePayload = `qr:${token}`;
+    // Generate Open Invite
+    const token = await createOpenInvite(user.household_id, user.id);
     
-    // Create invite in DB reusing phone_number column
-    const success = await createFamilyInvite(user.household_id, qrInvitePayload, user.id);
-    
-    if (!success) {
+    if (!token) {
       return NextResponse.json({ error: 'Failed to create QR invite' }, { status: 500 });
     }
     

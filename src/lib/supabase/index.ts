@@ -20,6 +20,7 @@ export { getSupabase, getAdminClient } from './client';
 // Users
 export {
   findOrCreateUser,
+  findOrCreateUserByEmail,
   findUserById,
   updateUserDisplayName,
   type FindOrCreateUserResult,
@@ -61,7 +62,8 @@ export {
   getPendingInvites,
   getInviteByToken,
   createEmailInvite,
-  getInviteById
+  getInviteById,
+  createOpenInvite
 } from './db-families';
 
 // Magic Tokens (Auth)
