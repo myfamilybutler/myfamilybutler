@@ -65,7 +65,7 @@ export interface VoiceProcessingResult {
 /**
  * Input type identifier for the Brain
  */
-export type InputType = 'text' | 'image' | 'voice';
+export type InputType = 'text' | 'image' | 'voice' | 'document';
 
 /**
  * Unified input for the Brain to process
@@ -74,10 +74,12 @@ export interface UnifiedInput {
   type: InputType;
   /** For text: the message content */
   content?: string;
-  /** For image/voice: the WhatsApp media ID */
+  /** For image/voice/document: the WhatsApp media ID */
   mediaId?: string;
   /** MIME type for media */
   mimeType?: string;
+  /** Filename for documents */
+  filename?: string;
   /** User context */
   userId: string;
   householdId: string;

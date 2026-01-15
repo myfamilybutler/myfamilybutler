@@ -37,7 +37,7 @@ export interface MediaResult {
   draftsCreated?: number;
 }
 
-export type MediaInputType = 'voice' | 'image';
+export type MediaInputType = 'voice' | 'image' | 'document';
 
 /**
  * Channel-specific message sender interface
@@ -64,6 +64,11 @@ export const MESSAGES = {
     errorProcess: '❌ Ich konnte das Bild leider nicht verarbeiten. Ist der Text deutlich lesbar?',
     noFamily: '📸 Danke für das Bild! Um Termine zu speichern, musst du zuerst einer Familie beitreten. Tippe "dashboard" um loszulegen.',
     noEvents: '📸 Danke für das Bild! Ich konnte leider keine Termine darin erkennen. Enthält es Datumsangaben?',
+  },
+  document: {
+    errorProcess: '❌ Ich konnte das Dokument leider nicht verarbeiten. Ist es ein gültiges Dateiformat?',
+    noFamily: '📄 Danke für das Dokument! Um Termine zu speichern, musst du zuerst einer Familie beitreten. Tippe "dashboard" um loszulegen.',
+    noEvents: '📄 Danke für das Dokument! Ich konnte leider keine Termine darin erkennen. Enthält es Datumsangaben?',
   },
   shared: {
     genericError: '❌ Ein Fehler ist aufgetreten. Bitte versuche es später erneut.',
@@ -167,6 +172,7 @@ export function determineAction(
 
 /**
  * Save events to database
+ * Uses Promise.allSettled to avoid N+1 query pattern (parallel inserts)
  */
 export async function saveEvents(
   events: ParsedEvent[],
@@ -176,29 +182,29 @@ export async function saveEvents(
   
   if (!householdId) return 0;
   
-  let createdCount = 0;
+  // Parallel event creation to avoid N+1
+  const results = await Promise.allSettled(
+    events.map(event =>
+      createEvent(householdId, userId, {
+        title: event.title,
+        event_date: event.event_date,
+        event_time: event.event_time,
+        end_time: event.end_time,
+        is_all_day: event.is_all_day,
+        family_member: event.family_member,
+        location: event.location,
+        description: event.description,
+        source_message_id: messageId,
+      })
+    )
+  );
   
-  for (const event of events) {
-    const created = await createEvent(householdId, userId, {
-      title: event.title,
-      event_date: event.event_date,
-      event_time: event.event_time,
-      end_time: event.end_time,
-      is_all_day: event.is_all_day,
-      family_member: event.family_member,
-      location: event.location,
-      description: event.description,
-      source_message_id: messageId,
-    });
-    
-    if (created) createdCount++;
-  }
-  
-  return createdCount;
+  return results.filter(r => r.status === 'fulfilled' && r.value).length;
 }
 
 /**
  * Save events as drafts
+ * Uses Promise.allSettled to avoid N+1 query pattern (parallel inserts)
  */
 export async function saveDrafts(
   events: ParsedEvent[],
@@ -209,19 +215,18 @@ export async function saveDrafts(
   
   if (!householdId) return 0;
   
-  let draftsCreated = 0;
+  // Parallel draft creation to avoid N+1
+  const results = await Promise.allSettled(
+    events.map(event =>
+      createDraftEvent(householdId, userId, {
+        ...event,
+        reason: 'low_confidence',
+        confidence,
+      })
+    )
+  );
   
-  for (const event of events) {
-    const created = await createDraftEvent(householdId, userId, {
-      ...event,
-      reason: 'low_confidence',
-      confidence,
-    });
-    
-    if (created) draftsCreated++;
-  }
-  
-  return draftsCreated;
+  return results.filter(r => r.status === 'fulfilled' && r.value).length;
 }
 
 /**

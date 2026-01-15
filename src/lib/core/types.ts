@@ -245,6 +245,13 @@ export interface ChannelAdapter {
    * Mark message as read (optional)
    */
   markAsRead?(messageId: string): Promise<void>;
+  
+  /**
+   * Download media from channel-specific API
+   * This allows the unified media processor to work with raw buffers
+   * without knowing channel-specific download logic.
+   */
+  downloadMedia?(mediaRef: MediaReference): Promise<Buffer>;
 }
 
 // ===========================================

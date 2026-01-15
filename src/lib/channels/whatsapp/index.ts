@@ -18,6 +18,7 @@ export {
 export {
   processImageMessage,
   processVoiceMessage,
+  processDocumentMessage,
 } from './media';
 
 // Command handlers

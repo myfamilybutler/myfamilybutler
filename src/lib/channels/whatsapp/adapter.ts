@@ -217,7 +217,41 @@ class WhatsAppAdapter implements ChannelAdapter {
   async markAsRead(messageId: string): Promise<void> {
     await markMessageAsRead(messageId);
   }
+  
+  async downloadMedia(mediaRef: MediaReference): Promise<Buffer> {
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    
+    if (!accessToken) {
+      throw new Error('Missing WHATSAPP_ACCESS_TOKEN');
+    }
+    
+    // Step 1: Get media URL from Meta
+    const infoResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${mediaRef.id}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    
+    if (!infoResponse.ok) {
+      throw new Error(`Failed to get media info: ${infoResponse.status}`);
+    }
+    
+    const info = await infoResponse.json() as { url: string };
+    
+    // Step 2: Download media
+    const mediaResponse = await fetch(info.url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(30000),
+    });
+    
+    if (!mediaResponse.ok) {
+      throw new Error(`Failed to download media: ${mediaResponse.status}`);
+    }
+    
+    const arrayBuffer = await mediaResponse.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
 }
 
 // Export singleton instance
 export const whatsappAdapter = new WhatsAppAdapter();
+

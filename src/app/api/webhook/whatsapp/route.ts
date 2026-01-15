@@ -14,7 +14,7 @@ import {
 import { sendWhatsAppMessage, markMessageAsRead } from '@/lib/channels/whatsapp/send';
 import { handleCommand } from '@/lib/channels/whatsapp/commands';
 import { processIntents } from '@/lib/channels/whatsapp/intents';
-import { processImageMessage, processVoiceMessage as processVoiceMedia } from '@/lib/channels/whatsapp/media';
+import { processImageMessage, processVoiceMessage as processVoiceMedia, processDocumentMessage } from '@/lib/channels/whatsapp/media';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyWhatsAppSignature, maskPhone } from '@/lib/utils/security';
 import { trackIdentityLinked, trackUserCreated, trackDuplicatePrevented } from '@/lib/analytics';
@@ -275,6 +275,28 @@ async function processMessage(
         await processVoiceMedia(
           message.audio!.id,
           message.audio!.mime_type,
+          mediaContext
+        );
+        return;
+      }
+
+      case 'document': {
+        // Process document (PDF) through DocumentAgent
+        console.log(`[Webhook] Document message from ${phoneNumber}: ${message.document?.filename}`);
+        
+        if (isNewUser) {
+          await handleNewUser(user.id, phoneNumber, `[Document: ${message.document?.filename || 'file'}]`, 'text', messageId);
+          return;
+        }
+        
+        if (!user.household_id) {
+          await checkAndAcceptInvite(user, phoneNumber);
+        }
+        
+        await processDocumentMessage(
+          message.document!.id,
+          message.document!.mime_type,
+          message.document?.filename,
           mediaContext
         );
         return;

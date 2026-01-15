@@ -169,7 +169,44 @@ class TelegramAdapter implements ChannelAdapter {
       };
     }
   }
+  
+  async downloadMedia(mediaRef: MediaReference): Promise<Buffer> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    
+    if (!botToken) {
+      throw new Error('Missing TELEGRAM_BOT_TOKEN');
+    }
+    
+    // Step 1: Get file path from Telegram
+    const fileResponse = await fetch(
+      `https://api.telegram.org/bot${botToken}/getFile?file_id=${mediaRef.id}`
+    );
+    
+    if (!fileResponse.ok) {
+      throw new Error(`Failed to get file info: ${fileResponse.status}`);
+    }
+    
+    const fileData = await fileResponse.json() as { ok: boolean; result: { file_path: string } };
+    
+    if (!fileData.ok || !fileData.result?.file_path) {
+      throw new Error('Failed to get file path from Telegram');
+    }
+    
+    // Step 2: Download file
+    const mediaResponse = await fetch(
+      `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`,
+      { signal: AbortSignal.timeout(30000) }
+    );
+    
+    if (!mediaResponse.ok) {
+      throw new Error(`Failed to download media: ${mediaResponse.status}`);
+    }
+    
+    const arrayBuffer = await mediaResponse.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
 }
 
 // Export singleton instance
 export const telegramAdapter = new TelegramAdapter();
+
