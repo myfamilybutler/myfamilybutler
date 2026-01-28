@@ -263,10 +263,10 @@ export function createPlugin(config: {
     intentPatterns: config.patterns,
     priority: config.priority || 0,
     
-    canHandle(_message: StandardMessage, _context: FamilyContext): boolean {
-      // Pattern already matched in findHandler
-      return true;
-    },
+  canHandle(): boolean {
+    return true;
+  },
+
     
     handle: config.handler,
     

@@ -7,7 +7,7 @@
 
 import { getAdminClient } from '@/lib/supabase/client';
 import { getFamilyMembers } from '@/lib/supabase';
-import type { FamilyMember, Event, User } from '@/types';
+import type { Event, User } from '@/types';
 
 // ===========================================
 // Types

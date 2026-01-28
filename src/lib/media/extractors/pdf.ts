@@ -13,8 +13,9 @@ import type { ExtractionResult, MediaContext } from '../processor';
  */
 export async function extractPDFContent(
   buffer: Buffer,
-  _context: MediaContext
+  context: MediaContext
 ): Promise<ExtractionResult> {
+  void context;
   try {
     // Convert Buffer to Uint8Array for PDFParse
     const uint8Array = new Uint8Array(buffer);

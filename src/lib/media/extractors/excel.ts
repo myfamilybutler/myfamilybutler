@@ -12,9 +12,10 @@ import type { ExtractionResult, MediaContext } from '../processor';
  */
 export async function extractExcelContent(
   buffer: Buffer,
-  _context: MediaContext
+  context: MediaContext
 ): Promise<ExtractionResult> {
   try {
+    void context;
     // Read workbook from buffer
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     

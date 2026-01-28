@@ -14,7 +14,7 @@ Complete guide for setting up and onboarding users via all messaging channels.
 
 ## Provider Configuration
 
-Toggle providers via environment variables:
+Toggle providers via environment variables (see `.env.local.example`):
 
 ```bash
 # Enable/disable any combination
@@ -39,6 +39,7 @@ Configuration file: `src/lib/channels/providers.config.ts`
 
 ```bash
 WHATSAPP_API_TOKEN=          # System User access token
+WHATSAPP_ACCESS_TOKEN=       # Media download token (can be same as API token)
 WHATSAPP_PHONE_ID=           # Phone Number ID
 WHATSAPP_VERIFY_TOKEN=       # Custom verify token for webhook
 WHATSAPP_APP_SECRET=         # App Secret for signature verification
@@ -219,7 +220,7 @@ All channels:
 
 - Phone numbers masked in logs (`+43***5678`)
 - Messages truncated to 4096 chars
-- Deduplication via message ID
+- Deduplication via message ID (some routes still in-memory)
 
 ---
 
@@ -245,4 +246,4 @@ All channels:
 
 ---
 
-_Last updated: 2024-12-29_
+_Last updated: 2026-01-19_

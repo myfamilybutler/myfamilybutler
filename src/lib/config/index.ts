@@ -1,4 +1,8 @@
 
+import { APP_LINKS } from './links';
+
+export { APP_LINKS };
+
 export const APP_CONFIG = {
   /**
    * Current locale key - change this to switch regions

@@ -2,7 +2,7 @@
  * AI Interactions Logging
  * 
  * Logs all AI calls for LLMOps observability and continuous improvement.
- * Used by message-processor to track:
+ * Used by the core pipeline and media handlers to track:
  * - Input/output of every AI call
  * - Success/failure rates
  * - User feedback
@@ -210,7 +210,7 @@ export function createTimer(): { stop: () => number } {
 const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
   'gpt-4o-mini': { input: 0.00015, output: 0.0006 }, // per 1K tokens
   'gpt-4o': { input: 0.005, output: 0.015 },
-  'gemini-2.0-flash': { input: 0.0, output: 0.0 }, // Free tier
+  'gemini-3-flash-preview': { input: 0.0, output: 0.0 }, // Free tier
   'gemini-1.5-pro': { input: 0.00125, output: 0.005 },
 };
 

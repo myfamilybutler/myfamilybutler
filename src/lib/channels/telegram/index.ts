@@ -20,3 +20,5 @@ export {
 export {
   processTelegramVoiceMessage,
 } from './media';
+
+export { handleTelegramPhoneReceived } from './onboarding';

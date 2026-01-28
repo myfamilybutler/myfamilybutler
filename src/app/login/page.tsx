@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth-store';
+import { APP_LINKS } from '@/lib/config';
 
 // Dev-only password login form component
 function DevLoginForm() {
@@ -282,7 +283,7 @@ function LoginContent() {
                     <p>
                       Starte auf{' '}
                       <a
-                        href="https://wa.me/436601234567?text=Start"
+                        href={APP_LINKS.whatsappLink}
                         className="text-emerald-600 hover:underline font-medium"
                       >
                         WhatsApp

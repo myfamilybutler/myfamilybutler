@@ -5,7 +5,7 @@
  * This wraps the existing prompts.ts and adds persona injection.
  */
 
-import { getPersona, buildPersonaPrompt, detectMood } from '@/lib/persona';
+import { buildPersonaPrompt, detectMood } from '@/lib/persona';
 import { buildPromptContext, formatContextForPrompt } from '@/lib/context';
 import {
   getLocaleConfig,
@@ -151,7 +151,6 @@ Falls KEIN Termin erkannt wird:
  */
 export async function buildEnhancedChatPrompt(options: PromptOptions): Promise<string> {
   const {
-    householdId,
     message = '',
     historyCount = 0,
   } = options;

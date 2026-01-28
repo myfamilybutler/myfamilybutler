@@ -3,10 +3,11 @@ import { QRCodeSVG } from 'qrcode.react';
 import { MessageCircle, Calendar, FileText, Shield, ArrowRight, Smartphone, Zap, Users } from 'lucide-react';
 import { EmailLoginForm } from '@/components/landing/email-login-form';
 
+import { APP_LINKS } from '@/lib/config';
+
 // WhatsApp Business Number
-const WHATSAPP_NUMBER = '4368120484672';
-const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=Start`;
-const TELEGRAM_LINK = 'https://t.me/MyFamilyButler_Bot';
+const WHATSAPP_LINK = APP_LINKS.whatsappLink;
+const TELEGRAM_LINK = APP_LINKS.telegramLink;
 
 export default function LandingPage() {
   return (

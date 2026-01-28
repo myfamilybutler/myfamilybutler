@@ -22,6 +22,7 @@ import type { Channel } from '@/lib/core/types';
 // Register adapters with gateway on module load
 gateway.registerAdapter(whatsappAdapter);
 gateway.registerAdapter(telegramAdapter);
+// 360dialog is routed through WhatsApp adapter
 
 // ===========================================
 // Message Processing Job

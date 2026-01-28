@@ -74,16 +74,10 @@ export {
 } from './360dialog';
 
 // ===========================================
-// Unified Message Processor
+// Telegram Onboarding
 // ===========================================
 
-export { 
-  processIncomingMessage,
-  handleTelegramPhoneRequest,
-  handleTelegramPhoneReceived,
-  sendInteractiveResponse,
-  type ProcessMessageInput,
-} from './message-processor';
+export { handleTelegramPhoneReceived } from './telegram/onboarding';
 
 // ===========================================
 // Provider On/Off Switching

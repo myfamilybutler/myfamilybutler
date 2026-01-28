@@ -5,12 +5,18 @@ and how to use them in your daily development.
 
 ## 1. AI Integration
 
+Current model targets:
+- Gemini: `gemini-3-flash-preview`
+- OpenAI: `gpt-4o-mini`
+
 ### Provider Strategy (Cost Optimized)
 
 The app uses a **dual-provider strategy** to minimize costs:
 
-**Primary: Gemini 1.5 Flash** (Free tier / $0.075 per 1M tokens)
+**Primary: Gemini 3 Flash Preview** (Free tier / $0.075 per 1M tokens)
 **Fallback: OpenAI GPT-4o-mini** ($0.15 per 1M tokens)
+
+Note: Model names are defined in `src/lib/ai/providers/gemini.ts` and `src/lib/ai/providers/openai.ts`.
 
 ```typescript
 // Automatic fallback - just import from @/lib/ai
@@ -32,7 +38,7 @@ src/lib/ai/
 ├── prompts.ts        # Centralized system prompts
 ├── types.ts          # TypeScript types
 └── providers/
-    ├── gemini.ts     # Gemini 1.5 Flash (primary)
+    ├── gemini.ts     # Gemini 3 Flash Preview (primary)
     └── openai.ts     # GPT-4o-mini (fallback)
 ```
 
@@ -76,11 +82,12 @@ const result = await processLocalImage(
 | Directory   | Purpose                | Key Files                                            |
 | ----------- | ---------------------- | ---------------------------------------------------- |
 | `ai/`       | AI providers & parsing | `index.ts`, `schemas.ts`, `prompts.ts`               |
-| `agents/`   | Specialized agents     | `vision-agent.ts`                                    |
+| `ai/agents/` | Specialized agents     | `vision-agent.ts`                                    |
 | `auth/`     | Authentication         | `helpers.ts`, `vault.ts`                             |
-| `channels/` | Messaging              | `telegram.ts`, `whatsapp.ts`, `message-processor.ts` |
+| `channels/` | Messaging              | `telegram/`, `whatsapp/`, `360dialog/`               |
+| `core/`     | Core processing        | `gateway.ts`, `pipeline.ts`, `state.ts`              |
 | `supabase/` | Database ops           | `client.ts`, `db-*.ts`                               |
-| `sync/`     | External sync          | `google.ts` (Calendar)                               |
+| `sync/`     | External sync          | `google-sync-service.ts`                             |
 | `utils/`    | Utilities              | `fetch.ts`, `phone.ts`, `logger.ts`                  |
 
 ## 4. Automated Testing (Vitest)
@@ -97,7 +104,7 @@ const result = await processLocalImage(
 We use Next.js Server Actions for data mutations.
 
 - **Location**: `src/actions/`
-- **Examples**: `reminders.ts`, `process-vision.ts`
+- **Examples**: `reminders.ts`, `process-vision.ts`, `process-voice.ts`
 
 ```typescript
 // src/actions/example.ts
@@ -121,8 +128,10 @@ export async function createExample(formData: FormData) {
 
 Stop hardcoding values in your components.
 
-- **Location**: `src/lib/config.ts`
+- **Location**: `src/lib/config/index.ts`
 - **Usage**:
+
+Keep UI constants (links, phone numbers) in config where possible.
   ```typescript
   import { APP_CONFIG } from "@/lib/config";
 
@@ -196,7 +205,7 @@ import { cn } from "@/lib/utils";
 
 ## 9. Environment Variables
 
-Required for development:
+Required for development (see `.env.local.example` for the authoritative list):
 
 ```bash
 # Supabase
@@ -205,7 +214,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
 # AI (at least one required)
-GEMINI_API_KEY=               # Primary (free tier recommended)
+GOOGLE_GEMINI_API_KEY=        # Primary (free tier recommended)
 OPENAI_API_KEY=               # Fallback
 
 # Messaging Provider Switches
@@ -215,9 +224,11 @@ PROVIDER_360DIALOG_ENABLED=false
 
 # WhatsApp Business API (Meta Cloud API)
 WHATSAPP_API_TOKEN=
+WHATSAPP_ACCESS_TOKEN=
 WHATSAPP_PHONE_ID=
 WHATSAPP_VERIFY_TOKEN=
 WHATSAPP_APP_SECRET=          # For webhook signature verification (production)
+WHATSAPP_BUSINESS_ACCOUNT_ID=
 
 # 360dialog WhatsApp API (alternative to Meta Cloud API)
 D360_API_KEY=                 # API key from 360dialog dashboard
@@ -230,6 +241,8 @@ TELEGRAM_WEBHOOK_SECRET=      # Secret token for webhook verification
 # Google Calendar (optional)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Dev Testing (local browser testing only)
 E2E_TEST_EMAIL=test@myfamilybutler.test
@@ -281,4 +294,4 @@ E2E_TEST_PASSWORD=DevTest2024!Secure
 
 ---
 
-_Last updated: 2024-12-29_
+_Last updated: 2026-01-19_

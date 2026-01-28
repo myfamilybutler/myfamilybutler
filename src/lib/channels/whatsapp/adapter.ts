@@ -169,7 +169,7 @@ class WhatsAppAdapter implements ChannelAdapter {
     };
   }
   
-  formatResponse(response: StandardResponse, _metadata: ChannelMetadata): ChannelPayload {
+  formatResponse(response: StandardResponse): ChannelPayload {
     // WhatsApp payload is constructed in send methods
     return response;
   }

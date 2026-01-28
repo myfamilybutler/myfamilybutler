@@ -119,7 +119,7 @@ async function getGeminiModel() {
 }
 
 /**
- * Process image with Gemini 1.5 Flash Vision (Primary - Free/Cheap)
+ * Process image with Gemini 3 Flash Preview Vision (Primary - Free/Cheap)
  */
 async function extractEventsWithGemini(
   imageBuffer: Buffer,
@@ -263,14 +263,14 @@ async function extractEventsWithOpenAI(
 
 /**
  * Extract events from image with automatic fallback
- * Primary: Gemini 1.5 Flash | Fallback: OpenAI GPT-4o-mini
+ * Primary: Gemini 3 Flash Preview | Fallback: OpenAI GPT-4o-mini
  */
 async function extractEventsFromImage(
   imageBuffer: Buffer,
   mimeType: string = 'image/jpeg'
 ): Promise<VisionExtractionResponse> {
   // Try Gemini first (free/cheap)
-  console.log('[VisionAgent] Trying Gemini 1.5 Flash (primary)');
+  console.log('[VisionAgent] Trying Gemini 3 Flash Preview (primary)');
   const geminiResult = await extractEventsWithGemini(imageBuffer, mimeType);
   
   if (geminiResult && (geminiResult.events.length > 0 || geminiResult.needs_clarification)) {

@@ -24,8 +24,9 @@ async function getVisionAgent() {
 export async function extractImageContent(
   buffer: Buffer,
   mimeType: string,
-  _context: MediaContext
+  context: MediaContext
 ): Promise<ExtractionResult> {
+  void context;
   try {
     const agent = await getVisionAgent();
     
@@ -130,7 +131,7 @@ async function tryGeminiVision(
   const { GoogleGenerativeAI } = await import('@google/generative-ai');
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-flash-preview',
     generationConfig: { temperature: 0, maxOutputTokens: 4000 },
   });
   

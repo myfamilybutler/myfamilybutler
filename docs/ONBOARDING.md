@@ -1,12 +1,12 @@
 # Onboarding System Design
 
-> **Last Updated:** 2024-12-21 **Status:** Implementation Pending
+> **Last Updated:** 2026-01-19 **Status:** Partially Implemented
 
 ---
 
 ## 1. Core Principle
 
-> **WhatsApp-first, Desktop-friendly** — Users start via WhatsApp (zero
+> **Messaging-first, Desktop-friendly** — Users start via WhatsApp or Telegram (zero
 > friction), then optionally link an email to enable persistent desktop login.
 
 ### Philosophy
@@ -150,12 +150,12 @@
 │       ───────────────────────                                       │
 │       💡 Tipp: Tippe "Dashboard" für dein Online-Dashboard          │
 └─────────────────────────────────────────────────────────────────────┘
-                                    │
-                         (User continues using normally)
-                                    │
-                        User types: "Dashboard"
-                                    │
-                                    ▼
+                                     │
+                          (User continues using normally)
+                                     │
+                         User types: "Dashboard"
+                                     │
+                                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      DASHBOARD LINK SENT                             │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -164,10 +164,10 @@
 │                                                                     │
 │       ⏱️ Gültig für 15 Minuten                                      │
 └─────────────────────────────────────────────────────────────────────┘
-                                    │
-                         (User clicks link)
-                                    │
-                                    ▼
+                                     │
+                          (User clicks link)
+                                     │
+                                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    DASHBOARD + ONBOARDING MODAL                      │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -180,18 +180,19 @@
 │  │  Family Members:                                        │        │
 │  │  [+ Add family member]                                  │        │
 │  │                                                         │        │
-│  │  � Email for desktop login:                            │        │
+│  │  Email for desktop login:                               │        │
 │  │  Email: [________________]                              │        │
 │  │  [Skip]                    [Save & Continue →]          │        │
 │  └─────────────────────────────────────────────────────────┘        │
 │                                                                     │
 │  (Dashboard visible behind modal)                                   │
 └─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+                                     │
+                                     ▼
                               DASHBOARD
                    (Modal marked as "shown", never again)
 ```
+
 
 ---
 
@@ -400,19 +401,19 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS
 
 ### Phase 2: Email Magic Link Login
 
-- [ ] **Step 2.1**: Create email-login API endpoint
+- [x] **Step 2.1**: Create email-login API endpoint
 - [ ] **Step 2.2**: Set up email sending (Resend)
-- [ ] **Step 2.3**: Create email login page
+- [x] **Step 2.3**: Create email login page
 - [ ] **Step 2.4**: Add email linking to dashboard modal
 - [ ] **Step 2.5**: Add email linking to settings page
 
 ### Phase 3: Messaging Channel Onboarding
 
-- [ ] **Step 3.1**: Add welcome message for WhatsApp first contact
+- [x] **Step 3.1**: Add welcome message for WhatsApp first contact
 - [ ] **Step 3.2**: Add welcome message for Telegram first contact
-- [ ] **Step 3.3**: Create onboarding modal component for dashboard
-- [ ] **Step 3.4**: Show modal on first magic link access
-- [ ] **Step 3.5**: Track `onboarding_modal_shown` flag
+- [x] **Step 3.3**: Create onboarding modal component for dashboard
+- [x] **Step 3.4**: Show modal on first magic link access
+- [x] **Step 3.5**: Track `onboarding_modal_shown` flag
 
 ### Phase 4: Settings Page
 
@@ -497,6 +498,9 @@ interface CompleteOnboardingRequest {
 
 3. **Fallback**: What if user doesn't have WhatsApp installed on the device
    they're registering from? (Desktop browser, etc.)
+
+4. **Telegram Onboarding**: Do we require a phone share gate on first contact
+   or allow limited usage before phone verification?
 
 ---
 

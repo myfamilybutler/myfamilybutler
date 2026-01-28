@@ -7,12 +7,15 @@
 | **Next.js 16 (App Router)** | Core Framework   | `src/app` directory. Uses Server Actions, Middleware, and React 19. |
 | **Vitest**                  | Unit Testing     | `vitest.config.ts`. Run via `npm test`.                             |
 | **Supabase**                | Backend & RLS    | DB (`src/lib/supabase/`) + SQL Policies (`supabase/migrations`).    |
-| **Firebase**                | Phone Auth       | `src/lib/firebase.ts`. Verifies OTPs.                               |
-| **Gemini 1.5 Flash**        | AI (Primary)     | `src/lib/ai/providers/gemini.ts`. Free tier, text + vision.         |
+| **Inngest**                 | Background jobs  | `src/lib/inngest.ts`                                                |
+| **Phone Auth**              | Messaging-based  | WhatsApp/Telegram implicit verification + magic links               |
+| **Gemini 3 Flash Preview**  | AI (Primary)     | `src/lib/ai/providers/gemini.ts`. Free tier, text + vision.         |
 | **OpenAI GPT-4o-mini**      | AI (Fallback)    | `src/lib/ai/providers/openai.ts`. Cheapest OpenAI model.            |
-| **WhatsApp Cloud API**      | Messaging        | `src/lib/channels/whatsapp.ts`. Webhook at `/api/webhook/whatsapp`. |
-| **Telegram Bot API**        | Messaging        | `src/lib/channels/telegram.ts`. Webhook at `/api/webhook/telegram`. |
+| **WhatsApp Cloud API**      | Messaging        | `src/lib/channels/whatsapp/` + `/api/webhook/whatsapp`              |
+| **Telegram Bot API**        | Messaging        | `src/lib/channels/telegram/` + `/api/webhook/telegram`              |
+| **360dialog**               | Messaging        | `src/lib/channels/360dialog/` + `/api/webhook/360dialog`            |
 | **Zustand**                 | State Management | `src/stores/auth-store.ts`.                                         |
+| **Core Pipeline**           | Message routing  | `src/lib/core/gateway.ts`, `src/lib/core/pipeline.ts`               |
 | **Zod**                     | Validation       | Used for API inputs and AI parsing in `src/lib/ai/schemas.ts`.      |
 
 ## 2. Architecture & Logic
@@ -24,22 +27,28 @@ The `src/lib` folder is organized by domain:
 ```
 src/lib/
 ├── ai/           # AI providers (Gemini primary, OpenAI fallback)
-├── agents/       # Vision agent for image processing
+├── ai/agents/    # Vision agent for image processing
 ├── auth/         # Authentication helpers & Vault
-├── channels/     # WhatsApp, Telegram, message processor
+├── channels/     # WhatsApp, Telegram, 360dialog
+├── core/         # Gateway + pipeline orchestration
 ├── supabase/     # Database operations
 ├── sync/         # Google Calendar sync
 ├── utils/        # Shared utilities
-└── config.ts     # App configuration
+└── config/       # App configuration
 ```
 
 ### AI Provider Strategy (Cost Optimized)
 
-**Primary: Gemini 1.5 Flash** (Free tier)
+**Primary: Gemini 3 Flash Preview** (Free tier)
 
 - Text parsing: Event extraction, reminders
 - Vision: School letters, appointment cards
 - Response generation
+
+**Fallback: OpenAI GPT-4o-mini**
+
+- Used when Gemini fails or is unavailable
+- Automatic fallback with retry logic
 
 **Fallback: OpenAI GPT-4o-mini** ($0.15/1M tokens)
 
@@ -78,6 +87,7 @@ const response = await generateResponseWithFallback(history, message);
 - **AI Fallback**: Gemini first (free), OpenAI second (cheap)
 - **Domain-Based Structure**: Code organized by feature, not by type
 - **Server Actions**: `src/actions/*` contain server-side logic
+- **Core Gateway/Pipeline**: `src/lib/core/*` orchestrates message processing
 - **Zod Validation**: All AI responses validated via schemas
 - **Centralized Prompts**: `src/lib/ai/prompts.ts` for all system prompts
 
@@ -91,6 +101,7 @@ const response = await generateResponseWithFallback(history, message);
 - ✅ **WhatsApp Integration**: Functional with AI.
 - ✅ **Telegram Integration**: Functional with AI + image processing.
 - ✅ **Google Calendar Sync**: OAuth + bidirectional sync.
+- ⚠️ **Core Processing**: Gateway/pipeline introduced; legacy message processor still present.
 - 🚧 **Feature Parity**: Dashboard supports Reminders/Events, Settings basic.
 
 ## 4. Environment Variables
@@ -106,9 +117,20 @@ GOOGLE_GEMINI_API_KEY=      # Primary (free tier)
 OPENAI_API_KEY=             # Fallback
 
 # Messaging
+WHATSAPP_API_TOKEN=
 WHATSAPP_ACCESS_TOKEN=
-WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_PHONE_ID=
+WHATSAPP_VERIFY_TOKEN=
+WHATSAPP_APP_SECRET=
+WHATSAPP_BUSINESS_ACCOUNT_ID=
 TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
+
+# Google OAuth
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+NEXT_PUBLIC_APP_URL=
 
 # Google Calendar
 GOOGLE_CLIENT_ID=
@@ -130,9 +152,10 @@ NEXT_PUBLIC_APP_URL=
 ### Adding a new channel
 
 1. Create handler in `src/lib/channels/`
-2. Update `message-processor.ts` if needed
+2. Register adapter in core gateway/pipeline if required
 3. Create webhook route in `src/app/api/webhook/`
+4. Update provider toggles in `src/lib/channels/providers.config.ts`
 
 ---
 
-_Last updated: 2024-12-20_
+_Last updated: 2026-01-19_

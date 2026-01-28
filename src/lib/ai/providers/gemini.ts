@@ -1,8 +1,8 @@
 /**
  * Gemini Provider
  * 
- * Google Gemini 1.5 Flash integration for event parsing and chat responses.
- * Used as fallback when OpenAI is unavailable.
+ * Google Gemini 3 Flash Preview integration for event parsing and chat responses.
+ * Used as primary provider when configured.
  */
 
 import type { ChatMessage } from '@/types';
@@ -56,7 +56,7 @@ export function isGeminiAvailable(): boolean {
 // ===========================================
 
 /**
- * Parse events using Gemini 1.5 Flash
+ * Parse events using Gemini 3 Flash Preview
  * Full extraction result with clarification support
  * @param familyMembers - Optional list of known family members for matching
  */

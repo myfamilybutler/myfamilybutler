@@ -1,6 +1,6 @@
 # WhatsApp Business API Setup
 
-> **Last Updated:** December 21, 2025
+> **Last Updated:** January 19, 2026
 
 ## Current Status
 
@@ -20,6 +20,7 @@
 ```env
 # WhatsApp Business API
 WHATSAPP_API_TOKEN=<permanent_access_token>
+WHATSAPP_ACCESS_TOKEN=<media_download_token>
 WHATSAPP_PHONE_ID=972036659317885
 WHATSAPP_VERIFY_TOKEN=my_family_butler_secure_token_2024_xyz789
 WHATSAPP_BUSINESS_ACCOUNT_ID=747913198355547

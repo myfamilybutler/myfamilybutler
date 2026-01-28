@@ -13,8 +13,9 @@ import type { ExtractionResult, MediaContext } from '../processor';
 export async function extractVoiceContent(
   buffer: Buffer,
   mimeType: string,
-  _context: MediaContext
+  context: MediaContext
 ): Promise<ExtractionResult> {
+  void context;
   try {
     // Import OpenAI dynamically
     const OpenAI = (await import('openai')).default;

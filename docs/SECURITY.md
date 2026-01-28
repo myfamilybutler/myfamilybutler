@@ -9,7 +9,7 @@ family app with plans to scale to 10K+ users.
 
 ### Session Management
 
-- **Custom Sessions**: HTTP-only, secure cookies with 90-day expiration
+- **Custom Sessions**: HTTP-only, secure cookies with 90-day expiration (magic/invite) and shorter durations for other flows (7–60 days)
 - **Session Format**: UUID-based user IDs with format validation
 - **Logout**: Clear endpoint at `/api/auth/logout` for session invalidation
 
@@ -72,11 +72,12 @@ Used for passwordless login from messaging channels:
 
 ### Planned Improvements (Phase 2)
 
-| Threat              | Planned Mitigation         |
-| ------------------- | -------------------------- |
-| API abuse           | Rate limiting with Upstash |
-| Credential stuffing | Rate limiting + monitoring |
-| Breach detection    | Audit logging              |
+| Threat              | Planned Mitigation                              |
+| ------------------- | ----------------------------------------------- |
+| API abuse           | Centralized rate limiting (Redis/Upstash)       |
+| Credential stuffing | Rate limiting + monitoring                      |
+| Breach detection    | Audit logging + anomaly alerts                  |
+| In-memory state     | Move conversation state + dedup to shared store |
 
 ### Accepted Risks
 

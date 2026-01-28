@@ -6,6 +6,7 @@
  */
 
 import type { ConversationState, ConversationStateType, Channel } from './types';
+import { getStoredConversationState, setStoredConversationState, clearStoredConversationState } from './state-store';
 
 // ===========================================
 // In-Memory State Store (Redis-ready pattern)
@@ -55,16 +56,20 @@ export async function getConversationState(
   userId: string,
   channel: Channel
 ): Promise<ConversationState> {
+  const stored = await getStoredConversationState(userId, channel);
+  if (stored) {
+    return stored;
+  }
+
   ensureCleanup();
-  
+
   const key = getStateKey(userId, channel);
   const entry = stateStore.get(key);
-  
+
   if (!entry || Date.now() > entry.expiresAt) {
-    // Return default idle state
     return { state: 'idle' };
   }
-  
+
   return entry.state;
 }
 
@@ -77,15 +82,17 @@ export async function setConversationState(
   state: ConversationState
 ): Promise<void> {
   ensureCleanup();
-  
+
   const key = getStateKey(userId, channel);
   const ttl = state.state === 'awaiting_undo' ? UNDO_TTL_MS : STATE_TTL_MS;
-  
+
   stateStore.set(key, {
     state,
     expiresAt: Date.now() + ttl,
   });
-  
+
+  await setStoredConversationState(userId, channel, state);
+
   console.log(`[State] Set ${key} to ${state.state} (TTL: ${ttl / 1000}s)`);
 }
 
@@ -98,6 +105,7 @@ export async function clearConversationState(
 ): Promise<void> {
   const key = getStateKey(userId, channel);
   stateStore.delete(key);
+  await clearStoredConversationState(userId, channel);
   console.log(`[State] Cleared ${key}`);
 }
 

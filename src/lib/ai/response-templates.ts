@@ -65,6 +65,31 @@ export interface ResponseTemplates {
     error: string;
     linkedToFamily: string;
     dashboardLink: string;
+    // New keys
+    undoSuccess: string;
+    eventConfirmed: string;
+    draftDiscarded: string;
+    noActionPending: string;
+    unknownCommand: string;
+    help: string;
+    startWelcome: string;
+    dashboardLinkInstruction: string;
+    dashboardLinkError: string;
+    notInHousehold: string;
+    saveError: string;
+    draftHeader: string;
+    isThisCorrect: string;
+    saveDraftError: string;
+    identityError: string;
+    rateLimitReached: string;
+    genericProcessingError: string;
+    // Meal Planner
+    mealNoHousehold: string;
+    mealNoToday: string;
+    mealTodayHeading: string;
+    mealNoWeek: string;
+    mealWeekHeading: string;
+    mealPlannerHelp: string;
 }
 
 const templates: Record<'de' | 'en', ResponseTemplates> = {
@@ -101,6 +126,72 @@ Das ist alles! 😊`,
         linkedToFamily: `🎉 Willkommen bei My Family Butler! Du wurdest zur Familie hinzugefügt. Schreib mir, um Termine und Erinnerungen zu erstellen!`,
 
         dashboardLink: `📊 Hier ist der Link zu deinem Dashboard: {url}`,
+
+        undoSuccess: `Termin wurde rückgängig gemacht.`,
+        
+        eventConfirmed: `Termin "{title}" wurde gespeichert!`,
+        
+        draftDiscarded: `Alles klar, Termin wurde verworfen. Was möchtest du stattdessen eintragen?`,
+        
+        noActionPending: `Es gibt gerade nichts zu bestätigen oder rückgängig zu machen.`,
+        
+        unknownCommand: `Unbekannter Befehl. Tippe "help" für Hilfe.`,
+        
+        help: `*My Family Butler Hilfe*
+
+*Termine:*
+- "Zahnarzt am Montag um 10 Uhr"
+- "Meeting morgen 14:00"
+
+*Erinnerungen:*
+- "Erinnere mich in 1 Stunde an..."
+- "Reminder: Milch kaufen morgen"
+
+*Befehle:*
+- dashboard - Dashboard öffnen
+- help - Diese Hilfe anzeigen`,
+
+        startWelcome: `Willkommen bei My Family Butler!
+
+Ich bin dein persönlicher Familienassistent. Ich kann dir helfen mit:
+
+- Termine erstellen - "Zahnarzt am Montag um 10 Uhr"
+- Erinnerungen - "Erinnere mich morgen an Milch kaufen"
+- Dashboard öffnen - "Dashboard" oder "Link"
+
+Probiere es aus! Schreib mir einfach eine Nachricht.`,
+
+        dashboardLinkInstruction: `Hier ist dein Dashboard-Link. Der Link ist 15 Minuten gültig.`,
+        
+        dashboardLinkError: `Es gab ein Problem beim Erstellen des Dashboard-Links. Bitte versuche es erneut.`,
+        
+        notInHousehold: `Du bist noch keinem Haushalt zugeordnet. Bitte lass dich einladen.`,
+        
+        saveError: `Es gab einen Fehler beim Speichern des Termins.`,
+        
+        draftHeader: `*Entwurf*`,
+        
+        isThisCorrect: `Stimmt das?`,
+        
+        saveDraftError: `Es gab einen Fehler beim Erstellen des Entwurfs.`,
+        
+        identityError: `Entschuldigung, es ist ein Fehler aufgetreten. Bitte versuche es später erneut.`,
+        
+        rateLimitReached: `Du sendest Nachrichten zu schnell. Bitte warte einen Moment.`,
+        
+        genericProcessingError: `Es tut mir leid, es ist ein Fehler aufgetreten. Bitte versuche es erneut.`,
+
+        mealNoHousehold: `Du bist noch keinem Haushalt zugeordnet.`,
+        mealNoToday: `Für heute ist noch nichts geplant. Was möchtest du essen?`,
+        mealTodayHeading: `Heute auf dem Plan:`,
+        mealNoWeek: `Für diese Woche ist noch nichts geplant.\n\nSchreib z.B. "Mittagessen Montag: Pasta"`,
+        mealWeekHeading: `*Essensplan diese Woche:*`,
+        mealPlannerHelp: `Mahlzeitenplanung ist aktiviert!
+
+Sage mir z.B.:
+- "Was gibt es heute zum Abendessen?"
+- "Mittagessen Montag: Spaghetti"
+- "Zeig mir den Essensplan"`,
     },
 
     en: {
@@ -136,6 +227,72 @@ That's all! 😊`,
         linkedToFamily: `🎉 Welcome to My Family Butler! You've been added to the family. Send me a message to create appointments and reminders!`,
 
         dashboardLink: `📊 Here's the link to your dashboard: {url}`,
+
+        undoSuccess: `Event was undone.`,
+        
+        eventConfirmed: `Event "{title}" saved!`,
+        
+        draftDiscarded: `Alright, draft discarded. What would you like to enter instead?`,
+        
+        noActionPending: `There is nothing to confirm or undo at the moment.`,
+        
+        unknownCommand: `Unknown command. Type "help" for help.`,
+        
+        help: `*My Family Butler Help*
+
+*Events:*
+- "Dentist on Monday at 10 am"
+- "Meeting tomorrow 14:00"
+
+*Reminders:*
+- "Remind me in 1 hour about..."
+- "Reminder: Buy milk tomorrow"
+
+*Commands:*
+- dashboard - Open dashboard
+- help - Show this help`,
+
+        startWelcome: `Welcome to My Family Butler!
+
+I'm your personal family assistant. I can help you with:
+
+- Create appointments - "Dentist on Monday at 10 am"
+- Reminders - "Remind me tomorrow to buy milk"
+- Open Dashboard - "Dashboard" or "Link"
+
+Give it a try! Just send me a message.`,
+
+        dashboardLinkInstruction: `Here is your dashboard link. The link is valid for 15 minutes.`,
+        
+        dashboardLinkError: `There was a problem creating the dashboard link. Please try again.`,
+        
+        notInHousehold: `You are not part of a household yet. Please get invited.`,
+        
+        saveError: `There was an error saving the event.`,
+        
+        draftHeader: `*Draft*`,
+        
+        isThisCorrect: `Is this correct?`,
+        
+        saveDraftError: `There was an error creating the draft.`,
+        
+        identityError: `Sorry, there was an error. Please try again later.`,
+        
+        rateLimitReached: `You are sending messages too fast. Please wait a moment.`,
+        
+        genericProcessingError: `I'm sorry, an error occurred. Please try again.`,
+
+        mealNoHousehold: `You are not part of a household yet.`,
+        mealNoToday: `Nothing planned for today. What would you like to eat?`,
+        mealTodayHeading: `On the menu today:`,
+        mealNoWeek: `Nothing planned for this week.\n\nTry "Lunch Monday: Pasta"`,
+        mealWeekHeading: `*Meal plan this week:*`,
+        mealPlannerHelp: `Meal planning activated!
+
+Try:
+- "What's for dinner today?"
+- "Lunch Monday: Spaghetti"
+- "Show me the meal plan"`,
     },
 };
 

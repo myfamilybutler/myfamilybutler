@@ -34,6 +34,7 @@ export type {
 
 // Gateway
 export { gateway } from './gateway';
+export { isMessageProcessed } from './dedup';
 
 // Pipeline
 export { pipeline } from './pipeline';

@@ -33,7 +33,7 @@ class TelegramAdapter implements ChannelAdapter {
     return isProviderEnabled('telegram');
   }
   
-  validateSignature(_rawBody: string, _signature: string | null): boolean {
+  validateSignature(): boolean {
     // Telegram uses secret token in URL, validated at route level
     // For now, we trust the route-level validation
     return true;
@@ -120,7 +120,7 @@ class TelegramAdapter implements ChannelAdapter {
     };
   }
   
-  formatResponse(response: StandardResponse, _metadata: ChannelMetadata): ChannelPayload {
+  formatResponse(response: StandardResponse): ChannelPayload {
     return response;
   }
   

@@ -14,73 +14,23 @@ import type {
   StandardMessage,
   StandardResponse,
   ChannelAdapter,
-  ChannelMetadata,
   GatewayOptions,
   GatewayResult,
-  ConversationState,
   MessagingChannel,
   LoggableMessageType,
 } from './types';
 import { pipeline } from './pipeline';
 import { getConversationState } from './state';
 import { findOrCreateUser } from '@/lib/supabase/identity';
-import { isMessageProcessed } from '@/lib/channels/message-processor';
+import { isMessageProcessed } from './dedup';
+import { checkRateLimit } from './rate-limit';
 import { getFamilyMembers, logMessage } from '@/lib/supabase';
+import { getTemplate } from '@/lib/ai/response-templates';
 import type { Channel } from './types';
 
 // ===========================================
-// Rate Limiting (In-Memory with Redis fallback ready)
+// Rate Limiting (DB-backed)
 // ===========================================
-
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_MESSAGES = 30; // Max 30 messages per user per minute
-
-interface RateLimitEntry {
-  count: number;
-  windowStart: number;
-}
-
-const rateLimitMap = new Map<string, RateLimitEntry>();
-
-// Cleanup interval
-let cleanupInterval: ReturnType<typeof setInterval> | null = null;
-
-function ensureCleanup() {
-  if (!cleanupInterval) {
-    cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      for (const [key, entry] of rateLimitMap.entries()) {
-        if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
-          rateLimitMap.delete(key);
-        }
-      }
-    }, RATE_LIMIT_WINDOW_MS);
-    if (cleanupInterval.unref) {
-      cleanupInterval.unref();
-    }
-  }
-}
-
-function checkRateLimit(userId: string): boolean {
-  ensureCleanup();
-  
-  const now = Date.now();
-  const key = `gateway:${userId}`;
-  const existing = rateLimitMap.get(key);
-  
-  if (!existing || now - existing.windowStart > RATE_LIMIT_WINDOW_MS) {
-    rateLimitMap.set(key, { count: 1, windowStart: now });
-    return true;
-  }
-  
-  if (existing.count >= RATE_LIMIT_MAX_MESSAGES) {
-    console.warn(`[Gateway] Rate limited user: ${userId.slice(0, 8)}...`);
-    return false;
-  }
-  
-  existing.count++;
-  return true;
-}
 
 // ===========================================
 // Gateway Class
@@ -170,8 +120,8 @@ class MessageGateway {
       console.error(`[Gateway:${requestId}] Failed to resolve identity`);
       // Send error response
       await adapter.sendResponse(partialMessage.metadata, {
-        text: 'Sorry, there was an error. Please try again later.',
-        metadata: { language: 'en', shouldLog: false },
+        text: getTemplate('identityError', 'de'),
+        metadata: { language: 'de', shouldLog: false },
       });
       return { processed: false, reason: 'error' };
     }
@@ -179,9 +129,9 @@ class MessageGateway {
     const user = identityResult.user;
     
     // Step 7: Rate limiting check
-    if (!options.skipRateLimit && !checkRateLimit(user.id)) {
+    if (!options.skipRateLimit && !(await checkRateLimit(`gateway:${user.id}`))) {
       const rateLimitResponse: StandardResponse = {
-        text: 'Du sendest Nachrichten zu schnell. Bitte warte einen Moment.',
+        text: getTemplate('rateLimitReached', 'de'),
         metadata: { language: 'de', shouldLog: false },
       };
       await adapter.sendResponse(partialMessage.metadata, rateLimitResponse);

@@ -43,7 +43,7 @@ cd myfamilybutler
 npm install
 
 # Copy environment variables
-cp .env.example .env.local
+cp .env.local.example .env.local
 
 # Run development server
 npm run dev
@@ -62,12 +62,17 @@ GOOGLE_GEMINI_API_KEY=      # Primary - free tier
 OPENAI_API_KEY=             # Fallback
 
 # Messaging
+WHATSAPP_API_TOKEN=
 WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_ID=
 TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
 
 # Google Calendar (optional)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+NEXT_PUBLIC_APP_URL=
 ```
 
 ## Project Structure

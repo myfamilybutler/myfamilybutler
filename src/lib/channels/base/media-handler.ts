@@ -15,9 +15,9 @@ import type { BrainResult, ParsedEvent } from '@/lib/ai/types';
 
 export const MEDIA_CONFIG = {
   /** Confidence threshold for auto-save (above = save, below = ask/draft) */
-  confidenceThreshold: 0.70,
+  confidenceThreshold: 0.85,
   /** Minimum confidence to save as draft (below = ask clarification) */
-  draftThreshold: 0.40,
+  draftThreshold: 0.50,
 };
 
 // ===========================================

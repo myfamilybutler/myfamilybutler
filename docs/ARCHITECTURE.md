@@ -2,7 +2,9 @@
 
 ## 1. The "Clean" Stack (Active Technology)
 
-_List only the technologies that are CRITICAL. Mark others as "To Deprecate"._
+_List only the technologies that are CRITICAL. Mark others as "To Deprecate".
+Keep in sync with the actual codebase. The core runtime is the gateway/pipeline
+in `src/lib/core/`._
 
 | Component     | Active Choice                   | Status in Code                              |
 | :------------ | :------------------------------ | :------------------------------------------ |
@@ -12,6 +14,7 @@ _List only the technologies that are CRITICAL. Mark others as "To Deprecate"._
 | **Messaging** | WhatsApp + Telegram + 360dialog | ✅ Active (`src/lib/channels/`)             |
 | **AI**        | Gemini + OpenAI (fallback)      | ✅ Active (`src/lib/ai/`)                   |
 | **Vision**    | Gemini Vision + OpenAI          | ✅ Active (`src/actions/process-vision.ts`) |
+| **Core Flow** | Gateway + Pipeline              | ✅ Active (`src/lib/core/`)                 |
 
 ## 2. Directory Structure (Post-Refactoring)
 
@@ -24,10 +27,10 @@ src/lib/
 │   ├── types.ts               # ParsedEvent, EventExtractionResult
 │   └── providers/
 │       ├── openai.ts          # OpenAI GPT-4o-mini
-│       └── gemini.ts          # Gemini 1.5 Flash (primary)
+│       └── gemini.ts          # Gemini 3 Flash Preview (primary)
 │
-├── agents/                     # 🤖 Specialized AI agents
-│   └── vision-agent.ts        # Image → Event extraction
+├── ai/agents/                  # 🤖 Specialized AI agents
+│   └── vision-agent.ts         # Image → Event extraction
 │
 ├── auth/                       # 🔐 Authentication & security
 │   ├── index.ts
@@ -36,11 +39,10 @@ src/lib/
 │
 ├── channels/                   # 📱 Messaging integrations
 │   ├── index.ts
-│   ├── telegram.ts            # Telegram Bot API
-│   ├── whatsapp.ts            # Meta WhatsApp API
-│   ├── three-sixty-dialog.ts  # 360dialog WhatsApp API
-│   ├── message-processor.ts   # Unified message handling
-│   └── providers.config.ts    # Provider on/off switches
+│   ├── telegram/               # Telegram Bot API
+│   ├── whatsapp/               # Meta WhatsApp API
+│   ├── 360dialog/              # 360dialog WhatsApp API
+│   └── providers.config.ts     # Provider on/off switches
 │
 ├── supabase/                   # 🗄️ Database operations
 │   ├── client.ts
@@ -61,7 +63,7 @@ src/lib/
 │   ├── security.ts            # Webhook verification, masking
 │   └── ui-helpers.ts          # getMemberColor, getInitials
 │
-└── config.ts                   # ⚙️ App configuration
+└── config/                     # ⚙️ App configuration
 ```
 
 ## 3. AI Provider Strategy (Cost Optimized)
@@ -69,19 +71,23 @@ src/lib/
 ### Text Processing
 
 ```
-User Message → Gemini 1.5 Flash (FREE) → OpenAI GPT-4o-mini ($0.15/1M)
+User Message → Gemini 3 Flash Preview (FREE) → OpenAI GPT-4o-mini ($0.15/1M)
 ```
 
 ### Image/Vision Processing
 
 ```
-Image → Gemini 1.5 Flash Vision (FREE) → OpenAI GPT-4o-mini ($0.15/1M)
+Image → Gemini 3 Flash Preview (FREE) → OpenAI GPT-4o-mini ($0.15/1M)
 ```
 
-| Provider              | Model       | Cost           | Use Case          |
-| --------------------- | ----------- | -------------- | ----------------- |
-| **Gemini (Primary)**  | 1.5 Flash   | Free tier      | Text + Vision     |
-| **OpenAI (Fallback)** | GPT-4o-mini | $0.15/1M input | When Gemini fails |
+| Provider              | Model           | Cost           | Use Case         |
+| --------------------- | --------------- | -------------- | ---------------- |
+| **Gemini (Primary)**  | 3 Flash Preview | Free tier      | Text + Vision    |
+| **OpenAI (Fallback)** | GPT-4o-mini     | $0.15/1M input | Fallback parsing |
+
+> Model names should mirror `src/lib/ai/providers/*.ts` and
+> `src/actions/process-vision.ts`. | **OpenAI (Fallback)** | GPT-4o-mini |
+> $0.15/1M input | When Gemini fails |
 
 ## 4. The Data Flow
 
@@ -119,13 +125,12 @@ Session cookies set → Redirect to /dashboard
 
 ### Message Processing Flow
 
-1. **User sends message** → Received by webhook
-2. **Deduplication check** → Prevent processing same message twice
-3. **Command handling** → Dashboard/Start/Help commands intercepted
-4. **Image detection** → If image, process with Vision Agent (Gemini → OpenAI)
-5. **Intent parsing** → Reminder/Event detection via AI (Gemini → OpenAI)
-6. **AI Response** → `generateResponseWithFallback` for general queries
-7. **Response sent** → Via WhatsApp/Telegram API
+1. **User sends message** → Received by channel webhook
+2. **Provider checks** → Signature validation + provider enabled
+3. **Deduplication check** → Prevent processing same message twice
+4. **Gateway + Pipeline** → Standardized message handling (core flow)
+5. **AI Routing** → Event/Reminder extraction (Gemini → OpenAI fallback)
+6. **Response sent** → Via channel adapter
 
 ## 5. Identity Resolution (Multi-Provider)
 
@@ -144,7 +149,8 @@ Session cookies set → Redirect to /dashboard
 | ---------------------------------------- | ------------------------------------- |
 | `src/lib/supabase/client.ts`             | Supabase client initialization        |
 | `src/lib/ai/index.ts`                    | AI router with fallback logic         |
-| `src/lib/channels/message-processor.ts`  | Unified message processing            |
+| `src/lib/core/gateway.ts`                | Unified message entry point           |
+| `src/lib/core/pipeline.ts`               | Message processing orchestration      |
 | `src/lib/channels/providers.config.ts`   | Provider on/off switches              |
 | `src/lib/utils/security.ts`              | Webhook verification, masking         |
 | `src/app/api/webhook/whatsapp/route.ts`  | WhatsApp message handling             |
@@ -153,6 +159,8 @@ Session cookies set → Redirect to /dashboard
 | `src/app/api/auth/dev-login/route.ts`    | Dev-only password login (404 in prod) |
 | `src/actions/process-vision.ts`          | Image → Event extraction              |
 | `src/middleware.ts`                      | Route protection                      |
+
+> Note: Some legacy flows are still being migrated to the new core structure.
 
 ## 7. Provider Switching
 
@@ -184,3 +192,5 @@ PROVIDER_TELEGRAM_ENABLED=false
 | 360dialog          | D360-API-KEY header authentication     |
 | Phone masking      | PII redacted in logs (`+43***5678`)    |
 | Message truncation | Max 4096 chars to prevent DoS          |
+
+_Last updated: 2026-01-19_

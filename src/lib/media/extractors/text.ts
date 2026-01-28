@@ -11,8 +11,9 @@ import type { ExtractionResult, MediaContext } from '../processor';
  */
 export async function extractTextContent(
   buffer: Buffer,
-  _context: MediaContext
+  context: MediaContext
 ): Promise<ExtractionResult> {
+  void context;
   try {
     const text = buffer.toString('utf-8').trim();
     

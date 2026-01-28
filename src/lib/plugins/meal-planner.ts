@@ -5,9 +5,10 @@
  * Handles meal planning and recipe suggestions.
  */
 
-import type { StandardMessage, StandardResponse, PipelineContext } from '@/lib/core/types';
+import type { StandardMessage } from '@/lib/core/types';
 import type { BotPlugin, FamilyContext, PluginResult, Migration } from './index';
 import { getAdminClient } from '@/lib/supabase/client';
+import { getTemplate } from '@/lib/ai/response-templates';
 
 // ===========================================
 // Handler Functions
@@ -21,8 +22,8 @@ async function handleWhatsMeal(
     return {
       handled: true,
       response: {
-        text: 'Du bist noch keinem Haushalt zugeordnet.',
-        metadata: { language: 'de', shouldLog: true },
+        text: getTemplate('mealNoHousehold', context.language),
+        metadata: { language: context.language, shouldLog: true },
       },
     };
   }
@@ -41,8 +42,8 @@ async function handleWhatsMeal(
     return {
       handled: true,
       response: {
-        text: 'Fur heute ist noch nichts geplant. Was mochtest du essen?',
-        metadata: { language: 'de', shouldLog: true },
+        text: getTemplate('mealNoToday', context.language),
+        metadata: { language: context.language, shouldLog: true },
       },
     };
   }
@@ -52,8 +53,8 @@ async function handleWhatsMeal(
   return {
     handled: true,
     response: {
-      text: `Heute auf dem Plan:\n${mealText}`,
-      metadata: { language: 'de', shouldLog: true },
+      text: `${getTemplate('mealTodayHeading', context.language)}\n${mealText}`,
+      metadata: { language: context.language, shouldLog: true },
     },
   };
 }
@@ -66,8 +67,8 @@ async function handleMealPlan(
     return {
       handled: true,
       response: {
-        text: 'Du bist noch keinem Haushalt zugeordnet.',
-        metadata: { language: 'de', shouldLog: true },
+        text: getTemplate('mealNoHousehold', context.language),
+        metadata: { language: context.language, shouldLog: true },
       },
     };
   }
@@ -90,8 +91,8 @@ async function handleMealPlan(
     return {
       handled: true,
       response: {
-        text: 'Fur diese Woche ist noch nichts geplant.\n\nSchreib z.B. "Mittagessen Montag: Pasta"',
-        metadata: { language: 'de', shouldLog: true },
+        text: getTemplate('mealNoWeek', context.language),
+        metadata: { language: context.language, shouldLog: true },
       },
     };
   }
@@ -104,11 +105,11 @@ async function handleMealPlan(
     byDate.get(date)!.push(meal);
   }
   
-  let planText = '*Essensplan diese Woche:*\n\n';
+  let planText = `${getTemplate('mealWeekHeading', context.language)}\n\n`;
   
   for (const [date, dayMeals] of byDate) {
     const d = new Date(date);
-    const dayName = d.toLocaleDateString('de-AT', { weekday: 'long' });
+    const dayName = d.toLocaleDateString(context.language === 'de' ? 'de-AT' : 'en-US', { weekday: 'long' });
     planText += `*${dayName}:*\n`;
     for (const m of dayMeals) {
       planText += `  ${m.name}\n`;
@@ -120,25 +121,17 @@ async function handleMealPlan(
     handled: true,
     response: {
       text: planText.trim(),
-      metadata: { language: 'de', shouldLog: true },
+      metadata: { language: context.language, shouldLog: true },
     },
   };
 }
 
-async function handleAddMeal(
-  _message: StandardMessage,
-  _context: FamilyContext
-): Promise<PluginResult> {
+async function handleAddMeal(context: FamilyContext): Promise<PluginResult> {
   return {
     handled: true,
     response: {
-      text: `Mahlzeitenplanung ist aktiviert!
-
-Sage mir z.B.:
-- "Was gibt es heute zum Abendessen?"
-- "Mittagessen Montag: Spaghetti"
-- "Zeig mir den Essensplan"`,
-      metadata: { language: 'de', shouldLog: true },
+      text: getTemplate('mealPlannerHelp', context.language),
+      metadata: { language: context.language, shouldLog: true },
     },
   };
 }
@@ -154,9 +147,9 @@ export const mealPlannerPlugin: BotPlugin = {
   description: 'Plan and track family meals',
   
   intentPatterns: [
-    /\b(meal|essen|mahlzeit|kochen|cook|recipe|rezept|dinner|abendessen|lunch|mittagessen|breakfast|fruhstuck)\b/i,
+    /\b(meal|essen|mahlzeit|kochen|cook|recipe|rezept|dinner|abendessen|lunch|mittagessen|breakfast|frühstück)\b/i,
     /\bwas (gibt|essen|kochen)\b/i,
-    /\b(menu|menuplan|speiseplan|essensplan)\b/i,
+    /\b(menu|menüplan|speiseplan|essensplan)\b/i,
   ],
   
   priority: 10,
@@ -173,8 +166,7 @@ export const mealPlannerPlugin: BotPlugin = {
   
   async handle(
     message: StandardMessage,
-    context: FamilyContext,
-    _pipelineContext: PipelineContext
+    context: FamilyContext
   ): Promise<PluginResult> {
     const content = message.content?.toLowerCase() || '';
     
@@ -182,11 +174,11 @@ export const mealPlannerPlugin: BotPlugin = {
       return handleWhatsMeal(message, context);
     }
     
-    if (content.includes('plan') || content.includes('menu')) {
+    if (content.includes('plan') || content.includes('menu') || content.includes('menü')) {
       return handleMealPlan(message, context);
     }
     
-    return handleAddMeal(message, context);
+    return handleAddMeal(context);
   },
   
   getPromptExtension(): string {
@@ -195,7 +187,7 @@ export const mealPlannerPlugin: BotPlugin = {
 Du kannst auch bei der Essensplanung helfen:
 - "Was gibt es heute zum Abendessen?" - Zeige geplante Mahlzeiten
 - "Mittagessen am Sonntag: Schnitzel" - Mahlzeit eintragen
-- "Essensplan fur diese Woche" - Wochenplan anzeigen`;
+- "Essensplan für diese Woche" - Wochenplan anzeigen`;
   },
   
   getMigrations(): Migration[] {

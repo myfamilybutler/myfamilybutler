@@ -4,7 +4,8 @@
  * Central orchestrator that:
  * 1. Normalizes any input type (text, image, voice) to text
  * 2. Extracts events using shared event extractor
- * 3. Applies confidence-based routing (70% threshold)
+  * 3. Applies confidence-based routing (85% threshold)
+
  * 4. Returns structured results with action recommendations
  * 
  * This is the "single funnel" that all inputs flow through.
@@ -26,9 +27,9 @@ import { processVisionMessage } from '@/actions/process-vision';
 
 const BRAIN_CONFIG = {
   /** Confidence threshold for auto-save (above = save, below = ask/draft) */
-  confidenceThreshold: 0.70,
+  confidenceThreshold: 0.85,
   /** Minimum confidence to save as draft (below = ask clarification) */
-  draftThreshold: 0.40,
+  draftThreshold: 0.50,
 };
 
 // ===========================================

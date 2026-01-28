@@ -12,8 +12,9 @@ import type { ExtractionResult, MediaContext } from '../processor';
  */
 export async function extractWordContent(
   buffer: Buffer,
-  _context: MediaContext
+  context: MediaContext
 ): Promise<ExtractionResult> {
+  void context;
   try {
     const result = await mammoth.extractRawText({ buffer });
     const text = result.value.trim();

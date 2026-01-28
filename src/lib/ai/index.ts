@@ -2,7 +2,7 @@
  * AI Module - Main Entry Point
  * 
  * Unified AI interface with automatic fallback between providers.
- * Primary: Gemini 1.5 Flash (free/cheap) | Fallback: OpenAI GPT-4o-mini
+ * Primary: Gemini 3 Flash Preview (free/cheap) | Fallback: OpenAI GPT-4o-mini
  */
 
 import type { ChatMessage } from '@/types';
@@ -40,7 +40,7 @@ export interface EventExtractionResultWithMeta extends EventExtractionResult {
 
 /**
  * Parse events with automatic fallback
- * Primary: Gemini 1.5 Flash | Fallback: OpenAI GPT-4o-mini
+ * Primary: Gemini 3 Flash Preview | Fallback: OpenAI GPT-4o-mini
  * @param familyMembers - Optional list of known family members for matching
  */
 export async function parseEventWithFallback(
@@ -66,7 +66,7 @@ export async function parseEventWithFallback(
           return {
             ...result,
             _meta: {
-              model: 'gemini-2.0-flash',
+              model: 'gemini-3-flash-preview',
               latencyMs: Math.round(performance.now() - startTime),
               promptVersion: 'event-v1.0',
             },
@@ -132,7 +132,7 @@ export async function parseEventWithFallbackSimple(
 
 /**
  * Generate AI chat response with automatic fallback
- * Primary: Gemini 1.5 Flash | Fallback: OpenAI GPT-4o-mini
+ * Primary: Gemini 3 Flash Preview | Fallback: OpenAI GPT-4o-mini
  */
 export async function generateResponseWithFallback(
   history: ChatMessage[],
