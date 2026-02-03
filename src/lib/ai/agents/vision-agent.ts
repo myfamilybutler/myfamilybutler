@@ -8,10 +8,9 @@
 
 import { z } from 'zod';
 import { 
-  getLocaleConfig, 
+  localeConfig,
   getTerminologyForPrompt,
   getCulturalContextForPrompt,
-  getHolidaysForPrompt,
 } from '@/lib/locales';
 
 // ===========================================
@@ -66,7 +65,7 @@ export type VisionExtractionResponse = z.infer<typeof VisionExtractionResponseSc
  */
 export function buildVisionAgentPrompt(): string {
   const now = new Date();
-  const locale = getLocaleConfig();
+  const locale = localeConfig;
   const timezone = locale.timezone;
   
   // Format current time in user's timezone
@@ -84,7 +83,9 @@ export function buildVisionAgentPrompt(): string {
   const medicalTerms = getTerminologyForPrompt('medical');
   const religiousTerms = getTerminologyForPrompt('religious');
   const culturalContext = getCulturalContextForPrompt();
-  const holidays = getHolidaysForPrompt();
+  const holidays = localeConfig.holidays
+    .map(h => `- **${h.name}**: ${h.description} (${h.timing})`)
+    .join('\n');
 
   return `# Role: Johann Vision Agent
 

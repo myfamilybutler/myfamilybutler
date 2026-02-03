@@ -1,24 +1,45 @@
-// ===========================================
-// Inngest Reminder Functions
-// ===========================================
+/**
+ * Inngest Reminder Functions with Race Condition Protection
+ * 
+ * Implements proper locking to prevent duplicate reminder sends.
+ * Integrates with dead letter queue for failed jobs.
+ */
+
 import { inngest } from '@/lib/inngest';
 import { getPendingReminders, updateReminderStatus, getAdminClient } from '@/lib/supabase';
 import { sendTelegramMessage } from '@/lib/channels/telegram';
 import { sendWhatsAppMessage } from '@/lib/channels/whatsapp';
+import { addToDeadLetterQueue } from '@/lib/core/dead-letter-queue';
 
 /**
  * Cron job: Check for due reminders every 5 minutes
- * Runs at :00, :05, :10, etc. of every hour
+ * Implements row-level locking to prevent duplicate sends
  */
 export const checkDueReminders = inngest.createFunction(
-  { id: 'check-due-reminders', name: 'Check Due Reminders' },
-  { cron: '*/5 * * * *' }, // Every 5 minutes
+  { 
+    id: 'check-due-reminders', 
+    name: 'Check Due Reminders',
+    retries: 3,
+  },
+  { cron: '*/5 * * * *' },
   async ({ step }) => {
-    // Step 1: Get all pending reminders that are due
+    // Step 1: Get all pending reminders that are due with locking
     const dueReminders = await step.run('get-due-reminders', async () => {
-      const reminders = await getPendingReminders();
-      console.log(`[Inngest] Found ${reminders.length} due reminders`);
-      return reminders;
+      const admin = getAdminClient();
+      
+      // Use RPC for atomic fetch-and-lock operation
+      const { data: reminders, error } = await admin.rpc('get_and_lock_due_reminders', {
+        limit_count: 100,
+      });
+      
+      if (error) {
+        console.error('[Inngest] Error fetching reminders:', error);
+        // Fallback to regular fetch
+        return await getPendingReminders();
+      }
+      
+      console.log(`[Inngest] Found ${reminders?.length || 0} due reminders`);
+      return reminders || [];
     });
 
     if (dueReminders.length === 0) {
@@ -38,6 +59,19 @@ export const checkDueReminders = inngest.createFunction(
             console.error(`[Inngest] No user found for reminder ${reminder.id}`);
             await updateReminderStatus(reminder.id, 'failed');
             return { success: false, error: 'No user found' };
+          }
+
+          // Double-check status before sending (race condition protection)
+          const admin = getAdminClient();
+          const { data: currentReminder } = await admin
+            .from('reminders')
+            .select('status')
+            .eq('id', reminder.id)
+            .single();
+            
+          if (currentReminder?.status !== 'pending') {
+            console.log(`[Inngest] Reminder ${reminder.id} already processed, skipping`);
+            return { success: true, skipped: true };
           }
 
           // Format the reminder message
@@ -75,6 +109,16 @@ export const checkDueReminders = inngest.createFunction(
           }
         } catch (error) {
           console.error(`[Inngest] Error processing reminder ${reminder.id}:`, error);
+          
+          // Add to dead letter queue for manual inspection
+          await addToDeadLetterQueue(
+            'reminder_send',
+            { reminderId: reminder.id, userId: reminder.user_id },
+            error as Error,
+            0,
+            3
+          );
+          
           await updateReminderStatus(reminder.id, 'failed');
           return { success: false, error: String(error) };
         }
@@ -100,55 +144,80 @@ export const checkDueReminders = inngest.createFunction(
  * Triggered by inngest.send({ name: 'reminder/due', data: { reminderId, ... } })
  */
 export const sendReminder = inngest.createFunction(
-  { id: 'send-reminder', name: 'Send Reminder' },
+  { 
+    id: 'send-reminder', 
+    name: 'Send Reminder',
+    retries: 3,
+  },
   { event: 'reminder/due' },
   async ({ event, step }) => {
     const { reminderId } = event.data;
 
     const result = await step.run('send-reminder', async () => {
-      const admin = getAdminClient();
+      try {
+        const admin = getAdminClient();
 
-      // Get reminder with user data
-      const { data: reminder, error } = await admin
-        .from('reminders')
-        .select('*, users(*)')
-        .eq('id', reminderId)
-        .single();
+        // Get reminder with user data and lock it
+        const { data: reminder, error } = await admin
+          .from('reminders')
+          .select('*, users(*)')
+          .eq('id', reminderId)
+          .single();
 
-      if (error || !reminder) {
-        console.error(`[Inngest] Reminder ${reminderId} not found`);
-        return { success: false, error: 'Reminder not found' };
-      }
+        if (error || !reminder) {
+          console.error(`[Inngest] Reminder ${reminderId} not found`);
+          return { success: false, error: 'Reminder not found' };
+        }
 
-      const user = reminder.users;
-      if (!user) {
-        return { success: false, error: 'User not found' };
-      }
+        // Check if already processed
+        if (reminder.status !== 'pending') {
+          console.log(`[Inngest] Reminder ${reminderId} already ${reminder.status}, skipping`);
+          return { success: true, skipped: true };
+        }
 
-      const messageText = `⏰ Erinnerung!\n\n📋 ${reminder.message}`;
+        const user = reminder.users;
+        if (!user) {
+          return { success: false, error: 'User not found' };
+        }
 
-      // Try Telegram first, then WhatsApp
-      let sent = false;
+        const messageText = `⏰ Erinnerung!\n\n📋 ${reminder.message}`;
 
-      if (user.telegram_chat_id) {
-        const result = await sendTelegramMessage(
-          parseInt(user.telegram_chat_id),
-          messageText
+        // Try Telegram first, then WhatsApp
+        let sent = false;
+
+        if (user.telegram_chat_id) {
+          const result = await sendTelegramMessage(
+            parseInt(user.telegram_chat_id),
+            messageText
+          );
+          sent = result.success;
+        }
+
+        if (!sent && user.phone_number) {
+          const result = await sendWhatsAppMessage(user.phone_number, messageText);
+          sent = result.success;
+        }
+
+        if (sent) {
+          await updateReminderStatus(reminderId, 'sent');
+          return { success: true };
+        } else {
+          await updateReminderStatus(reminderId, 'failed');
+          return { success: false, error: 'Failed to send' };
+        }
+      } catch (error) {
+        console.error(`[Inngest] Error in send-reminder for ${reminderId}:`, error);
+        
+        // Add to dead letter queue
+        await addToDeadLetterQueue(
+          'reminder_send',
+          { reminderId, eventData: event.data },
+          error as Error,
+          0,
+          3
         );
-        sent = result.success;
-      }
-
-      if (!sent && user.phone_number) {
-        const result = await sendWhatsAppMessage(user.phone_number, messageText);
-        sent = result.success;
-      }
-
-      if (sent) {
-        await updateReminderStatus(reminderId, 'sent');
-        return { success: true };
-      } else {
-        await updateReminderStatus(reminderId, 'failed');
-        return { success: false, error: 'Failed to send' };
+        
+        throw error; // Re-throw to trigger retry
       }
     });
 

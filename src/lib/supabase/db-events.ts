@@ -1,6 +1,10 @@
 /**
- * Event Database Operations
+ * Event Database Operations with Optimistic Locking
+ * 
+ * Implements version-based optimistic locking to prevent race conditions
+ * during concurrent updates.
  */
+
 import type { Event, Reminder } from '@/types';
 import { getAdminClient } from './client';
 import { generateEventFingerprint } from '../sync/event-fingerprint';
@@ -54,6 +58,7 @@ export async function createEvent(
       source_message_id: eventData.source_message_id || null,
       event_fingerprint: fingerprint,
       sync_source: 'local',
+      version: 1, // Initial version for optimistic locking
     })
     .select()
     .single();
@@ -124,7 +129,10 @@ export async function getEventsForHousehold(
 }
 
 /**
- * Update an existing event with fingerprint regeneration and Google sync.
+ * Update an existing event with optimistic locking.
+ * 
+ * Uses version-based optimistic locking to prevent lost updates.
+ * If the event was modified since it was read, the update will fail.
  */
 export async function updateEvent(
   eventId: string,
@@ -139,12 +147,36 @@ export async function updateEvent(
     location?: string | null;
     description?: string | null;
   },
-  userId?: string  // Optional: needed for Google sync
+  userId?: string,
+  expectedVersion?: number  // For optimistic locking
 ): Promise<Event | null> {
   const admin = getAdminClient();
   
-  // Build update object, only including defined fields
-  const updateData: Record<string, unknown> = {};
+  // First, get current event with version
+  const { data: current, error: fetchError } = await admin
+    .from('events')
+    .select('*')
+    .eq('id', eventId)
+    .eq('household_id', householdId)
+    .single();
+  
+  if (fetchError || !current) {
+    console.error('Error fetching event for update:', fetchError);
+    return null;
+  }
+  
+  // Check version for optimistic locking
+  if (expectedVersion !== undefined && current.version !== expectedVersion) {
+    console.error(`[Event] Version conflict: expected ${expectedVersion}, got ${current.version}`);
+    throw new Error('EVENT_VERSION_CONFLICT');
+  }
+  
+  // Build update object
+  const updateData: Record<string, unknown> = {
+    version: (current.version || 0) + 1, // Increment version
+    updated_at: new Date().toISOString(),
+  };
+  
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.event_date !== undefined) updateData.event_date = updates.event_date;
   if (updates.event_time !== undefined) updateData.event_time = updates.event_time;
@@ -156,28 +188,21 @@ export async function updateEvent(
 
   // If title, date, or time changed, regenerate fingerprint
   if (updates.title !== undefined || updates.event_date !== undefined || updates.event_time !== undefined) {
-    // Need to get current values to calculate new fingerprint
-    const { data: current } = await admin
-      .from('events')
-      .select('title, event_date, event_time')
-      .eq('id', eventId)
-      .single();
-    
-    if (current) {
-      const newFingerprint = generateEventFingerprint({
-        title: updates.title ?? current.title,
-        event_date: updates.event_date ?? current.event_date,
-        event_time: updates.event_time !== undefined ? updates.event_time : current.event_time,
-      });
-      updateData.event_fingerprint = newFingerprint;
-    }
+    const newFingerprint = generateEventFingerprint({
+      title: updates.title ?? current.title,
+      event_date: updates.event_date ?? current.event_date,
+      event_time: updates.event_time !== undefined ? updates.event_time : current.event_time,
+    });
+    updateData.event_fingerprint = newFingerprint;
   }
   
+  // Perform update with version check
   const { data, error } = await admin
     .from('events')
     .update(updateData)
     .eq('id', eventId)
-    .eq('household_id', householdId) // Security: ensure user owns this event
+    .eq('household_id', householdId)
+    .eq('version', current.version) // Optimistic locking check
     .select()
     .single();
   
@@ -204,7 +229,7 @@ export async function updateEvent(
 export async function deleteEvent(
   eventId: string,
   householdId: string,
-  userId?: string  // Optional: needed for Google sync
+  userId?: string
 ): Promise<boolean> {
   const admin = getAdminClient();
   
@@ -225,7 +250,7 @@ export async function deleteEvent(
     .from('events')
     .delete()
     .eq('id', eventId)
-    .eq('household_id', householdId); // Security: ensure user owns this event
+    .eq('household_id', householdId);
   
   if (error) {
     console.error('Error deleting event:', error);
@@ -303,9 +328,6 @@ export async function createEventReminder(
 
 /**
  * Create a draft event for low-confidence extractions
- * 
- * Draft events are stored in a separate table (or with a draft flag)
- * and require user confirmation before becoming real events.
  */
 export async function createDraftEvent(
   householdId: string,
@@ -325,8 +347,6 @@ export async function createDraftEvent(
 ): Promise<{ id: string } | null> {
   const admin = getAdminClient();
   
-  // Try to insert into draft_events table
-  // If table doesn't exist, fall back to storing in events with a draft flag
   try {
     const { data, error } = await admin
       .from('draft_events')
@@ -350,7 +370,6 @@ export async function createDraftEvent(
     
     if (error) {
       // Table might not exist yet - log and return null
-      // In production, you'd want to create the table via migration
       console.log('[DraftEvent] draft_events table may not exist, skipping draft:', error.message);
       
       // Fallback: Create regular event but add a note in description
@@ -478,16 +497,12 @@ export async function getDraftEvents(householdId: string): Promise<Array<{
       .order('created_at', { ascending: false });
     
     if (error) {
-      // Table might not exist
       console.log('[DraftEvent] Could not fetch drafts:', error.message);
       return [];
     }
     
     return data || [];
-    
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (_err) {
+  } catch {
     return [];
   }
 }
-

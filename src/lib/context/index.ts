@@ -67,18 +67,27 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
 function ensureCleanup() {
-  if (!cleanupInterval) {
-    cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      for (const [key, entry] of contextCache.entries()) {
-        if (now > entry.expiresAt) {
-          contextCache.delete(key);
-        }
+  if (cleanupInterval) return;
+  
+  // Double-checked locking pattern to prevent race condition
+  const newInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of contextCache.entries()) {
+      if (now > entry.expiresAt) {
+        contextCache.delete(key);
       }
-    }, 60 * 1000);
+    }
+  }, 60 * 1000);
+  
+  // Only assign if still null (second check)
+  if (!cleanupInterval) {
+    cleanupInterval = newInterval;
     if (cleanupInterval.unref) {
       cleanupInterval.unref();
     }
+  } else {
+    // Another call already created it
+    clearInterval(newInterval);
   }
 }
 

@@ -7,7 +7,7 @@
 
 import { APP_CONFIG } from '../config';
 import {
-  getLocaleConfig,
+  localeConfig,
   getTerminologyForPrompt,
   getCulturalContextForPrompt,
   getExamplesForPrompt,
@@ -24,7 +24,7 @@ import {
  */
 export function getEventExtractorContext(familyMembers?: string[]): string {
   const now = new Date();
-  const locale = getLocaleConfig();
+  const locale = localeConfig;
   const timezone = locale.timezone;
 
   const formattedDate = now.toLocaleDateString(locale.dateFormat.jsLocale, {
@@ -70,7 +70,7 @@ Region: ${locale.name}${locale.region ? ` (${locale.region})` : ''}`;
  */
 export function buildEventExtractorPrompt(familyMembers?: string[]): string {
   const dynamicContext = getEventExtractorContext(familyMembers);
-  const locale = getLocaleConfig();
+  const locale = localeConfig;
 
   // Get school and sports terminology (most common for text messages)
   const schoolTerms = getTerminologyForPrompt('school');
@@ -205,7 +205,7 @@ Antworte NUR mit JSON:
  * This biases the model to expect Austrian German vocabulary and phrasing
  */
 export function getWhisperContextPrompt(): string {
-  const locale = getLocaleConfig();
+  const locale = localeConfig;
   
   // Get key terminology that Whisper should recognize
   const schoolTermsList = Object.keys(locale.terminology.school).slice(0, 15).join(', ');

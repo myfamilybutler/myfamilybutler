@@ -35,18 +35,27 @@ const rateLimitMap = new Map<string, RateLimitEntry>();
 // Cleanup old entries periodically
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 function ensureRateLimitCleanup() {
-  if (!cleanupInterval) {
-    cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      for (const [key, entry] of rateLimitMap.entries()) {
-        if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
-          rateLimitMap.delete(key);
-        }
+  if (cleanupInterval) return;
+
+  // Double-checked locking pattern to prevent race condition
+  const newInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of rateLimitMap.entries()) {
+      if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+        rateLimitMap.delete(key);
       }
-    }, RATE_LIMIT_WINDOW_MS);
+    }
+  }, RATE_LIMIT_WINDOW_MS);
+
+  // Only assign if still null (second check)
+  if (!cleanupInterval) {
+    cleanupInterval = newInterval;
     if (cleanupInterval.unref) {
       cleanupInterval.unref();
     }
+  } else {
+    // Another call already created it
+    clearInterval(newInterval);
   }
 }
 

@@ -33,18 +33,17 @@ export type {
 } from './types';
 
 // Gateway
-export { gateway } from './gateway';
+export { gateway, registerAdapter, getAdapter, processMessage } from './gateway';
 export { isMessageProcessed } from './dedup';
 
 // Pipeline
-export { pipeline } from './pipeline';
+export { pipeline, processMessage as processPipelineMessage } from './pipeline';
 
 // State Management
 export {
   getConversationState,
   setConversationState,
   clearConversationState,
-  transitionState,
   setUndoState,
   getUndoableEventId,
   setDraftPendingState,

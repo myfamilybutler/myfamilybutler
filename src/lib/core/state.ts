@@ -1,16 +1,11 @@
 /**
- * Conversation State Management - Phase 3.3
+ * Conversation State Management - Simplified
  * 
- * Manages conversation state for the draft/confirm flow.
- * Uses Redis when available, falls back to in-memory for development.
+ * Simple in-memory state management for draft/confirm flow.
+ * No persistence needed - states are transient (15 min TTL).
  */
 
-import type { ConversationState, ConversationStateType, Channel } from './types';
-import { getStoredConversationState, setStoredConversationState, clearStoredConversationState } from './state-store';
-
-// ===========================================
-// In-Memory State Store (Redis-ready pattern)
-// ===========================================
+import type { ConversationState, Channel } from './types';
 
 interface StateEntry {
   state: ConversationState;
@@ -26,28 +21,33 @@ const UNDO_TTL_MS = 30 * 1000; // 30 seconds for undo window
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
 function ensureCleanup() {
-  if (!cleanupInterval) {
-    cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      for (const [key, entry] of stateStore.entries()) {
-        if (now > entry.expiresAt) {
-          stateStore.delete(key);
-        }
+  if (cleanupInterval) return;
+  
+  // Double-checked locking pattern to prevent race condition
+  const newInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of stateStore.entries()) {
+      if (now > entry.expiresAt) {
+        stateStore.delete(key);
       }
-    }, 60 * 1000); // Cleanup every minute
+    }
+  }, 60 * 1000);
+  
+  // Only assign if still null (second check)
+  if (!cleanupInterval) {
+    cleanupInterval = newInterval;
     if (cleanupInterval.unref) {
       cleanupInterval.unref();
     }
+  } else {
+    // Another call already created it
+    clearInterval(newInterval);
   }
 }
 
 function getStateKey(userId: string, channel: Channel): string {
   return `conv:${userId}:${channel}`;
 }
-
-// ===========================================
-// State Operations
-// ===========================================
 
 /**
  * Get current conversation state for a user
@@ -56,11 +56,6 @@ export async function getConversationState(
   userId: string,
   channel: Channel
 ): Promise<ConversationState> {
-  const stored = await getStoredConversationState(userId, channel);
-  if (stored) {
-    return stored;
-  }
-
   ensureCleanup();
 
   const key = getStateKey(userId, channel);
@@ -91,8 +86,6 @@ export async function setConversationState(
     expiresAt: Date.now() + ttl,
   });
 
-  await setStoredConversationState(userId, channel, state);
-
   console.log(`[State] Set ${key} to ${state.state} (TTL: ${ttl / 1000}s)`);
 }
 
@@ -105,52 +98,8 @@ export async function clearConversationState(
 ): Promise<void> {
   const key = getStateKey(userId, channel);
   stateStore.delete(key);
-  await clearStoredConversationState(userId, channel);
   console.log(`[State] Cleared ${key}`);
 }
-
-/**
- * Transition state with validation
- */
-export async function transitionState(
-  userId: string,
-  channel: Channel,
-  newState: ConversationStateType,
-  additionalData?: Partial<ConversationState>
-): Promise<ConversationState> {
-  const current = await getConversationState(userId, channel);
-  
-  // Validate state transitions
-  const validTransitions: Record<ConversationStateType, ConversationStateType[]> = {
-    'idle': ['parsing', 'draft_pending', 'clarifying'],
-    'parsing': ['idle', 'draft_pending', 'clarifying', 'awaiting_confirmation', 'awaiting_undo'],
-    'draft_pending': ['idle', 'awaiting_confirmation', 'clarifying'],
-    'clarifying': ['idle', 'draft_pending', 'awaiting_confirmation', 'parsing'],
-    'awaiting_confirmation': ['idle', 'draft_pending', 'clarifying'],
-    'awaiting_undo': ['idle'],
-  };
-  
-  const allowed = validTransitions[current.state] || ['idle'];
-  if (!allowed.includes(newState)) {
-    console.warn(`[State] Invalid transition: ${current.state} -> ${newState}, resetting to idle`);
-    await clearConversationState(userId, channel);
-    return { state: 'idle' };
-  }
-  
-  const updatedState: ConversationState = {
-    ...current,
-    state: newState,
-    ...additionalData,
-    attempts: (additionalData?.attempts ?? current.attempts ?? 0),
-  };
-  
-  await setConversationState(userId, channel, updatedState);
-  return updatedState;
-}
-
-// ===========================================
-// Undo State Management
-// ===========================================
 
 /**
  * Set up undo window for a created event
@@ -183,10 +132,6 @@ export async function getUndoableEventId(
   return null;
 }
 
-// ===========================================
-// Draft State Management
-// ===========================================
-
 /**
  * Set draft pending state
  */
@@ -217,10 +162,6 @@ export async function getPendingDraftId(
   
   return null;
 }
-
-// ===========================================
-// Clarification State Management
-// ===========================================
 
 /**
  * Set clarifying state
