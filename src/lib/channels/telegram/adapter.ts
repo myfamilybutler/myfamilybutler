@@ -54,7 +54,7 @@ class TelegramAdapter implements ChannelAdapter {
     message: TelegramMessage
   ): Omit<StandardMessage, 'userId' | 'householdId' | 'familyMembers' | 'isNewUser' | 'wasIdentityLinked'> | null {
     const chatId = message.chat.id;
-    const messageId = message.message_id.toString();
+    const messageId = `${chatId}:${message.message_id}`;
     const contactName = message.from?.first_name;
     
     // Get phone number from contact if shared
@@ -114,7 +114,7 @@ class TelegramAdapter implements ChannelAdapter {
         recipientId: chatId.toString(),
         senderId: phoneNumber,
         telegramChatId: chatId,
-        originalMessageId: messageId,
+        originalMessageId: message.message_id.toString(),
         contactName,
       },
     };
@@ -209,4 +209,3 @@ class TelegramAdapter implements ChannelAdapter {
 
 // Export singleton instance
 export const telegramAdapter = new TelegramAdapter();
-
