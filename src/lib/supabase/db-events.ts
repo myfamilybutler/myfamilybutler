@@ -58,7 +58,6 @@ export async function createEvent(
       source_message_id: eventData.source_message_id || null,
       event_fingerprint: fingerprint,
       sync_source: 'local',
-      version: 1, // Initial version for optimistic locking
     })
     .select()
     .single();
@@ -140,7 +139,6 @@ export async function createEventsBulk(
       source_message_id: eventData.source_message_id || null,
       event_fingerprint: fingerprint,
       sync_source: 'local',
-      version: 1,
     };
   });
 
