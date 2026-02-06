@@ -133,6 +133,6 @@ export interface LocaleConfig {
 // Utility Types
 // ===========================================
 
-export type LocaleId = 'de-AT' | 'de-DE' | 'de-CH';
+export type LocaleId = 'de-AT' | 'de-DE' | 'de-CH' | 'en-GB' | 'en-US';
 
 export type SupportedLocale = LocaleConfig & { id: LocaleId };

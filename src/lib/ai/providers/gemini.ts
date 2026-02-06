@@ -66,7 +66,7 @@ export async function parseEventWithGemini(
   familyMembers?: string[]
 ): Promise<EventExtractionResult> {
   const model = await getGemini();
-  const systemPrompt = buildEventExtractorPrompt(familyMembers);
+  const systemPrompt = buildEventExtractorPrompt(familyMembers, message);
 
   // Build conversation context
   let fullPrompt = systemPrompt + '\n\n';

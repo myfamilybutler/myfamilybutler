@@ -125,7 +125,7 @@ export async function parseEventWithClarification(
   familyMembers?: string[]
 ): Promise<EventExtractionResult> {
   const openai = getOpenAI();
-  const systemPrompt = buildEventExtractorPrompt(familyMembers);
+  const systemPrompt = buildEventExtractorPrompt(familyMembers, message);
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },

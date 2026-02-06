@@ -1014,9 +1014,456 @@ export const telegramExamples: InputExample[] = [
 ];
 
 // ===========================================
-// COMBINED EXPORT - All 110 examples
+// 11. COMPLEX & DIALECT EXAMPLES - 30 examples
 // ===========================================
 
+// ===========================================
+// 11. COMPLEX & DIALECT EXAMPLES - 30 examples
+// ===========================================
+
+export const complexExamples: InputExample[] = [
+  // Dialect / Tyrolian Informal
+  {
+    type: 'group_message',
+    description: 'Tirolerisch - Training absagen',
+    text: 'Heite kimm i nit zum Kickn, bin total vaschnupft. Bis nächste Wochn dann!',
+    expectedEvents: [{
+      title: 'Fußballtraining Absage (Individuell)',
+      isCancelled: true,
+    }],
+  },
+  {
+    type: 'group_message',
+    description: 'Tirolerisch - Jause vergessen',
+    text: 'Hat wer a Jausch übrig? Der Maxl hat sein Rucksackl dahoam lassn. 🥪',
+    expectedEvents: [],
+  },
+  {
+    type: 'voice_message',
+    description: 'Tirolerisch - Oma Besuch',
+    text: 'Griaß enk, die Oma isch am Apparat. I schaug am Sunntig bei enk vorbei, so gegen hoalb drei. Pfiat enk!',
+    expectedEvents: [{
+      title: 'Oma kommt zu Besuch',
+      dayOfWeek: 'sunday',
+      time: '14:30',
+    }],
+  },
+  // Gymnasium Specialized
+  {
+    type: 'school_letter',
+    description: 'Gymnasium - Nachzipf / Wiederholungsprüfung',
+    text: `Termine für Wiederholungsprüfungen Sept 2026:
+Mathe: Mo, 07.09. 08:00 Uhr
+Englisch: Di, 08.09. 10:30 Uhr
+Treffpunkt 15 Min vor Beginn vor dem jeweiligen Prüfungsraum.`,
+    expectedEvents: [
+      { title: 'Wiederholungsprüfung Mathe', date: '2026-09-07', time: '08:00' },
+      { title: 'Wiederholungsprüfung Englisch', date: '2026-09-08', time: '10:30' },
+    ],
+  },
+  {
+    type: 'school_letter',
+    description: 'Gymnasium - Maturaball Vorbereitung',
+    text: 'Maturaball-Komiteesitzung am Donnerstag in der 7. Stunde im Mehrzwecksaal. Anwesenheit ist für alle Mitglieder verpflichtend.',
+    expectedEvents: [{
+      title: 'Maturaball-Komiteesitzung',
+      dayOfWeek: 'thursday',
+      time: '14:30', // 7. Stunde
+      location: 'Mehrzwecksaal',
+    }],
+  },
+  // Detailed SchoolFox
+  {
+    type: 'schoolfox_message',
+    description: 'SchoolFox - Läusealarm mit Handlungsanweisung',
+    text: `⚠️ WICHTIG: Erhöhtes Aufkommen von Kopfläusen in der 2b.
+Bitte kontrollieren Sie heute Abend die Haare Ihres Kindes. 
+Sollte ein Befall vorliegen, ist der Schulbesuch erst nach einer Behandlung und Vorlage einer Bestätigung wieder gestattet.`,
+    expectedEvents: [{
+      title: 'Haare auf Läuse kontrollieren',
+      date: 'today',
+    }],
+  },
+  // Complex Events
+  {
+    type: 'school_letter',
+    description: 'Großes Schulfest mit Stationen',
+    text: `Sommerfest der VS Innsbruck:
+14:00 Eröffnung durch den Chor
+14:30 - 16:30 Stationenbetrieb im Garten
+17:00 Tombola-Verlosung
+18:00 Ende der Veranstaltung
+Bitte bringen Sie Geschirr und Besteck selbst mit (Zero Waste)!`,
+    expectedEvents: [
+      { title: 'Eröffnung Schulfest (Chor)', date: '2026-06-25', time: '14:00' },
+      { title: 'Stationenbetrieb Schulfest', date: '2026-06-25', time: '14:30', endTime: '16:30' },
+      { title: 'Tombola-Verlosung', date: '2026-06-25', time: '17:00' },
+    ],
+  },
+  // Messy Voice Transcriptions
+  {
+    type: 'voice_message',
+    description: 'Messy voice - Basketball reschedule',
+    text: 'Äh hallo, hier ist der äh... Basketball-Trainer, also ich wollte sagen, das Spiel am Samstag äh nein, warte, am Sonntag um elf wurde verschoben auf... äh... zwei Uhr nachmittags am gleichen Ort.',
+    expectedEvents: [{
+      title: 'Basketball Spiel (Verschoben)',
+      dayOfWeek: 'sunday',
+      time: '14:00',
+    }],
+  },
+  {
+    type: 'voice_message',
+    description: 'Self-correction transcription',
+    text: 'Du, ich hol die Kinder morgen um vier ab, äh nein, ich schaffs erst um halb fünf, weil ich noch länger im Büro bin.',
+    expectedEvents: [{
+      title: 'Kinder abholen',
+      date: 'tomorrow',
+      time: '16:30',
+    }],
+  },
+  // Action Items Focused
+  {
+    type: 'school_letter',
+    description: 'Projekttage Packliste & Deadline',
+    text: `Für die Projekttage am 12.05. bitte unbedingt mitbringen:
+- Festes Schuhwerk
+- Regenschutz
+- Trinkflasche (mind. 1 Liter)
+NICHT mitzubringen: Handys, elektronische Spiele.
+Abgabe der Einverständniserklärung bis spätestens Freitag!`,
+    expectedEvents: [{
+      title: 'Projekttage Start',
+      date: '2026-05-12',
+      action_items: {
+        bring: ['Festes Schuhwerk', 'Regenschutz', 'Trinkflasche'],
+        not_bring: ['Handys', 'elektronische Spiele'],
+        deadline: 'Freitag',
+      },
+    }],
+  },
+  // Further specialized Gymnasium / High School
+  {
+    type: 'school_letter',
+    description: 'Oberstufe - Wahlpflichtfächer Anmeldung',
+    text: `Anmeldung zu den Wahlpflichtfächern für das Schuljahr 2026/27:
+Abgabe des Formulars beim Klassenvorstand bis 15.02.
+Infoveranstaltung dazu am 03.02. in der 6. Stunde im Festsaal.`,
+    expectedEvents: [
+      { title: 'Infoveranstaltung Wahlpflichtfächer', date: '2026-02-03', time: '12:40' },
+      { title: 'Abgabe Wahlpflichtfach-Formular', date: '2026-02-15' },
+    ],
+  },
+  {
+    type: 'school_letter',
+    description: 'Gymnasium - Sprechstunden-Ausfall',
+    text: 'Die Sprechstunde von Prof. Huber am Mittwoch, 11.03., entfällt wegen einer Fortbildung.',
+    expectedEvents: [{
+      title: 'Sprechstunde Prof. Huber',
+      date: '2026-03-11',
+      isCancelled: true,
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Gymnasium - Brandschutzübung',
+    text: 'Am Freitag findet in der 3. Stunde eine unangekündigte Brandschutzübung statt. Bitte die Klassenräume geordnet verlassen.',
+    expectedEvents: [{
+      title: 'Brandschutzübung',
+      dayOfWeek: 'friday',
+      time: '09:55',
+    }],
+  },
+  // Detailed SchoolFox Handlungsbedarf
+  {
+    type: 'schoolfox_message',
+    description: 'SchoolFox - Bestätigung für Impfaktion',
+    text: `Impfaktion "Schutzherz" an der Schule am 18.04.
+Bitte bestätigen Sie die Teilnahme oder Nicht-Teilnahme über die Schaltfläche in SchoolFox bis zum 10.04.
+Impfpässe sind am Impftag mitzugeben.`,
+    expectedEvents: [{
+      title: 'Impfaktion an der Schule',
+      date: '2026-04-18',
+      action_items: {
+        deadline: '2026-04-10',
+        prepare: ['Impfpass mitgeben'],
+      },
+    }],
+  },
+  {
+    type: 'schoolfox_message',
+    description: 'SchoolFox - Elternbrief mit Rücklaufabschnitt',
+    text: 'Bitte lesen Sie den angehängten Elternbrief zum Wandertag und bringen Sie den unterschriebenen Rücklaufabschnitt bis Montag mit.',
+    expectedEvents: [{
+      title: 'Wandertag Rücklaufabschnitt Abgabe',
+      dayOfWeek: 'monday',
+      action_items: { prepare: ['Rücklaufabschnitt unterschreiben'] },
+    }],
+  },
+  // Messy & Informal (Slack/WhatsApp) - 10 examples
+  {
+    type: 'group_message',
+    description: 'WhatsApp - Flohmarkt Hilfe',
+    text: 'Wer von euch kann am Samstag beim Aufbau vom Flohmarkt helfen? Wir treffen uns um 8 im Schulhof. 🧱',
+    expectedEvents: [{
+      title: 'Aufbau Flohmarkt Hilfe',
+      dayOfWeek: 'saturday',
+      time: '08:00',
+      location: 'Schulhof',
+    }],
+  },
+  {
+    type: 'group_message',
+    description: 'WhatsApp - Kindergeburtstag Fahrgemeinschaft',
+    text: 'Fährt wer am Sonntag zum Minigolf? Könnt wer den Paul mitnehmen? Er wär um 13:45 fertig zum Abholen.',
+    expectedEvents: [{
+      title: 'Paul zum Minigolf mitnehmen',
+      dayOfWeek: 'sunday',
+      time: '13:45',
+    }],
+  },
+  {
+    type: 'group_message',
+    description: 'WhatsApp - Fundgrube Kleider',
+    text: 'Habe eine rote Jacke (Gr. 128) in der Garderobe gefunden. Liegt jetzt beim Portier.',
+    expectedEvents: [],
+  },
+  {
+    type: 'group_message',
+    description: 'WhatsApp - Jausen-Dienst',
+    text: 'Morgen ist der Max mit der gesunden Jause dran! Bitte Obst und Gemüse für 25 Kinder mitbringen. 🍏',
+    expectedEvents: [{
+      title: 'Gesunde Jause bringen (Max)',
+      date: 'tomorrow',
+      action_items: { bring: ['Obst und Gemüse für 25 Kinder'] },
+    }],
+  },
+  {
+    type: 'group_message',
+    description: 'WhatsApp - Turnbeutel vergessen',
+    text: 'Hat wer den Turnbeutel von der Sophie gesehen? Pink mit Einhörnern. Vielleicht in der Turnhalle liegen gelassen?',
+    expectedEvents: [],
+  },
+  // Messy Voice / Dialect variants
+  {
+    type: 'voice_message',
+    description: 'Dialect messy - Piano lesson time',
+    text: 'Du, i hobs grod gheat, das Klavier is heit nit um fümfe, sondern scho um viere. De Lehrerin hat gschriebn. Passt des bei dir?',
+    expectedEvents: [{
+      title: 'Klavierunterricht (Verschoben)',
+      date: 'today',
+      time: '16:00',
+    }],
+  },
+  {
+    type: 'voice_message',
+    description: 'Dialect messy - Pick up details',
+    text: 'Servus, i bin no beim Einkaufn. Kannst du die Leni vom Ballett abholen? Des is eh um sechse aus. I kimm dann direkt hoam.',
+    expectedEvents: [{
+      title: 'Leni vom Ballett abholen',
+      time: '18:00',
+    }],
+  },
+  {
+    type: 'voice_message',
+    description: 'Informal check-in',
+    text: 'Hast du an den Elternabend heut dacht? Das geht um simme los in der Schule. I fahr scho a bissl früher hin.',
+    expectedEvents: [{
+      title: 'Elternabend',
+      date: 'today',
+      time: '19:00',
+      location: 'Schule',
+    }],
+  },
+  {
+    type: 'voice_message',
+    description: 'Hectic morning - missing item',
+    text: 'Max hat sein Geo-Dreieck vergessen! Kannst dus ihm bitte nachbringen? Er hat in der zweiten Stunde Geometrie.',
+    expectedEvents: [{
+      title: 'Geo-Dreieck nachbringen',
+      date: 'today',
+      time: '08:50', // 2. Stunde
+    }],
+  },
+  {
+    type: 'voice_message',
+    description: 'Babysitter change',
+    text: 'Du, die Lena kann am Freitag doch nit sitzn. I hab jetzt die Susi gfrogt, die kommt um hoalb achte.',
+    expectedEvents: [{
+      title: 'Babysitter Susi kommt',
+      dayOfWeek: 'friday',
+      time: '19:30',
+    }],
+  },
+  // Event with deadline and location
+  {
+    type: 'school_letter',
+    description: 'Chor-Wochenende Anmeldung',
+    text: `Chor-Wochenende in Obergurgl vom 20.11. bis 22.11.
+Anmeldung und Anzahlung von €50 bis spätestens 30.10. im Sekretariat.`,
+    expectedEvents: [{
+      title: 'Chor-Wochenende Obergurgl',
+      date: '2026-11-20',
+      endDate: '2026-11-22',
+      location: 'Obergurgl',
+      action_items: { deadline: '2026-10-30', prepare: ['Anzahlung €50'] },
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Schultaschen-Check',
+    text: 'Wir machen am Mittwoch einen Schultaschen-Check. Bitte alles Unnötige ausmisten und Stifte spitzen!',
+    expectedEvents: [{
+      title: 'Schultaschen-Check',
+      dayOfWeek: 'wednesday',
+      action_items: { prepare: ['Ausmisten', 'Stifte spitzen'] },
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Lese-Frühstück',
+    text: 'Am Freitag laden wir zum Lese-Frühstück ein! Bitte ein Lieblingsbuch und einen kleinen Beitrag zum Buffet mitbringen.',
+    expectedEvents: [{
+      title: 'Lese-Frühstück',
+      dayOfWeek: 'friday',
+      action_items: { bring: ['Lieblingsbuch', 'Beitrag zum Buffet'] },
+    }],
+  },
+  {
+    type: 'appointment',
+    description: 'Kieferorthopäde - Termin verschieben',
+    text: 'Ihre Nachricht: Wir müssen den Termin am Montag leider absagen, da wir im Urlaub sind. Bitte um neuen Termin ab dem 15.04.',
+    expectedEvents: [{
+      title: 'Kieferorthopäde Termin',
+      dayOfWeek: 'monday',
+      isCancelled: true,
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Hitzefrei Ankündigung',
+    text: 'Aufgrund der extremen Hitze ist am Donnerstag nach der 4. Stunde unterrichtsfrei. Die Nachmittagsbetreuung findet wie gewohnt statt.',
+    expectedEvents: [{
+      title: 'Unterrichtsfrei (Hitzefrei)',
+      dayOfWeek: 'thursday',
+      time: '11:40',
+    }],
+  },
+];
+
+// ===========================================
+// 12. GANZTAGSSCHULE & HORT - 10 examples
+// ===========================================
+
+export const hortExamples: InputExample[] = [
+  {
+    type: 'school_letter',
+    description: 'Anmeldung zum Mittagstisch',
+    text: 'Bitte geben Sie die Anmeldung für den Mittagstisch im kommenden Semester bis spätestens 15.01. ab.',
+    expectedEvents: [{
+      title: 'Abgabe Anmeldung Mittagstisch',
+      date: '2026-01-15',
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Hort - Ausflug in den Park',
+    text: 'Der Hort geht am Dienstag bei Schönwetter in den Rapoldipark. Bitte geben Sie Ihrem Kind eine Jause und wetterfeste Kleidung mit.',
+    expectedEvents: [{
+      title: 'Hort-Ausflug Rapoldipark',
+      dayOfWeek: 'tuesday',
+      location: 'Rapoldipark',
+      action_items: { bring: ['Jause', 'wetterfeste Kleidung'] },
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Ganztagsschule - Entschuldigung für Nachmittag',
+    text: 'Wenn Ihr Kind am Donnerstag den Nachmittagsunterricht nicht besuchen kann (z.B. wegen eines Arzttermins), benötigen wir eine schriftliche Entschuldigung bis Mittwoch früh.',
+    expectedEvents: [{
+      title: 'Entschuldigung Nachmittag Abgabe',
+      dayOfWeek: 'wednesday',
+      time: '08:00',
+    }],
+  },
+];
+
+// ===========================================
+// 13. ADDITIONAL GERMAN EXAMPLES - 7 examples (Total 150)
+// ===========================================
+
+export const additionalGermanExamples: InputExample[] = [
+  {
+    type: 'school_letter',
+    description: 'Elternbeitrag - Erinnerung',
+    text: 'Erinnerung: Bitte überweisen Sie den Elternbeitrag für das 2. Semester (€25,-) bis Ende dieser Woche auf das Schulkonto.',
+    expectedEvents: [{
+      title: 'Elternbeitrag überweisen (€25)',
+      date: 'within this week',
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Schulbus - Fahrplanänderung',
+    text: 'Achtung: Der Schulbus nach Igls fährt ab Montag 10 Minuten früher ab (07:15 statt 07:25).',
+    expectedEvents: [{
+      title: 'Schulbus Abfahrt NEU (07:15)',
+      dayOfWeek: 'monday',
+      time: '07:15',
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Schwimmunterricht - Seepferdchen Prüfung',
+    text: 'Am Freitag findet die Seepferdchen-Prüfung statt. Bitte €5,- Prüfungsgebühr und den Schwimmpass mitgeben.',
+    expectedEvents: [{
+      title: 'Seepferdchen-Prüfung (Schwimmen)',
+      dayOfWeek: 'friday',
+      action_items: { prepare: ['Schwimmpass mitgeben', '€5,- Prüfungsgebühr mitgeben'] },
+    }],
+  },
+  {
+    type: 'school_letter',
+    description: 'Förderverein - Jahreshauptversammlung',
+    text: 'Der Förderverein lädt zur Jahreshauptversammlung am 12.02. um 19:30 Uhr im Musiksaal ein.',
+    expectedEvents: [{
+      title: 'Jahreshauptversammlung Förderverein',
+      date: '2026-02-12',
+      time: '19:30',
+      location: 'Musiksaal',
+    }],
+  },
+  {
+    type: 'group_message',
+    description: 'WhatsApp - Fundsachen Versteigerung',
+    text: 'Morgen nach dem Unterricht werden alle Fundsachen vor dem Eingang versteigert. Was übrig bleibt, kommt zur Caritas.',
+    expectedEvents: [{
+      title: 'Versteigerung Fundsachen',
+      date: 'tomorrow',
+    }],
+  },
+  {
+    type: 'group_message',
+    description: 'WhatsApp - Flohmarkt Standanmeldung',
+    text: 'Wer beim Schulflohmarkt einen Stand haben möchte, bitte bis morgen Abend bei mir melden! Kostet 5€ Standgebühr.',
+    expectedEvents: [{
+      title: 'Anmeldung Flohmarktstand Deadline',
+      date: 'tomorrow',
+    }],
+  },
+  {
+    type: 'voice_message',
+    description: 'Tirolerisch - Skikurs Info',
+    text: 'Du, wegerm Skikurs morgen: Die Kinder müssen schon um hoalb achte beim Parkplatz sein. Die Ausrüstung wird heit am Abend scho verladn.',
+    expectedEvents: [{
+      title: 'Skikurs Treffpunkt (Parkplatz)',
+      date: 'tomorrow',
+      time: '07:30',
+      location: 'Parkplatz',
+    }],
+  },
+];
+
+// Combine all sets for final export
 export const allExamples: InputExample[] = [
   ...schoolLetterExamples,    // 20
   ...sportsExamples,          // 15
@@ -1028,6 +1475,10 @@ export const allExamples: InputExample[] = [
   ...schoolfoxExamples,       // 10
   ...cancellationExamples,    // 10
   ...telegramExamples,        // 10
+  ...complexExamples,         // 10
+  ...hortExamples,            // 3
+  ...additionalGermanExamples, // 7
+  // Total: 150
 ];
 
-export const EXAMPLE_COUNT = allExamples.length; // 120 total
+export const EXAMPLE_COUNT = allExamples.length;

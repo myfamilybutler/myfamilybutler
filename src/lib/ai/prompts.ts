@@ -65,10 +65,10 @@ Region: ${locale.name}${locale.region ? ` (${locale.region})` : ''}`;
 /**
  * Build the Event Extractor system prompt
  * Used by both OpenAI and Gemini providers
- * Pulls terminology and context from centralized locale config
  * @param familyMembers - Optional list of known family members for matching
+ * @param message - Optional input message to select relevant few-shot examples
  */
-export function buildEventExtractorPrompt(familyMembers?: string[]): string {
+export function buildEventExtractorPrompt(familyMembers?: string[], message?: string): string {
   const dynamicContext = getEventExtractorContext(familyMembers);
   const locale = localeConfig;
 
@@ -78,7 +78,7 @@ export function buildEventExtractorPrompt(familyMembers?: string[]): string {
   const culturalContext = getCulturalContextForPrompt();
 
   // Get few-shot examples (3 examples for best balance of learning vs token cost)
-  const fewShotExamples = getExamplesForPrompt(3);
+  const fewShotExamples = getExamplesForPrompt(3, message);
 
   return `Du bist "Johann", ein intelligenter Familienassistent für ${locale.name} Haushalte.
 Deine Aufgabe ist es, Kalendertermine aus Textnachrichten zu extrahieren.
