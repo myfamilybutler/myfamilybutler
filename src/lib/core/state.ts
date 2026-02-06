@@ -12,6 +12,48 @@ const STATE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const UNDO_TTL_MS = 30 * 1000; // 30 seconds for undo window
 const CONVERSATION_STATE_TABLE = 'conversation_state';
 
+type MemoryStateEntry = {
+  state: ConversationState;
+  expiresAtMs: number;
+};
+
+const memoryStateStore = new Map<string, MemoryStateEntry>();
+
+function stateKey(userId: string, channel: Channel): string {
+  return `${userId}:${channel}`;
+}
+
+function readMemoryState(userId: string, channel: Channel): ConversationState {
+  const key = stateKey(userId, channel);
+  const entry = memoryStateStore.get(key);
+  if (!entry) {
+    return { state: 'idle' };
+  }
+
+  if (entry.expiresAtMs < Date.now()) {
+    memoryStateStore.delete(key);
+    return { state: 'idle' };
+  }
+
+  return entry.state;
+}
+
+function writeMemoryState(userId: string, channel: Channel, state: ConversationState): void {
+  const ttlMs = getTtlMs(state);
+  const expiresAtMs = Date.now() + ttlMs;
+  memoryStateStore.set(stateKey(userId, channel), {
+    state: {
+      ...state,
+      expiresAt: new Date(expiresAtMs),
+    },
+    expiresAtMs,
+  });
+}
+
+function clearMemoryState(userId: string, channel: Channel): void {
+  memoryStateStore.delete(stateKey(userId, channel));
+}
+
 function toIsoWithTtl(ttlMs: number): string {
   return new Date(Date.now() + ttlMs).toISOString();
 }
@@ -75,17 +117,19 @@ export async function getConversationState(
 
     if (error) {
       console.error('[State] Failed to fetch conversation state:', error);
-      return { state: 'idle' };
+      return readMemoryState(userId, channel);
     }
 
     if (!data) {
-      return { state: 'idle' };
+      return readMemoryState(userId, channel);
     }
 
-    return parseStateFromRow(data);
+    const parsed = parseStateFromRow(data);
+    writeMemoryState(userId, channel, parsed);
+    return parsed;
   } catch (error) {
     console.error('[State] Unexpected fetch error:', error);
-    return { state: 'idle' };
+    return readMemoryState(userId, channel);
   }
 }
 
@@ -99,6 +143,8 @@ export async function setConversationState(
 ): Promise<void> {
   const admin = getAdminClient();
   const ttlMs = getTtlMs(state);
+
+  writeMemoryState(userId, channel, state);
 
   try {
     const { error } = await admin
@@ -136,6 +182,8 @@ export async function clearConversationState(
   channel: Channel
 ): Promise<void> {
   const admin = getAdminClient();
+
+  clearMemoryState(userId, channel);
 
   try {
     const { error } = await admin
@@ -276,6 +324,12 @@ export async function getClarificationContext(
  */
 export async function cleanupExpiredConversationStates(): Promise<number> {
   const admin = getAdminClient();
+
+  for (const [key, entry] of memoryStateStore.entries()) {
+    if (entry.expiresAtMs < Date.now()) {
+      memoryStateStore.delete(key);
+    }
+  }
 
   try {
     const { count, error } = await admin

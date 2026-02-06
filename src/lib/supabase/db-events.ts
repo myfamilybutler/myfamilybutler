@@ -151,6 +151,20 @@ export async function createEventsBulk(
     .select('*');
 
   if (error) {
+    if (error.code === '42P10') {
+      console.warn('[Event] Missing unique constraint for bulk upsert; falling back to row inserts');
+      const created: Event[] = [];
+
+      for (const eventData of events) {
+        const inserted = await createEvent(householdId, createdBy, eventData);
+        if (inserted) {
+          created.push(inserted);
+        }
+      }
+
+      return created;
+    }
+
     console.error('Error creating events in bulk:', error);
     return [];
   }
