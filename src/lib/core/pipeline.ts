@@ -26,31 +26,93 @@ import {
   createDraftEvent,
   confirmDraftEvent,
   rejectDraftEvent,
+  getDraftEvent,
   deleteEvent,
   getMessageHistory,
   generateDashboardLinkForUser,
   generateDashboardLink,
+  createEventReminder,
 } from '@/lib/supabase';
 import { detectLanguage, getTemplate, formatDateForLanguage } from '@/lib/ai/response-templates';
 import { logAIInteraction } from '@/lib/ai/logging';
 import type { ChatMessage } from '@/types';
 import type { MessagingChannel } from './types';
 import type { BrainResult } from '@/lib/ai/types';
+import { resolveConfirmationIntent } from '@/lib/ai/confirmation-resolver';
 
 const COMMANDS = {
   dashboard: ['dashboard', 'link', 'login'],
   help: ['help', 'hilfe', '?'],
   start: ['start', 'hallo', 'hi', 'hello'],
-  confirm: ['ja', 'yes', 'ok', 'correct', 'richtig', 'stimmt', 'passt'],
-  reject: ['nein', 'no', 'cancel', 'abbrechen', 'falsch'],
   undo: ['undo', 'rückgängig', 'rückgängig machen', 'zurück'],
 };
 
+/**
+ * Create a default 30-minute reminder for an event
+ */
+async function createDefaultReminder(
+  event: { id: string; title: string; event_date: string; event_time?: string | null; is_all_day: boolean },
+  userId: string
+): Promise<void> {
+  // Don't create reminders for all-day events
+  if (event.is_all_day) return;
+  
+  // Don't create reminders if no specific time
+  if (!event.event_time) return;
+
+  try {
+    const eventDateTime = new Date(`${event.event_date}T${event.event_time}`);
+    const reminderTime = new Date(eventDateTime.getTime() - 30 * 60 * 1000); // 30 minutes before
+    
+    // Only create reminder if it's in the future
+    if (reminderTime > new Date()) {
+      await createEventReminder(
+        userId,
+        event.id,
+        event.title,
+        reminderTime,
+        `⏰ Erinnerung: "${event.title}" in 30 Minuten`
+      );
+      console.log(`[Reminder] Created 30-min reminder for event "${event.title}"`);
+    }
+  } catch (error) {
+    console.error('[Reminder] Failed to create default reminder:', error);
+    // Non-critical error - don't block event creation
+  }
+}
+
+/**
+ * SMART_AI_V2: Fuzzy command matching
+ * Supports exact matches and natural language variants
+ */
 function matchCommand(text: string): keyof typeof COMMANDS | null {
   const lower = text.toLowerCase().trim();
 
+  // Exact match first (fast path)
   for (const [command, patterns] of Object.entries(COMMANDS)) {
     if (patterns.includes(lower)) {
+      return command as keyof typeof COMMANDS;
+    }
+  }
+
+  // Contains matching for natural variants
+  // "help me please" → help, "open dashboard" → dashboard
+  for (const [command, patterns] of Object.entries(COMMANDS)) {
+    if (patterns.some(p => lower.includes(p))) {
+      return command as keyof typeof COMMANDS;
+    }
+  }
+
+  // Additional natural language patterns
+  const naturalPatterns: Record<keyof typeof COMMANDS, RegExp[]> = {
+    dashboard: [/show.*dashboard/i, /open.*calendar/i, /my.*events/i, /öffne.*kalender/i],
+    help: [/how.*work/i, /what.*can.*do/i, /wie.*funktioniert/i, /was.*kannst/i],
+    start: [/^hey$/i, /^good morning$/i, /^guten morgen$/i],
+    undo: [/take.*back/i, /remove.*last/i, /mach.*rückgängig/i, /lösch.*letzten/i],
+  };
+
+  for (const [command, regexes] of Object.entries(naturalPatterns)) {
+    if (regexes.some(r => r.test(lower))) {
       return command as keyof typeof COMMANDS;
     }
   }
@@ -144,9 +206,67 @@ async function handleDraftPending(
   content: string
 ): Promise<PipelineResult | null> {
   const { message, conversationState, startTime } = context;
+  const lang = detectLanguage(content);
 
-  if (COMMANDS.confirm.some(c => content.includes(c))) {
-    if (conversationState.draftEventId && message.householdId) {
+  // Need draft ID and household to proceed
+  if (!conversationState.draftEventId || !message.householdId) {
+    await clearConversationState(message.userId, message.channel);
+    return {
+      response: {
+        text: lang === 'de'
+          ? 'Entschuldigung, der Entwurf konnte nicht gefunden werden. Bitte erstelle den Termin erneut.'
+          : 'Sorry, the draft could not be found. Please create the event again.',
+        metadata: { language: lang, shouldLog: true },
+      },
+      eventsCreated: 0,
+      success: false,
+      latencyMs: Date.now() - startTime,
+    };
+  }
+
+  // Fetch the draft details
+  const draft = await getDraftEvent(conversationState.draftEventId, message.householdId);
+  if (!draft) {
+    await clearConversationState(message.userId, message.channel);
+    return {
+      response: {
+        text: lang === 'de'
+          ? 'Der Entwurf wurde nicht mehr gefunden. Bitte erstelle den Termin erneut.'
+          : 'The draft was not found. Please create the event again.',
+        metadata: { language: lang, shouldLog: true },
+      },
+      eventsCreated: 0,
+      success: false,
+      latencyMs: Date.now() - startTime,
+    };
+  }
+
+  // Use AI to understand user's intent
+  const history = await getMessageHistory(message.userId, 5);
+  const chatHistory: { role: 'user' | 'assistant'; content: string }[] = history
+    .slice(-3)
+    .map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+
+  const intentResult = await resolveConfirmationIntent(
+    content,
+    {
+      title: draft.title,
+      event_date: draft.event_date,
+      event_time: draft.event_time,
+      is_all_day: draft.is_all_day,
+      family_member: draft.family_member,
+      location: draft.location,
+    },
+    chatHistory
+  );
+
+  console.log(`[Pipeline] Draft confirmation intent: ${intentResult.intent}`);
+
+  switch (intentResult.intent) {
+    case 'confirm': {
       const event = await confirmDraftEvent(
         conversationState.draftEventId,
         message.householdId,
@@ -156,13 +276,13 @@ async function handleDraftPending(
       await clearConversationState(message.userId, message.channel);
 
       if (event) {
-        const lang = detectLanguage(content);
+        await createDefaultReminder(event, message.userId);
         const dashboardLink = await getDashboardLink(message);
         return {
           response: {
-            text: lang === 'de' 
-              ? `Termin "${event.title}" wurde gespeichert!` 
-              : `Event "${event.title}" saved!`,
+            text: lang === 'de'
+              ? `Termin "${event.title}" wurde gespeichert!\n\n⏰ Ich erinnere dich 30 Minuten vorher.`
+              : `Event "${event.title}" saved!\n\n⏰ I'll remind you 30 minutes before.`,
             urlButton: dashboardLink ? { title: 'Dashboard', url: dashboardLink } : undefined,
             metadata: { language: lang, shouldLog: true },
           },
@@ -171,28 +291,112 @@ async function handleDraftPending(
           latencyMs: Date.now() - startTime,
         };
       }
-    }
-  }
 
-  if (COMMANDS.reject.some(c => content.includes(c))) {
-    if (conversationState.draftEventId && message.householdId) {
+      return {
+        response: {
+          text: lang === 'de'
+            ? 'Entschuldigung, beim Speichern ist ein Fehler aufgetreten.'
+            : 'Sorry, an error occurred while saving.',
+          metadata: { language: lang, shouldLog: true },
+        },
+        eventsCreated: 0,
+        success: false,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
+    case 'reject': {
       await rejectDraftEvent(conversationState.draftEventId, message.householdId);
       await clearConversationState(message.userId, message.channel);
 
       return {
         response: {
-          text: getTemplate('draftDiscarded', 'de'),
-          metadata: { language: 'de', shouldLog: true },
+          text: getTemplate('draftDiscarded', lang),
+          metadata: { language: lang, shouldLog: true },
         },
         eventsCreated: 0,
         success: true,
         latencyMs: Date.now() - startTime,
       };
     }
-  }
 
-  await clearConversationState(message.userId, message.channel);
-  return null;
+    case 'modify': {
+      // Keep the draft state and ask what to change
+      const modifyResponse = intentResult.response || (lang === 'de'
+        ? 'Was möchtest du ändern?'
+        : 'What would you like to change?');
+
+      return {
+        response: {
+          text: modifyResponse,
+          metadata: { language: lang, shouldLog: true },
+        },
+        eventsCreated: 0,
+        success: true,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
+    case 'modify_specific': {
+      // User made a direct modification - apply it and show updated draft
+      // For now, ask for confirmation of the interpreted change
+      const modification = intentResult.modifications?.[0];
+      const modifyText = modification
+        ? (lang === 'de'
+          ? `Verstanden! Ich ändere ${modification.field} auf "${modification.newValue}". Stimmt das?`
+          : `Got it! I'll change ${modification.field} to "${modification.newValue}". Is that correct?`)
+        : (lang === 'de'
+          ? 'Ich habe die Änderung verstanden. Soll ich den aktualisierten Termin speichern?'
+          : 'I understood the change. Should I save the updated event?');
+
+      return {
+        response: {
+          text: modifyText,
+          buttons: [
+            { id: 'confirm', title: lang === 'de' ? 'Ja, speichern' : 'Yes, save' },
+            { id: 'modify', title: lang === 'de' ? 'Nochmal ändern' : 'Change again' },
+          ],
+          metadata: { language: lang, shouldLog: true },
+        },
+        eventsCreated: 0,
+        success: true,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
+    case 'clarify':
+    case 'unclear': {
+      // Stay in draft state and respond naturally
+      const clarifyResponse = intentResult.response || (lang === 'de'
+        ? 'Soll ich den Termin speichern oder möchtest du etwas ändern?'
+        : 'Should I save the event or would you like to change something?');
+
+      return {
+        response: {
+          text: clarifyResponse,
+          buttons: [
+            { id: 'confirm', title: lang === 'de' ? 'Ja, speichern' : 'Yes, save' },
+            { id: 'reject', title: lang === 'de' ? 'Nein, verwerfen' : 'No, discard' },
+          ],
+          metadata: { language: lang, shouldLog: true },
+        },
+        eventsCreated: 0,
+        success: true,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+
+    case 'new_event': {
+      // User is describing a different event - clear state and process as new
+      await clearConversationState(message.userId, message.channel);
+      return null; // Continue to normal processing
+    }
+
+    default: {
+      await clearConversationState(message.userId, message.channel);
+      return null;
+    }
+  }
 }
 
 async function handleAwaitingUndo(
@@ -261,8 +465,6 @@ async function handleCommand(
         latencyMs: Date.now() - startTime,
       };
 
-    case 'confirm':
-    case 'reject':
     case 'undo':
       return {
         response: {
@@ -583,6 +785,11 @@ async function handleHighConfidenceEvents(
   if (successfulEvents.length > 0) {
     await setUndoState(message.userId, message.channel, successfulEvents[0]!.id);
 
+    // Create 30-minute reminders for events with specific times
+    for (const event of successfulEvents) {
+      await createDefaultReminder(event, message.userId);
+    }
+
     let confirmationText: string;
 
     if (successfulEvents.length === 1) {
@@ -594,10 +801,13 @@ async function handleHighConfidenceEvents(
       const memberStr = event.family_member
         ? (lang === 'de' ? ` für ${event.family_member}` : ` for ${event.family_member}`)
         : '';
+      const reminderStr = event.event_time && !event.is_all_day
+        ? (lang === 'de' ? '\n\n⏰ Ich erinnere dich 30 Minuten vorher.' : "\n\n⏰ I'll remind you 30 minutes before.")
+        : '';
 
       confirmationText = lang === 'de'
-        ? `Termin gespeichert:\n\n"${event.title}"${memberStr}\n${formattedDate}${timeStr}`
-        : `Event saved:\n\n"${event.title}"${memberStr}\n${formattedDate}${timeStr}`;
+        ? `Termin gespeichert:\n\n"${event.title}"${memberStr}\n${formattedDate}${timeStr}${reminderStr}`
+        : `Event saved:\n\n"${event.title}"${memberStr}\n${formattedDate}${timeStr}${reminderStr}`;
     } else {
       confirmationText = lang === 'de'
         ? `${successfulEvents.length} Termine gespeichert!`
@@ -670,9 +880,10 @@ async function handleMediumConfidenceEvents(
     return {
       response: {
         text: confirmText,
+        // SMART_AI_V2: Split buttons - 'modify' for edit, 'reject' only for explicit discard
         buttons: [
           { id: 'confirm', title: lang === 'de' ? 'Ja, speichern' : 'Yes, save' },
-          { id: 'reject', title: lang === 'de' ? 'Nein, Änderungen' : 'No, changes' },
+          { id: 'modify', title: lang === 'de' ? 'Ändern' : 'Edit' },
         ],
         metadata: { language: lang, shouldLog: true },
       },

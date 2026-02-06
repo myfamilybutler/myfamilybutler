@@ -69,6 +69,7 @@ export {
   createDraftEvent,
   confirmDraftEvent,
   rejectDraftEvent,
+  getDraftEvent,
   getDraftEvents,
 } from './db-events';
 

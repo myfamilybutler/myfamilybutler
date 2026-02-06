@@ -85,10 +85,28 @@ export async function parseEventWithGemini(
     const response = await result.response;
     let content = response.text();
 
-    // Clean up response (remove markdown code blocks if present)
-    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    // SMART_AI_V2: Robust JSON cleanup before parsing
+    content = cleanupAIResponse(content);
 
-    const parsed = JSON.parse(content);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch (parseError) {
+      console.error('[Gemini] JSON parse failed, attempting recovery:', parseError);
+      // Try to extract JSON from within the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(cleanupAIResponse(jsonMatch[0]));
+        } catch {
+          // Give up on JSON recovery
+          return salvagePartialResult(null);
+        }
+      } else {
+        return salvagePartialResult(null);
+      }
+    }
+
     const validated = EventExtractorResponseSchema.safeParse(parsed);
 
     if (validated.success) {
@@ -112,12 +130,80 @@ export async function parseEventWithGemini(
       };
     }
 
-    console.error('[Gemini] Schema validation failed:', validated.error);
-    return { events: [], needs_clarification: false, intent_type: 'unknown' };
+    // SMART_AI_V2: Salvage partial result instead of returning empty
+    console.error('[Gemini] Schema validation failed, attempting salvage:', validated.error);
+    return salvagePartialResult(parsed);
   } catch (error) {
     console.error('[Gemini] Event parsing error:', error);
     return { events: [], needs_clarification: false, intent_type: 'unknown' };
   }
+}
+
+/**
+ * SMART_AI_V2: Clean up AI response before JSON parsing
+ * Handles markdown blocks, trailing commas, and whitespace
+ */
+function cleanupAIResponse(content: string): string {
+  let cleaned = content;
+  
+  // Remove markdown code blocks
+  cleaned = cleaned.replace(/```(?:json)?\n?/g, '').replace(/```\n?/g, '');
+  
+  // Remove trailing commas before } or ] (common AI mistake)
+  cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+  
+  // Trim whitespace
+  cleaned = cleaned.trim();
+  
+  return cleaned;
+}
+
+/**
+ * SMART_AI_V2: Attempt to salvage partial results when schema validation fails
+ * Returns with reduced confidence instead of empty result
+ */
+function salvagePartialResult(parsed: unknown): EventExtractionResult {
+  if (!parsed || typeof parsed !== 'object') {
+    return { events: [], needs_clarification: false, intent_type: 'unknown', confidence: 0.3 };
+  }
+
+  const obj = parsed as Record<string, unknown>;
+  
+  // Try to extract events even if schema validation failed
+  const events: ParsedEvent[] = [];
+  if (Array.isArray(obj.events)) {
+    for (const e of obj.events) {
+      if (typeof e === 'object' && e !== null) {
+        const event = e as Record<string, unknown>;
+        if (typeof event.title === 'string' && typeof event.event_date === 'string') {
+          events.push({
+            title: event.title,
+            event_date: event.event_date,
+            event_time: typeof event.event_time === 'string' ? event.event_time : undefined,
+            is_all_day: typeof event.is_all_day === 'boolean' ? event.is_all_day : !event.event_time,
+            family_member: typeof event.family_member === 'string' ? event.family_member : undefined,
+            location: typeof event.location === 'string' ? event.location : undefined,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    events,
+    needs_clarification: typeof obj.needs_clarification === 'boolean' ? obj.needs_clarification : false,
+    clarification_question: typeof obj.clarification_question === 'string' ? obj.clarification_question : undefined,
+    intent_type: isValidIntentType(obj.intent_type) ? obj.intent_type : 'unknown',
+    // Downgrade confidence for salvaged results
+    confidence: typeof obj.confidence === 'number' ? obj.confidence * 0.7 : 0.5,
+  };
+}
+
+function isValidIntentType(value: unknown): value is EventExtractionResult['intent_type'] {
+  return typeof value === 'string' && [
+    'calendar_event', 'reminder', 'school_announcement', 'action_required', 
+    'schedule_change', 'leave_request', 'unknown'
+  ].includes(value);
 }
 
 /**

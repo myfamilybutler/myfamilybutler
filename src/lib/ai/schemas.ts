@@ -59,6 +59,7 @@ export const ExtractedEventSchema = z.object({
 
 /**
  * Schema for the event extractor response
+ * SMART_AI_V2: Added defaults for common omissions to improve robustness
  */
 export const EventExtractorResponseSchema = z.object({
   intent_type: z.enum([
@@ -69,13 +70,13 @@ export const EventExtractorResponseSchema = z.object({
     'schedule_change',      // Cancellations, substitutions
     'leave_request',        // Freistellung tracking
     'unknown'
-  ]),
-  events: z.array(ExtractedEventSchema).optional(),
-  needs_clarification: z.boolean(),
+  ]).default('unknown'),
+  events: z.array(ExtractedEventSchema).optional().default([]),
+  needs_clarification: z.boolean().default(false),
   clarification_question: z.string().optional().nullable(),
-  unknown_entities_mentioned: z.array(z.string()).optional(),
+  unknown_entities_mentioned: z.array(z.string()).optional().default([]),
   suggested_action: z.enum(['create_event', 'dashboard_redirect', 'clarify']).optional(),
-  confidence: z.number().min(0).max(1).optional(),
+  confidence: z.number().min(0).max(1).optional().default(0.75),
   // New fields
   action_items: ActionItemSchema.optional(),  // Message-level action items
 });

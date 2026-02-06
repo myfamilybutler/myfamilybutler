@@ -556,6 +556,59 @@ export async function rejectDraftEvent(
 }
 
 /**
+ * Get a single draft event by ID
+ */
+export async function getDraftEvent(
+  draftId: string,
+  householdId: string
+): Promise<{
+  id: string;
+  title: string;
+  event_date: string;
+  event_time?: string | null;
+  end_time?: string | null;
+  is_all_day: boolean;
+  family_member?: string | null;
+  location?: string | null;
+  description?: string | null;
+  confidence: number;
+  reason: string;
+} | null> {
+  const admin = getAdminClient();
+  
+  try {
+    const { data, error } = await admin
+      .from('draft_events')
+      .select('*')
+      .eq('id', draftId)
+      .eq('household_id', householdId)
+      .single();
+    
+    if (error || !data) {
+      console.log('[DraftEvent] Draft not found:', error?.message);
+      return null;
+    }
+    
+    return data as {
+      id: string;
+      title: string;
+      event_date: string;
+      event_time?: string | null;
+      end_time?: string | null;
+      is_all_day: boolean;
+      family_member?: string | null;
+      location?: string | null;
+      description?: string | null;
+      confidence: number;
+      reason: string;
+    };
+  } catch (err) {
+    console.error('[DraftEvent] Error fetching draft:', err);
+    return null;
+  }
+}
+
+/**
  * Get pending drafts for a household
  */
 export async function getDraftEvents(householdId: string): Promise<Array<{
