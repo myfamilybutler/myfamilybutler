@@ -14,19 +14,4 @@ export {
   type UrlButton,
 } from './send';
 
-// Media processing
-export {
-  processImageMessage,
-  processVoiceMessage,
-  processDocumentMessage,
-} from './media';
-
-// Command handlers
-export {
-  handleCommand,
-} from './commands';
-
-// Intent processing
-export {
-  processIntents,
-} from './intents';
+export { whatsappAdapter } from './adapter';

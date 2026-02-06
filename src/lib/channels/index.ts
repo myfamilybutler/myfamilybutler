@@ -6,32 +6,6 @@
  */
 
 // ===========================================
-// Base Utilities (Shared)
-// ===========================================
-
-export {
-  // Commands
-  processCommand,
-  detectCommand,
-  handleDashboard,
-  handleStart,
-  handleHelp,
-  handleNewEvent,
-  COMMAND_MESSAGES,
-  type CommandContext,
-  type CommandResult,
-  // Media handling
-  handleBrainResult,
-  formatEventConfirmation,
-  formatEventsList,
-  MEDIA_CONFIG,
-  MESSAGES,
-  type MediaContext,
-  type MediaResult,
-  type MessageSender,
-} from './base';
-
-// ===========================================
 // WhatsApp (Meta Cloud API - Production)
 // ===========================================
 
@@ -39,10 +13,8 @@ export {
   sendWhatsAppMessage,
   markMessageAsRead,
   sendInteractiveMessage,
-  processImageMessage,
-  processVoiceMessage,
-  handleCommand,
-  processIntents,
+  sendMessageWithUrlButton,
+  whatsappAdapter,
   type QuickReplyButton,
 } from './whatsapp/index';
 
@@ -57,7 +29,7 @@ export {
   setTelegramWebhook,
   getTelegramWebhookInfo,
   downloadTelegramFile,
-  processTelegramVoiceMessage,
+  telegramAdapter,
 } from './telegram/index';
 
 // ===========================================
@@ -69,8 +41,8 @@ export {
   send360DialogInteractiveMessage,
   mark360DialogMessageAsRead,
   download360DialogMedia,
-  process360DialogImage,
-  process360DialogVoice,
+  send360DialogMessageWithUrlButton,
+  dialog360Adapter,
 } from './360dialog';
 
 // ===========================================

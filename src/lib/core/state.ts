@@ -1,52 +1,54 @@
 /**
- * Conversation State Management - Simplified
- * 
- * Simple in-memory state management for draft/confirm flow.
- * No persistence needed - states are transient (15 min TTL).
+ * Conversation State Management
+ *
+ * Persistent conversation state backed by Supabase so it works
+ * reliably across server instances and restarts.
  */
 
 import type { ConversationState, Channel } from './types';
-
-interface StateEntry {
-  state: ConversationState;
-  expiresAt: number;
-}
-
-const stateStore = new Map<string, StateEntry>();
+import { getAdminClient } from '@/lib/supabase';
 
 const STATE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const UNDO_TTL_MS = 30 * 1000; // 30 seconds for undo window
+const CONVERSATION_STATE_TABLE = 'conversation_state';
 
-// Cleanup interval
-let cleanupInterval: ReturnType<typeof setInterval> | null = null;
-
-function ensureCleanup() {
-  if (cleanupInterval) return;
-  
-  // Double-checked locking pattern to prevent race condition
-  const newInterval = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of stateStore.entries()) {
-      if (now > entry.expiresAt) {
-        stateStore.delete(key);
-      }
-    }
-  }, 60 * 1000);
-  
-  // Only assign if still null (second check)
-  if (!cleanupInterval) {
-    cleanupInterval = newInterval;
-    if (cleanupInterval.unref) {
-      cleanupInterval.unref();
-    }
-  } else {
-    // Another call already created it
-    clearInterval(newInterval);
-  }
+function toIsoWithTtl(ttlMs: number): string {
+  return new Date(Date.now() + ttlMs).toISOString();
 }
 
-function getStateKey(userId: string, channel: Channel): string {
-  return `conv:${userId}:${channel}`;
+function getTtlMs(state: ConversationState): number {
+  return state.state === 'awaiting_undo' ? UNDO_TTL_MS : STATE_TTL_MS;
+}
+
+function serializeStateData(state: ConversationState): Record<string, unknown> {
+  return {
+    draftEventId: state.draftEventId ?? null,
+    undoableEventId: state.undoableEventId ?? null,
+    clarificationContext: state.clarificationContext ?? null,
+    attempts: state.attempts ?? 0,
+  };
+}
+
+function parseStateFromRow(row: {
+  state: string;
+  data: {
+    draftEventId?: string | null;
+    undoableEventId?: string | null;
+    clarificationContext?: string | null;
+    attempts?: number | null;
+  } | null;
+  expires_at: string;
+}): ConversationState {
+  const data = row.data ?? {};
+
+  return {
+    state: row.state as ConversationState['state'],
+    draftEventId: data.draftEventId ?? undefined,
+    undoableEventId: data.undoableEventId ?? undefined,
+    clarificationContext: data.clarificationContext ?? undefined,
+    attempts: typeof data.attempts === 'number' ? data.attempts : undefined,
+    expiresAt: new Date(row.expires_at),
+  };
 }
 
 /**
@@ -56,16 +58,32 @@ export async function getConversationState(
   userId: string,
   channel: Channel
 ): Promise<ConversationState> {
-  ensureCleanup();
+  const admin = getAdminClient();
 
-  const key = getStateKey(userId, channel);
-  const entry = stateStore.get(key);
+  try {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await admin
+      .from(CONVERSATION_STATE_TABLE)
+      .select('state, data, expires_at')
+      .eq('user_id', userId)
+      .eq('channel', channel)
+      .gte('expires_at', nowIso)
+      .maybeSingle();
 
-  if (!entry || Date.now() > entry.expiresAt) {
+    if (error) {
+      console.error('[State] Failed to fetch conversation state:', error);
+      return { state: 'idle' };
+    }
+
+    if (!data) {
+      return { state: 'idle' };
+    }
+
+    return parseStateFromRow(data);
+  } catch (error) {
+    console.error('[State] Unexpected fetch error:', error);
     return { state: 'idle' };
   }
-
-  return entry.state;
 }
 
 /**
@@ -76,17 +94,35 @@ export async function setConversationState(
   channel: Channel,
   state: ConversationState
 ): Promise<void> {
-  ensureCleanup();
+  const admin = getAdminClient();
+  const ttlMs = getTtlMs(state);
 
-  const key = getStateKey(userId, channel);
-  const ttl = state.state === 'awaiting_undo' ? UNDO_TTL_MS : STATE_TTL_MS;
+  try {
+    const { error } = await admin
+      .from(CONVERSATION_STATE_TABLE)
+      .upsert(
+        {
+          user_id: userId,
+          channel,
+          state: state.state,
+          data: serializeStateData(state),
+          expires_at: toIsoWithTtl(ttlMs),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'user_id,channel',
+        }
+      );
 
-  stateStore.set(key, {
-    state,
-    expiresAt: Date.now() + ttl,
-  });
+    if (error) {
+      console.error('[State] Failed to set conversation state:', error);
+      return;
+    }
 
-  console.log(`[State] Set ${key} to ${state.state} (TTL: ${ttl / 1000}s)`);
+    console.log(`[State] Set conv:${userId}:${channel} to ${state.state} (TTL: ${ttlMs / 1000}s)`);
+  } catch (error) {
+    console.error('[State] Unexpected set error:', error);
+  }
 }
 
 /**
@@ -96,9 +132,24 @@ export async function clearConversationState(
   userId: string,
   channel: Channel
 ): Promise<void> {
-  const key = getStateKey(userId, channel);
-  stateStore.delete(key);
-  console.log(`[State] Cleared ${key}`);
+  const admin = getAdminClient();
+
+  try {
+    const { error } = await admin
+      .from(CONVERSATION_STATE_TABLE)
+      .delete()
+      .eq('user_id', userId)
+      .eq('channel', channel);
+
+    if (error) {
+      console.error('[State] Failed to clear conversation state:', error);
+      return;
+    }
+
+    console.log(`[State] Cleared conv:${userId}:${channel}`);
+  } catch (error) {
+    console.error('[State] Unexpected clear error:', error);
+  }
 }
 
 /**
@@ -202,4 +253,33 @@ export async function getClarificationContext(
   }
   
   return null;
+}
+
+/**
+ * Cleanup expired conversation states.
+ * Useful for scheduled maintenance to keep table size under control.
+ */
+export async function cleanupExpiredConversationStates(): Promise<number> {
+  const admin = getAdminClient();
+
+  try {
+    const { count, error } = await admin
+      .from(CONVERSATION_STATE_TABLE)
+      .delete({ count: 'exact' })
+      .lt('expires_at', new Date().toISOString());
+
+    if (error) {
+      console.error('[State] Failed to cleanup expired states:', error);
+      return 0;
+    }
+
+    const deleted = count ?? 0;
+    if (deleted > 0) {
+      console.log(`[State] Cleaned up ${deleted} expired conversation states`);
+    }
+    return deleted;
+  } catch (error) {
+    console.error('[State] Unexpected cleanup error:', error);
+    return 0;
+  }
 }

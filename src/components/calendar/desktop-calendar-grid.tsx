@@ -23,7 +23,7 @@ import {
   subMonths,
   addDays,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Clock, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, PanInfo } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -111,6 +111,18 @@ export function DesktopCalendarGrid({
     }
     return getMemberColorClass(DEFAULT_MEMBER_COLOR);
   }, [memberColors]);
+
+  const isUrgent = useCallback((event: CalendarEvent) => {
+    if (event.is_all_day || !event.event_time) return false;
+
+    const now = new Date();
+    const eventDate = new Date(`${event.event_date}T${event.event_time}`);
+    if (Number.isNaN(eventDate.getTime())) return false;
+
+    const diffMs = eventDate.getTime() - now.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours > 0 && diffHours <= 2;
+  }, []);
   
   // Navigation handlers
   const handlePrevMonth = useCallback(() => {
@@ -264,13 +276,17 @@ export function DesktopCalendarGrid({
                         <HoverCardTrigger asChild>
                           <button
                             className={cn(
-                              "w-full text-left rounded px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-white",
+                              "w-full text-left rounded px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
                               "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
                               getMemberColor(event.family_member)
                             )}
                             onClick={(e) => handleEventClick(event, e)}
                           >
-                            <span className="block truncate">
+                            <span className="flex items-center gap-1 truncate">
+                              {/* Urgent indicator for events within 2 hours */}
+                              {isUrgent(event) && (
+                                <AlertCircle className="w-3 h-3 flex-shrink-0 animate-pulse" />
+                              )}
                               {!event.is_all_day && event.event_time && (
                                 <span className="font-bold mr-1">
                                   {formatTime(event.event_time)}

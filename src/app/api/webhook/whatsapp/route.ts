@@ -7,7 +7,6 @@ import { gateway } from '@/lib/core';
 import { whatsappAdapter } from '@/lib/channels/whatsapp/adapter';
 import { enqueueMessage } from '@/inngest/process-message';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
-import { verifyWhatsAppSignature } from '@/lib/utils/security';
 
 let whatsappAdapterRegistered = false;
 function ensureWhatsAppAdapter() {
@@ -54,23 +53,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const rawBody = await request.text();
-
-  // Verify webhook signature (skip in development if secret not set)
-  const appSecret = process.env.WHATSAPP_APP_SECRET;
   const signature = request.headers.get('x-hub-signature-256');
-
-  if (appSecret) {
-    if (!verifyWhatsAppSignature(rawBody, signature, appSecret)) {
-      console.error('[Webhook] Invalid signature - possible spoofed request');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
-    console.log('[Webhook] Signature verified ✓');
-  } else if (process.env.NODE_ENV === 'production') {
-    console.error('[Webhook] CRITICAL: WHATSAPP_APP_SECRET not set in production');
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-  } else {
-    console.warn('[Webhook] DEV MODE: Skipping signature verification (WHATSAPP_APP_SECRET not set)');
-  }
 
   try {
     const body: MetaWebhookBody = JSON.parse(rawBody);

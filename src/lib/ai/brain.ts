@@ -18,6 +18,7 @@ import type {
   EventExtractionResult,
 } from './types';
 import { parseEventWithFallback } from './index';
+import { AI_DECISION_THRESHOLDS } from './constants';
 import { processVoiceMessage } from '@/actions/process-voice';
 import { processVisionMessage } from '@/actions/process-vision';
 
@@ -27,9 +28,9 @@ import { processVisionMessage } from '@/actions/process-vision';
 
 const BRAIN_CONFIG = {
   /** Confidence threshold for auto-save (above = save, below = ask/draft) */
-  confidenceThreshold: 0.85,
+  confidenceThreshold: AI_DECISION_THRESHOLDS.save,
   /** Minimum confidence to save as draft (below = ask clarification) */
-  draftThreshold: 0.50,
+  draftThreshold: AI_DECISION_THRESHOLDS.draft,
 };
 
 // ===========================================
@@ -51,6 +52,7 @@ async function normalizeInput(input: UnifiedInput): Promise<{
 }> {
   switch (input.type) {
     case 'text':
+    case 'document':
       return { text: input.content || '' };
 
     case 'voice': {
@@ -136,17 +138,17 @@ function determineAction(
     return { action: 'none' };
   }
 
-  // High confidence (>70%): Auto-save
+  // High confidence: auto-save
   if (confidence >= BRAIN_CONFIG.confidenceThreshold) {
     return { action: 'save' };
   }
 
-  // Medium confidence (40-70%): Save as draft
+  // Medium confidence: save as draft
   if (confidence >= BRAIN_CONFIG.draftThreshold) {
     return { action: 'draft' };
   }
 
-  // Low confidence (<40%): Ask for clarification
+  // Low confidence: ask for clarification
   const question = extraction.clarification_question ||
     'Ich bin mir nicht sicher, ob ich das richtig verstanden habe. Könntest du mir mehr Details geben?';
   
@@ -218,7 +220,7 @@ export async function processInput(input: UnifiedInput): Promise<BrainResult> {
     
     const extraction = await parseEventWithFallback(
       normalized.text,
-      undefined, // No conversation history for now
+      input.conversationHistory,
       input.familyMembers
     );
 
@@ -248,76 +250,4 @@ export async function processInput(input: UnifiedInput): Promise<BrainResult> {
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
-}
-
-// ===========================================
-// Convenience Functions
-// ===========================================
-
-/**
- * Process text input through the Brain
- */
-export async function processTextInput(
-  text: string,
-  userId: string,
-  householdId: string,
-  options?: {
-    familyMembers?: string[];
-    phoneNumber?: string;
-    messageId?: string;
-  }
-): Promise<BrainResult> {
-  return processInput({
-    type: 'text',
-    content: text,
-    userId,
-    householdId,
-    ...options,
-  });
-}
-
-/**
- * Process voice input through the Brain
- */
-export async function processVoiceInput(
-  mediaId: string,
-  userId: string,
-  householdId: string,
-  options?: {
-    mimeType?: string;
-    familyMembers?: string[];
-    phoneNumber?: string;
-    messageId?: string;
-  }
-): Promise<BrainResult> {
-  return processInput({
-    type: 'voice',
-    mediaId,
-    userId,
-    householdId,
-    ...options,
-  });
-}
-
-/**
- * Process image input through the Brain
- */
-export async function processImageInput(
-  mediaId: string,
-  userId: string,
-  householdId: string,
-  options?: {
-    mimeType?: string;
-    familyMembers?: string[];
-    phoneNumber?: string;
-    messageId?: string;
-  }
-): Promise<BrainResult> {
-  return processInput({
-    type: 'image',
-    mediaId,
-    userId,
-    householdId,
-    ...options,
-  });
 }

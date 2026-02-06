@@ -48,6 +48,7 @@
     "filterByMember": "Filter by member",
     "clear": "Clear",
     "clearFilters": "Clear filters",
+    "removeFilter": "Remove filter",
     "noEventsFilter": "No events match your filter",
     "showMore": "Show {{count}} more",
     "showLess": "Show less",
@@ -104,7 +105,25 @@
     "memberDeleted": "Member deleted!",
     "deleteMemberError": "Failed to delete member",
     "memberName": "Name",
-    "memberColor": "Color"
+    "memberColor": "Color",
+    "profileTab": "Profile & Connections",
+    "profileTabShort": "Profile",
+    "familyTab": "Family",
+    "familyTabShort": "Family",
+    "privacyTab": "Privacy",
+    "privacyTabShort": "Privacy",
+    "dangerZone": "Danger Zone",
+    "dangerZoneDesc": "These actions cannot be undone. Please be careful."
+  },
+  "dashboard": {
+    "upcoming": "Upcoming",
+    "noEventsToday": "No events today",
+    "planYourDay": "Plan your day",
+    "addFirstEvent": "Add first event",
+    "nothingPlanned": "Nothing planned - time to relax!",
+    "noEvents": "No events",
+    "soon": "Soon",
+    "swipeHint": "← Swipe to edit or delete"
   },
   "pwa": {
     "install": "Install App",

@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { TelegramUpdate } from '@/types';
 import { unifiedFindOrCreateUser, findUserByIdentifier } from '@/lib/supabase';
 import { handleTelegramPhoneReceived } from '@/lib/channels/telegram/onboarding';
-import { isMessageProcessed, gateway } from '@/lib/core';
+import { gateway } from '@/lib/core';
 import { requestPhoneNumber, sendTelegramMessage } from '@/lib/channels/telegram/send';
 import { telegramAdapter } from '@/lib/channels/telegram/adapter';
 import { enqueueMessage } from '@/inngest/process-message';
@@ -47,11 +47,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const update: TelegramUpdate = await request.json();
-
-    if (await isMessageProcessed(`tg_${update.update_id}`, 'telegram')) {
-      console.log(`[Telegram Webhook] Duplicate update ignored: ${update.update_id}`);
-      return NextResponse.json({ ok: true });
-    }
 
     const message = update.message || update.edited_message;
     if (!message) {

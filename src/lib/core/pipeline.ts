@@ -18,6 +18,7 @@ import {
 } from './state';
 import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
 import { processInput as processBrain } from '@/lib/ai/brain';
+import { AI_DECISION_THRESHOLDS } from '@/lib/ai/constants';
 import {
   createEvent,
   createDraftEvent,
@@ -25,12 +26,14 @@ import {
   rejectDraftEvent,
   deleteEvent,
   getMessageHistory,
+  generateDashboardLinkForUser,
   generateDashboardLink,
 } from '@/lib/supabase';
 import { detectLanguage, getTemplate, formatDateForLanguage } from '@/lib/ai/response-templates';
 import { logAIInteraction } from '@/lib/ai/logging';
 import type { ChatMessage } from '@/types';
 import type { MessagingChannel } from './types';
+import type { BrainResult } from '@/lib/ai/types';
 
 const COMMANDS = {
   dashboard: ['dashboard', 'link', 'login'],
@@ -311,25 +314,32 @@ async function handleDashboardCommand(context: PipelineContext): Promise<Pipelin
 }
 
 async function getDashboardLink(message: StandardMessage): Promise<string | null> {
-  if (!message.metadata.senderId) {
-    return null;
-  }
-
   const channel = message.channel as MessagingChannel;
-  const result = await generateDashboardLink(message.metadata.senderId, channel);
-  if (!result.success || !result.link) {
-    return null;
+  const primary = await generateDashboardLinkForUser(message.userId, channel);
+  if (primary.success && primary.link) {
+    return primary.link;
   }
 
-  return result.link;
+  if (message.metadata.senderId) {
+    const fallback = await generateDashboardLink(message.metadata.senderId, channel);
+    if (fallback.success && fallback.link) {
+      return fallback.link;
+    }
+  }
+
+  return null;
 }
 
 async function processWithBrain(context: PipelineContext): Promise<PipelineResult> {
-  const { message, startTime } = context;
+  const { message, startTime, conversationState } = context;
   const lang = message.content ? detectLanguage(message.content) : 'de';
 
   const history = await getMessageHistory(message.userId, 10);
-  const chatHistory: ChatMessage[] = history.map(msg => ({
+  const dedupedHistory = history.filter(msg =>
+    !(msg.role === 'user' && msg.whatsapp_message_id === message.id)
+  );
+
+  const chatHistory: ChatMessage[] = dedupedHistory.map(msg => ({
     role: msg.role as 'user' | 'assistant',
     content: msg.content,
   }));
@@ -342,6 +352,7 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
       userId: message.userId,
       householdId: message.householdId || '',
       familyMembers: message.familyMembers,
+      conversationHistory: chatHistory,
       phoneNumber: message.metadata.senderId,
       messageId: message.id,
     });
@@ -349,8 +360,12 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
     return handleBrainResult(brainResult, context, lang);
   }
 
+  const extractionInput = conversationState.state === 'clarifying' && conversationState.clarificationContext
+    ? `Vorherige Rückfrage: ${conversationState.clarificationContext}\nNutzerantwort: ${message.content || ''}`
+    : message.content || '';
+
   const extractionResult = await parseEventWithFallback(
-    message.content || '',
+    extractionInput,
     chatHistory,
     message.familyMembers
   );
@@ -400,13 +415,17 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
   }
 
   if (message.householdId && extractionResult.events.length > 0) {
+    if (conversationState.state === 'clarifying') {
+      await clearConversationState(message.userId, message.channel);
+    }
+
     const confidence = extractionResult.confidence ?? 0.75;
 
-    if (confidence >= 0.85) {
+    if (confidence >= AI_DECISION_THRESHOLDS.save) {
       return handleHighConfidenceEvents(extractionResult.events, context, lang);
     }
 
-    if (confidence >= 0.50) {
+    if (confidence >= AI_DECISION_THRESHOLDS.draft) {
       return handleMediumConfidenceEvents(extractionResult.events, context, lang, confidence);
     }
 
@@ -424,6 +443,10 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
     };
   }
 
+  if (conversationState.state === 'clarifying' && !extractionResult.needs_clarification) {
+    await clearConversationState(message.userId, message.channel);
+  }
+
   const aiResponse = await generateResponseWithFallback(chatHistory, message.content || '');
 
   return {
@@ -438,11 +461,11 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
 }
 
 async function handleBrainResult(
-  brainResult: { action: string; events: unknown[]; confidence: number; clarificationQuestion?: string; error?: string },
+  brainResult: BrainResult,
   context: PipelineContext,
   lang: 'de' | 'en'
 ): Promise<PipelineResult> {
-  const { startTime } = context;
+  const { startTime, message } = context;
 
   if (brainResult.error) {
     return {
@@ -460,6 +483,12 @@ async function handleBrainResult(
   }
 
   if (brainResult.action === 'ask' && brainResult.clarificationQuestion) {
+    await setClarifyingState(
+      message.userId,
+      message.channel,
+      brainResult.clarificationQuestion
+    );
+
     return {
       response: {
         text: brainResult.clarificationQuestion,
@@ -471,11 +500,24 @@ async function handleBrainResult(
     };
   }
 
+  if (brainResult.action === 'save' && brainResult.events.length > 0) {
+    return handleHighConfidenceEvents(brainResult.events, context, lang);
+  }
+
+  if (brainResult.action === 'draft' && brainResult.events.length > 0) {
+    return handleMediumConfidenceEvents(
+      brainResult.events,
+      context,
+      lang,
+      brainResult.confidence
+    );
+  }
+
   return {
     response: {
       text: lang === 'de'
-        ? 'Ich habe die Datei verarbeitet.'
-        : 'I have processed the file.',
+        ? 'Ich konnte keinen Termin erkennen. Bitte nenne Datum und Uhrzeit möglichst konkret.'
+        : 'I could not identify an event. Please include a clear date and time.',
       metadata: { language: lang, shouldLog: true },
     },
     eventsCreated: 0,

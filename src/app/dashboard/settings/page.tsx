@@ -12,6 +12,9 @@ import {
   UserMinus,
   Plus,
   Calendar,
+  User,
+  Shield,
+  Bell,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
 import { AccountSecurityCard } from '@/components/settings/account-security-card';
 import { GoogleCalendarConnectButton } from '@/components/settings/google-calendar-connect';
@@ -245,132 +249,176 @@ export default function SettingsPage() {
             <p className="text-muted-foreground mt-1">{t('settings.description')}</p>
           </div>
           
-          {/* Account & Security Section */}
-          <AccountSecurityCard 
-            dbUser={dbUser} 
-            loading={familyLoading} 
-            onUpdate={handleDataUpdate} 
-          />  
-          
-          {/* Family Section */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  {t('settings.familyMembers')}
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  {isHouseholdAdmin ? t('settings.adminRole') : t('settings.memberRole')}
-                </CardDescription>
-              </div>
-              {hasHousehold ? (
-                <Button size="sm" onClick={() => setAddMemberDialog(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t('settings.addMember')}
-                </Button>
-              ) : (
-                <Button size="sm" onClick={() => router.push('/onboarding')}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Family
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {familyLoading ? (
-                <div className="animate-pulse space-y-2">
-                  <div className="h-10 bg-muted rounded"></div>
-                  <div className="h-10 bg-muted rounded"></div>
-                </div>
-              ) : (
-                <FamilyMembersList
-                  users={users}
-                  familyMembers={profileMembers}
-                  isAdmin={isHouseholdAdmin}
-                  showActions={true}
-                  onEditMember={openEditDialog}
-                  onDeleteMember={openDeleteDialog}
-                />
-              )}
+          <Tabs defaultValue="profile" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="profile" className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                <span className="hidden sm:inline">{t('settings.profileTab')}</span>
+                <span className="sm:hidden">{t('settings.profileTabShort')}</span>
+              </TabsTrigger>
+              <TabsTrigger value="family" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">{t('settings.familyTab')}</span>
+                <span className="sm:hidden">{t('settings.familyTabShort')}</span>
+              </TabsTrigger>
+              <TabsTrigger value="privacy" className="flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                <span className="hidden sm:inline">{t('settings.privacyTab')}</span>
+                <span className="sm:hidden">{t('settings.privacyTabShort')}</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Profile Tab */}
+            <TabsContent value="profile" className="space-y-6">
+              {/* Account & Security Section */}
+              <AccountSecurityCard 
+                dbUser={dbUser} 
+                loading={familyLoading} 
+                onUpdate={handleDataUpdate} 
+              />
               
-              {!isHouseholdAdmin && (
-                <Button
-                  variant="outline"
-                  className="w-full mt-4 text-orange-600 border-orange-200 hover:bg-orange-50"
-                  onClick={() => setLeaveFamilyDialog(true)}
-                >
-                  <UserMinus className="w-4 h-4 mr-2" />
-                  {t('settings.leaveFamily')}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-          
-          {/* Calendar Integrations */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                {t('settings.calendarSync')}
-              </CardTitle>
-              <CardDescription>
-                {t('settings.calendarSyncDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <GoogleCalendarConnectButton />
-            </CardContent>
-          </Card>
-          
-          {/* GDPR Section */}
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-foreground">{t('settings.gdprTitle')}</CardTitle>
-              <CardDescription>
-                {t('settings.gdprDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              {/* Calendar Integrations */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    {t('settings.calendarSync')}
+                  </CardTitle>
+                  <CardDescription>
+                    {t('settings.calendarSyncDesc')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <GoogleCalendarConnectButton />
+                </CardContent>
+              </Card>
+              
+              {/* Logout - in profile tab */}
               <Button
                 variant="outline"
-                className="w-full justify-start"
-                onClick={handleExportData}
+                className="w-full"
+                onClick={handleLogout}
               >
-                <Download className="w-4 h-4 mr-2" />
-                {t('settings.exportData')}
+                <LogOut className="w-4 h-4 mr-2" />
+                {t('settings.signOut')}
               </Button>
-              
-              {isHouseholdAdmin && (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50"
-                  onClick={() => setDeleteFamilyDialog(true)}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  {t('settings.deleteFamily')}
-                </Button>
-              )}
-              
-              <Button
-                variant="outline"
-                className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50"
-                onClick={() => setDeleteAccountDialog(true)}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                {t('settings.deleteAccount')}
-              </Button>
-            </CardContent>
-          </Card>
-          
-          {/* Logout */}
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            {t('settings.signOut')}
-          </Button>
+            </TabsContent>
+
+            {/* Family Tab */}
+            <TabsContent value="family" className="space-y-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      {t('settings.familyMembers')}
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {isHouseholdAdmin ? t('settings.adminRole') : t('settings.memberRole')}
+                    </CardDescription>
+                  </div>
+                  {hasHousehold ? (
+                    <Button size="sm" onClick={() => setAddMemberDialog(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t('settings.addMember')}
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={() => router.push('/onboarding')}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Family
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {familyLoading ? (
+                    <div className="animate-pulse space-y-2">
+                      <div className="h-10 bg-muted rounded"></div>
+                      <div className="h-10 bg-muted rounded"></div>
+                    </div>
+                  ) : (
+                    <FamilyMembersList
+                      users={users}
+                      familyMembers={profileMembers}
+                      isAdmin={isHouseholdAdmin}
+                      showActions={true}
+                      onEditMember={openEditDialog}
+                      onDeleteMember={openDeleteDialog}
+                    />
+                  )}
+                  
+                  {!isHouseholdAdmin && (
+                    <Button
+                      variant="outline"
+                      className="w-full mt-4 text-orange-600 border-orange-200 hover:bg-orange-50"
+                      onClick={() => setLeaveFamilyDialog(true)}
+                    >
+                      <UserMinus className="w-4 h-4 mr-2" />
+                      {t('settings.leaveFamily')}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Privacy Tab */}
+            <TabsContent value="privacy" className="space-y-6">
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    {t('settings.gdprTitle')}
+                  </CardTitle>
+                  <CardDescription>
+                    {t('settings.gdprDesc')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={handleExportData}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {t('settings.exportData')}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Danger Zone */}
+              <Card className="border-red-200 dark:border-red-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-600">
+                    <Bell className="w-5 h-5" />
+                    {t('settings.dangerZone')}
+                  </CardTitle>
+                  <CardDescription>
+                    {t('settings.dangerZoneDesc')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {isHouseholdAdmin && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
+                      onClick={() => setDeleteFamilyDialog(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {t('settings.deleteFamily')}
+                    </Button>
+                  )}
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
+                    onClick={() => setDeleteAccountDialog(true)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t('settings.deleteAccount')}
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
         
         {/* Add Member Dialog - Reusing Component */}

@@ -13,10 +13,4 @@ export {
   type UrlButton as D360UrlButton,
 } from './send';
 
-// Media processing
-export {
-  processImage as process360DialogImage,
-  processVoice as process360DialogVoice,
-  type MediaContext as D360MediaContext,
-  type MediaResult as D360MediaResult,
-} from './media';
+export { dialog360Adapter } from './adapter';

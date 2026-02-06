@@ -5,6 +5,8 @@
  * Used by both OpenAI and Gemini providers.
  */
 
+import type { ChatMessage } from '@/types';
+
 /**
  * A parsed calendar event extracted from user message
  */
@@ -87,6 +89,8 @@ export interface UnifiedInput {
   messageId?: string;
   /** Family members for matching */
   familyMembers?: string[];
+  /** Recent chat messages used for disambiguation */
+  conversationHistory?: ChatMessage[];
   /** Phone number for WhatsApp responses */
   phoneNumber?: string;
 }
@@ -140,4 +144,3 @@ export interface DraftEvent extends ParsedEvent {
  * Status of draft confirmation flow
  */
 export type DraftStatus = 'pending' | 'confirmed' | 'rejected' | 'expired';
-

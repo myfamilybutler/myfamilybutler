@@ -178,6 +178,7 @@ export async function parseEventWithClarification(
         needs_clarification: validated.data.needs_clarification,
         clarification_question: validated.data.clarification_question ?? undefined,
         intent_type: validated.data.intent_type,
+        confidence: validated.data.confidence,
       };
     }
 

@@ -220,16 +220,39 @@ export function CollapsibleCalendar({
                         {format(day, 'd')}
                       </span>
 
-                      {/* Colored event dots */}
+                      {/* Colored event indicators - larger dots with better visibility */}
                       {dayColors.length > 0 && (
-                        <div className="flex gap-0.5 mt-1">
-                          {dayColors.map((color, i) => (
+                        <div className="flex gap-1 mt-1.5">
+                          {dayColors.length === 1 ? (
+                            // Single event: show a small pill for better visibility
                             <div
-                              key={i}
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{ backgroundColor: color }}
+                              className="h-1.5 w-4 rounded-full"
+                              style={{ backgroundColor: dayColors[0] }}
+                              title={events.find(e => {
+                                const d = new Date(day);
+                                const dateStr = format(d, 'yyyy-MM-dd');
+                                return e.event_date === dateStr && 
+                                  (e.family_member ? memberColors.get(e.family_member) === dayColors[0] : true);
+                              })?.family_member || 'Event'}
                             />
-                          ))}
+                          ) : (
+                            // Multiple events: show dots (increased size from 1.5px to 5px)
+                            dayColors.map((color, i) => (
+                              <div
+                                key={i}
+                                className="w-[5px] h-[5px] rounded-full"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))
+                          )}
+                          {/* Show count if many events */}
+                          {dayColors.length === 3 && events.filter(e => {
+                            const d = new Date(day);
+                            const dateStr = format(d, 'yyyy-MM-dd');
+                            return e.event_date === dateStr;
+                          }).length > 3 && (
+                            <span className="text-[8px] text-muted-foreground leading-none">+</span>
+                          )}
                         </div>
                       )}
                     </button>

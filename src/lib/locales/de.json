@@ -48,6 +48,7 @@
     "filterByMember": "Nach Mitglied filtern",
     "clear": "Zurücksetzen",
     "clearFilters": "Filter zurücksetzen",
+    "removeFilter": "Filter entfernen",
     "noEventsFilter": "Keine Termine entsprechen Ihrem Filter",
     "showMore": "Zeige {{count}} weitere",
     "showLess": "Weniger anzeigen",
@@ -104,7 +105,25 @@
     "memberDeleted": "Mitglied gelöscht!",
     "deleteMemberError": "Mitglied konnte nicht gelöscht werden",
     "memberName": "Name",
-    "memberColor": "Farbe"
+    "memberColor": "Farbe",
+    "profileTab": "Profil & Verbindungen",
+    "profileTabShort": "Profil",
+    "familyTab": "Familie",
+    "familyTabShort": "Familie",
+    "privacyTab": "Datenschutz",
+    "privacyTabShort": "DSGVO",
+    "dangerZone": "Gefahrenzone",
+    "dangerZoneDesc": "Diese Aktionen können nicht rückgängig gemacht werden. Seien Sie vorsichtig."
+  },
+  "dashboard": {
+    "upcoming": "Anstehend",
+    "noEventsToday": "Keine Termine heute",
+    "planYourDay": "Planen Sie Ihren Tag",
+    "addFirstEvent": "Ersten Termin hinzufügen",
+    "nothingPlanned": "Nichts geplant - Zeit zum Entspannen!",
+    "noEvents": "Keine Termine",
+    "soon": "Bald",
+    "swipeHint": "← Wische zum Bearbeiten oder Löschen"
   },
   "pwa": {
     "install": "App installieren",

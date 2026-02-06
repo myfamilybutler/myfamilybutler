@@ -70,33 +70,3 @@ export async function isMessageProcessed(
     return false;
   }
 }
-
-/**
- * Mark a message as processed (idempotent)
- * Safe to call multiple times
- */
-export async function markMessageProcessed(
-  messageId: string,
-  channel: MessagingChannel
-): Promise<void> {
-  const admin = getAdminClient();
-
-  try {
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + DEDUP_WINDOW_MINUTES);
-
-    await admin
-      .from('processed_messages')
-      .upsert({
-        message_id: messageId,
-        channel,
-        expires_at: expiresAt.toISOString(),
-      }, {
-        onConflict: 'message_id,channel',
-        ignoreDuplicates: true,
-      });
-  } catch (err) {
-    console.error('[Dedup] Mark processed error:', err);
-    // Non-critical error, don't throw
-  }
-}

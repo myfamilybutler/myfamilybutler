@@ -59,7 +59,7 @@ export interface Message {
   content: string;
   type: 'text' | 'image' | 'voice';
   whatsapp_message_id?: string;
-  channel?: 'whatsapp' | 'telegram';
+  channel?: 'whatsapp' | 'telegram' | '360dialog';
   created_at: string;
 }
 
@@ -259,4 +259,3 @@ export type {
   DraftEvent,
   DraftStatus,
 } from '@/lib/ai/types';
-

@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { format, parseISO, isAfter, startOfDay, addDays } from 'date-fns';
-import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Hand } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, PanInfo, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, formatTime } from '@/lib/utils';
@@ -32,15 +32,29 @@ interface SwipeableEventCardProps {
   onEdit: (event: CalendarEvent) => void;
   onDelete: (eventId: string) => void;
   isDeleting: boolean;
+  showSwipeHint?: boolean;
+  onHintDismiss?: () => void;
 }
 
 
 
-function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEventCardProps) {
+function SwipeableEventCard({ event, onEdit, onDelete, isDeleting, showSwipeHint, onHintDismiss }: SwipeableEventCardProps) {
   const { memberColors } = useFamilyData();
   const { t } = useTranslation();
   const x = useMotionValue(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [hintVisible, setHintVisible] = useState(showSwipeHint);
+
+  // Auto-dismiss hint after 5 seconds
+  useEffect(() => {
+    if (hintVisible) {
+      const timer = setTimeout(() => {
+        setHintVisible(false);
+        onHintDismiss?.();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [hintVisible, onHintDismiss]);
   
   const actionsOpacity = useTransform(x, [-120, -60, 0], [1, 0.5, 0]);
   const actionsScale = useTransform(x, [-120, -60, 0], [1, 0.9, 0.8]);
@@ -142,10 +156,27 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting }: SwipeableEv
             <div className="w-1 h-8 bg-border rounded-full" />
           </div>
         </div>
+
+        {/* Swipe Hint Overlay */}
+        {hintVisible && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex items-center justify-end pr-4 bg-gradient-to-l from-emerald-50/90 via-emerald-50/50 to-transparent dark:from-emerald-950/90 dark:via-emerald-950/50 pointer-events-none"
+          >
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+              <Hand className="w-4 h-4 animate-pulse" />
+              <span className="text-xs font-medium">{t('dashboard.swipeHint')}</span>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
     </motion.div>
   );
 }
+
+const SWIPE_HINT_KEY = 'familybutler_swipe_hint_dismissed';
 
 export function UpcomingEvents({ 
   events,
@@ -158,11 +189,23 @@ export function UpcomingEvents({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(pageSize);
+  const [swipeHintDismissed, setSwipeHintDismissed] = useState(() => {
+    // Check localStorage on initial render
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(SWIPE_HINT_KEY) === 'true';
+    }
+    return false;
+  });
   
   // Use global filter store
   const selectedMembers = useSelectedMembers();
   
   const { t, i18n } = useTranslation();
+
+  const handleDismissSwipeHint = () => {
+    setSwipeHintDismissed(true);
+    localStorage.setItem(SWIPE_HINT_KEY, 'true');
+  };
 
   const handleEditClick = (event: CalendarEvent) => {
     setEditingEvent(event);
@@ -314,20 +357,28 @@ export function UpcomingEvents({
 
         {/* Event list with date section headers (Google Calendar style) */}
         <div className="space-y-3">
-          {groupedEvents.map((group) => (
+          {groupedEvents.map((group, groupIndex) => (
             <div key={group.dateLabel}>
               {/* Events for this date */}
               <div className="space-y-2">
                 <AnimatePresence mode="popLayout">
-                  {group.events.map((event) => (
-                    <SwipeableEventCard
-                      key={event.id}
-                      event={event}
-                      onEdit={handleEditClick}
-                      onDelete={handleDelete}
-                      isDeleting={deletingEventId === event.id}
-                    />
-                  ))}
+                  {group.events.map((event, eventIndex) => {
+                    // Show swipe hint only on first card if not dismissed
+                    const isFirstCard = groupIndex === 0 && eventIndex === 0;
+                    const showHint = isFirstCard && !swipeHintDismissed;
+                    
+                    return (
+                      <SwipeableEventCard
+                        key={event.id}
+                        event={event}
+                        onEdit={handleEditClick}
+                        onDelete={handleDelete}
+                        isDeleting={deletingEventId === event.id}
+                        showSwipeHint={showHint}
+                        onHintDismiss={handleDismissSwipeHint}
+                      />
+                    );
+                  })}
                 </AnimatePresence>
               </div>
             </div>

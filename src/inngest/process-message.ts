@@ -11,6 +11,7 @@ import { inngest } from '@/lib/inngest';
 import { processMessage as processGatewayMessage, registerAdapter } from '@/lib/core/gateway';
 import { whatsappAdapter } from '@/lib/channels/whatsapp/adapter';
 import { telegramAdapter } from '@/lib/channels/telegram/adapter';
+import { dialog360Adapter } from '@/lib/channels/360dialog/adapter';
 import type { Channel } from '@/lib/core/types';
 import { addToDeadLetterQueue } from '@/lib/core/dead-letter-queue';
 import { getAdminClient } from '@/lib/supabase';
@@ -22,6 +23,7 @@ import { getAdminClient } from '@/lib/supabase';
 // Register adapters on module load
 registerAdapter(whatsappAdapter);
 registerAdapter(telegramAdapter);
+registerAdapter(dialog360Adapter);
 
 // ===========================================
 // Message Sequence Tracking

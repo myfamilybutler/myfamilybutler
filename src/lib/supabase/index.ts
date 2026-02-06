@@ -87,6 +87,7 @@ export {
 // Magic Tokens (Auth)
 export {
   generateDashboardLink,
+  generateDashboardLinkForUser,
   validateMagicToken,
   cleanupExpiredTokens
 } from './magic-tokens';
@@ -97,4 +98,3 @@ export {
   validateEmailLoginToken,
   cleanupExpiredEmailTokens,
 } from './email-tokens';
-

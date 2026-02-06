@@ -9,8 +9,11 @@ import { ProtectedRoute } from '@/components/auth/protected-route';
 import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
 import { QuickAddFab } from '@/components/calendar/quick-add-fab';
 import { QuickAddSheet } from '@/components/calendar/quick-add-sheet';
+import { EditEventDialog } from '@/components/calendar/edit-event-dialog';
+import { TodayWidget } from '@/components/dashboard/today-widget';
 import { Card, CardContent } from '@/components/ui/card';
 import { useDashboardData } from '@/hooks';
+import type { CalendarEvent } from '@/types/calendar';
 
 export default function DashboardPage() {
   const { 
@@ -21,11 +24,18 @@ export default function DashboardPage() {
   
   const [modalDismissed, setModalDismissed] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Progressive onboarding: only show modal after user has created 3+ events
   // This ensures they've seen value before we ask for profile details
   const hasEnoughEvents = allEvents.length >= 3;
   const showOnboardingModal = dbUser?.onboarding_modal_shown === false && !modalDismissed && hasEnoughEvents;
+
+  const handleEventClick = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setEditDialogOpen(true);
+  };
 
   return (
     <ProtectedRoute>
@@ -41,6 +51,13 @@ export default function DashboardPage() {
 
         {/* Mobile Layout (Google Calendar style) */}
         <div className="lg:hidden space-y-4">
+          {/* Today Widget - Quick glance at today's events */}
+          <TodayWidget 
+            events={allEvents}
+            onEventClick={handleEventClick}
+            onAddEvent={() => setQuickAddOpen(true)}
+          />
+          
           {/* Collapsible Calendar Header */}
           <CollapsibleCalendar
             events={allEvents}
@@ -77,6 +94,15 @@ export default function DashboardPage() {
           open={quickAddOpen}
           onOpenChange={setQuickAddOpen}
           onEventCreated={refresh}
+        />
+
+        {/* Edit Event Dialog (opened from TodayWidget) */}
+        <EditEventDialog
+          event={editingEvent}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onEventUpdated={refresh}
+          onEventDeleted={refresh}
         />
       </DashboardLayout>
     </ProtectedRoute>

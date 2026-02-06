@@ -16,9 +16,5 @@ export {
   type TelegramUrlButton,
 } from './send';
 
-// Media processing
-export {
-  processTelegramVoiceMessage,
-} from './media';
-
 export { handleTelegramPhoneReceived } from './onboarding';
+export { telegramAdapter } from './adapter';

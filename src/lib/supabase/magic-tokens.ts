@@ -6,6 +6,50 @@ import type { User } from '@/types';
 import { getAdminClient } from './client';
 import { normalizePhone, findUserByIdentifier } from './identity';
 
+async function createMagicTokenForUser(
+  userId: string,
+  channel: 'whatsapp' | 'telegram' | '360dialog'
+): Promise<{ success: boolean; link?: string; error?: string }> {
+  try {
+    const admin = getAdminClient();
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const { error } = await admin.from('magic_tokens').insert({
+      token_hash: tokenHash,
+      user_id: userId,
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      channel,
+    });
+
+    if (error) {
+      // Backward compatibility for databases that still enforce
+      // channel IN ('whatsapp','telegram') on magic_tokens.
+      if (channel === '360dialog' && error.code === '23514') {
+        const retry = await admin.from('magic_tokens').insert({
+          token_hash: tokenHash,
+          user_id: userId,
+          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          channel: 'whatsapp',
+        });
+
+        if (retry.error) {
+          throw retry.error;
+        }
+      } else {
+        throw error;
+      }
+    }
+
+    return { success: true, link: `${baseUrl}/api/auth/magic?token=${token}` };
+  } catch (error) {
+    console.error('[Dashboard Link] Error:', error);
+    return { success: false, error: 'Failed to create link.' };
+  }
+}
+
 /**
  * Generate a custom magic link for dashboard access
  */
@@ -14,9 +58,7 @@ export async function generateDashboardLink(
   channel: 'whatsapp' | 'telegram' | '360dialog' = 'whatsapp'
 ): Promise<{ success: boolean; link?: string; error?: string }> {
   try {
-    const admin = getAdminClient();
     const normalizedPhone = normalizePhone(phoneNumber);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     if (!normalizedPhone) {
       return { success: false, error: 'Invalid phone number format.' };
@@ -28,23 +70,21 @@ export async function generateDashboardLink(
     if (!user) return { success: false, error: 'User not found.' };
 
     // 2. Create Token
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    const { error } = await admin.from('magic_tokens').insert({
-      token_hash: tokenHash,
-      user_id: user.id,
-      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15m
-      channel,
-    });
-
-    if (error) throw error;
-    
-    return { success: true, link: `${baseUrl}/api/auth/magic?token=${token}` };
+    return createMagicTokenForUser(user.id, channel);
   } catch (error) {
     console.error('[Dashboard Link] Error:', error);
     return { success: false, error: 'Failed to create link.' };
   }
+}
+
+/**
+ * Generate a dashboard link directly from a resolved user ID.
+ */
+export async function generateDashboardLinkForUser(
+  userId: string,
+  channel: 'whatsapp' | 'telegram' | '360dialog' = 'whatsapp'
+): Promise<{ success: boolean; link?: string; error?: string }> {
+  return createMagicTokenForUser(userId, channel);
 }
 
 /**

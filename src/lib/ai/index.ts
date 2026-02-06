@@ -6,7 +6,7 @@
  */
 
 import type { ChatMessage } from '@/types';
-import type { ParsedEvent, EventExtractionResult } from './types';
+import type { EventExtractionResult } from './types';
 import { 
   parseEventWithClarification, 
   generateAIResponse as generateOpenAIResponse,
@@ -115,17 +115,6 @@ export async function parseEventWithFallback(
   };
 }
 
-/**
- * Simple event parsing (backwards compatible)
- */
-export async function parseEventWithFallbackSimple(
-  message: string,
-  conversationHistory?: ChatMessage[]
-): Promise<ParsedEvent[] | null> {
-  const result = await parseEventWithFallback(message, conversationHistory);
-  return result.events.length > 0 ? result.events : null;
-}
-
 // ===========================================
 // Chat Response with Fallback
 // ===========================================
@@ -182,9 +171,6 @@ export type {
 // Brain (Unified Input Processor)
 export {
   processInput,
-  processTextInput,
-  processVoiceInput,
-  processImageInput,
 } from './brain';
 
 // OpenAI direct access
@@ -208,4 +194,3 @@ export {
   getWhisperContextPrompt,
   buildDialectNormalizerPrompt,
 } from './prompts';
-
