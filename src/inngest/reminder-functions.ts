@@ -26,6 +26,13 @@ export const checkDueReminders = inngest.createFunction(
     // Step 1: Get all pending reminders that are due with locking
     const dueReminders = await step.run('get-due-reminders', async () => {
       const admin = getAdminClient();
+
+      const isMissingReminderLockRpc = (error: unknown): boolean => {
+        if (!error || typeof error !== 'object') return false;
+        const maybeError = error as { code?: string; message?: string; details?: string };
+        const text = `${maybeError.message ?? ''} ${maybeError.details ?? ''}`;
+        return maybeError.code === 'PGRST202' && text.includes('get_and_lock_due_reminders');
+      };
       
       // Use RPC for atomic fetch-and-lock operation
       const { data: reminders, error } = await admin.rpc('get_and_lock_due_reminders', {
@@ -33,7 +40,11 @@ export const checkDueReminders = inngest.createFunction(
       });
       
       if (error) {
-        console.error('[Inngest] Error fetching reminders:', error);
+        if (isMissingReminderLockRpc(error)) {
+          console.warn('[Inngest] Reminder lock RPC missing, falling back to non-locking query');
+        } else {
+          console.error('[Inngest] Error fetching reminders:', error);
+        }
         // Fallback to regular fetch
         return await getPendingReminders();
       }

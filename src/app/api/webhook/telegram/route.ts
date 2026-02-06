@@ -126,8 +126,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const queued = await enqueueMessage('telegram', update, rawBody, signature);
     if (!queued.queued) {
-      await gateway.processMessage('telegram', update, rawBody, signature);
+      console.warn('[Telegram Webhook] Queue unavailable, processing synchronously');
     }
+
+    // Telegram expects near-real-time replies. Always process synchronously,
+    // while queueing remains best-effort for retry/backfill resilience.
+    await gateway.processMessage('telegram', update, rawBody, signature);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
