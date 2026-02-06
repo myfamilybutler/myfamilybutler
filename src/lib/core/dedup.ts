@@ -55,8 +55,8 @@ export async function isMessageProcessed(
 
       if (checkError) {
         console.error('[Dedup] Check error:', checkError);
-        // Fail open - allow processing if we can't verify
-        return false;
+        // Fail safe - treat as duplicate to avoid double side effects
+        return true;
       }
 
       return data !== null;
@@ -66,7 +66,7 @@ export async function isMessageProcessed(
     return false;
   } catch (err) {
     console.error('[Dedup] Unexpected error:', err);
-    // Fail open on unexpected errors
-    return false;
+    // Fail safe on unexpected errors
+    return true;
   }
 }

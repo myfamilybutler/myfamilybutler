@@ -224,7 +224,7 @@ All channels:
 - Phone numbers masked in logs (`+43***5678`)
 - Messages truncated to 4096 chars
 - Deduplication via message ID with DB-backed processed message tracking
-- Telegram currently uses queue + synchronous processing for near-real-time UX; idempotency and dedup remain mandatory
+- Telegram currently uses synchronous processing for near-real-time UX; idempotency and dedup remain mandatory
 
 ---
 

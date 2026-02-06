@@ -27,9 +27,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const supabase = getSupabase();
+    let isMounted = true;
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+
       if (session?.user) {
         setUser(session.user);
         setLoading(false);
@@ -38,6 +41,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         fetch('/api/auth/status')
           .then(res => res.json())
           .then(data => {
+            if (!isMounted) return;
+
             if (data.authenticated && data.userId) {
               // Create a stub user so hooks know we are logged in
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,10 +59,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           })
           .catch(err => console.error('AuthProvider: Status check failed', err))
           .finally(() => {
+             if (!isMounted) return;
              setLoading(false);
           });
       }
     }).catch((err) => {
+      if (!isMounted) return;
       console.error('AuthProvider: session check failed', err);
       setLoading(false);
     });
@@ -65,6 +72,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, session: Session | null) => {
+        if (!isMounted) return;
+
         // Warning: onAuthStateChange fires INITIAL_SESSION with null if no Supabase session exists.
         // We must NOT wipe our custom session in that case.
         
@@ -81,6 +90,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [setUser, setLoading, setDbUser]);

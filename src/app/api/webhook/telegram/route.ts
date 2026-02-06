@@ -8,7 +8,6 @@ import { handleTelegramPhoneReceived } from '@/lib/channels/telegram/onboarding'
 import { gateway } from '@/lib/core';
 import { requestPhoneNumber, sendTelegramMessage } from '@/lib/channels/telegram/send';
 import { telegramAdapter } from '@/lib/channels/telegram/adapter';
-import { enqueueMessage } from '@/inngest/process-message';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyTelegramSecretToken, maskChatId } from '@/lib/utils/security';
 import { trackIdentityLinked, trackUserCreated, trackDuplicatePrevented } from '@/lib/analytics';
@@ -35,6 +34,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
   const receivedToken = request.headers.get('x-telegram-bot-api-secret-token');
 
+  if (!webhookSecret && process.env.NODE_ENV === 'production') {
+    console.error('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET is required in production');
+    return NextResponse.json({ ok: false }, { status: 503 });
+  }
+
   if (webhookSecret) {
     if (!verifyTelegramSecretToken(receivedToken, webhookSecret)) {
       console.error('[Telegram Webhook] Invalid secret token - possible spoofed request');
@@ -42,7 +46,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     console.log('[Telegram Webhook] Secret token verified ✓');
   } else {
-    console.warn('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET not set - skipping verification');
+    console.warn('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET not set (non-production mode)');
   }
 
   try {
@@ -119,13 +123,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const rawBody = JSON.stringify(update);
     const signature = request.headers.get('x-telegram-bot-api-secret-token');
 
-    const queued = await enqueueMessage('telegram', update, rawBody, signature);
-    if (!queued.queued) {
-      console.warn('[Telegram Webhook] Queue unavailable, processing synchronously');
-    }
-
-    // Telegram expects near-real-time replies. Always process synchronously,
-    // while queueing remains best-effort for retry/backfill resilience.
+    // Telegram expects near-real-time replies.
+    // Use synchronous path to avoid duplicate side effects from dual processing.
     await gateway.processMessage('telegram', update, rawBody, signature);
 
     return NextResponse.json({ ok: true });

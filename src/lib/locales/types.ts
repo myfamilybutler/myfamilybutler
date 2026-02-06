@@ -53,7 +53,7 @@ export interface TerminologyConfig {
  */
 export interface InputExample {
   /** Type of input */
-  type: 'school_letter' | 'training_message' | 'appointment' | 'invitation' | 'cancellation' | 'other';
+  type: string;
   /** Short description */
   description: string;
   /** The actual input text */
@@ -67,11 +67,16 @@ export interface InputExample {
  */
 export interface ExpectedEvent {
   title: string;
-  date: string; // YYYY-MM-DD
+  date?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  dayOfWeek?: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  recurrence?: 'weekly' | 'biweekly' | 'monthly';
   time?: string; // HH:MM
   endTime?: string;
   isAllDay?: boolean;
+  isCancelled?: boolean;
   location?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -83,6 +88,15 @@ export interface HolidayConfig {
   description: string;
   /** Approximate timing */
   timing: string;
+}
+
+/**
+ * School period timing configuration
+ * Maps period numbers (1-8) to start/end times
+ */
+export interface SchoolPeriodConfig {
+  start: string; // HH:MM format
+  end: string;   // HH:MM format
 }
 
 /**
@@ -111,6 +125,8 @@ export interface LocaleConfig {
   examples: InputExample[];
   /** Cultural context snippets for AI prompts */
   culturalContext: string[];
+  /** School period timing (optional, for Stunde→time conversion) */
+  schoolPeriods?: Record<string, SchoolPeriodConfig>;
 }
 
 // ===========================================

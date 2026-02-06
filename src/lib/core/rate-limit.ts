@@ -33,7 +33,22 @@ export async function checkRateLimit(key: string): Promise<boolean> {
       return true;
     }
 
-    return data?.allowed ?? true;
+    if (Array.isArray(data)) {
+      const first = data[0] as { allowed?: boolean } | undefined;
+      if (typeof first?.allowed === 'boolean') {
+        return first.allowed;
+      }
+      return true;
+    }
+
+    if (data && typeof data === 'object' && 'allowed' in data) {
+      const single = data as { allowed?: boolean };
+      if (typeof single.allowed === 'boolean') {
+        return single.allowed;
+      }
+    }
+
+    return true;
   } catch (err) {
     console.error('[RateLimit] Error:', err);
     // Fail open on error

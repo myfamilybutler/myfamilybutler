@@ -105,7 +105,7 @@ export function GoogleCalendarConnectButton({
       }
     } catch (error) {
       console.error('Error fetching calendars:', error);
-      toast.error('Failed to load calendars');
+      toast.error('Kalender konnten nicht geladen werden');
     } finally {
       if (mountedRef.current) {
         setIsLoadingCalendars(false);
@@ -136,11 +136,11 @@ export function GoogleCalendarConnectButton({
         // Redirect to Google OAuth
         window.location.href = data.url;
       } else {
-        toast.error('Failed to start Google connection');
+        toast.error('Google-Verbindung konnte nicht gestartet werden');
       }
     } catch (error) {
       console.error('Error connecting to Google:', error);
-      toast.error('Failed to connect to Google');
+      toast.error('Verbindung zu Google fehlgeschlagen');
     } finally {
       setIsConnecting(false);
     }
@@ -159,14 +159,14 @@ export function GoogleCalendarConnectButton({
         setCalendars([]);
         setSelectedCalendarId('primary');
         setSelectedCalendarName(null);
-        toast.success('Google Calendar disconnected');
+        toast.success('Google Kalender wurde getrennt');
         onDisconnectedRef.current?.();
       } else {
-        toast.error('Failed to disconnect Google Calendar');
+        toast.error('Google Kalender konnte nicht getrennt werden');
       }
     } catch (error) {
       console.error('Error disconnecting Google:', error);
-      toast.error('Failed to disconnect');
+      toast.error('Trennen fehlgeschlagen');
     } finally {
       if (mountedRef.current) {
         setIsConnecting(false);
@@ -193,13 +193,13 @@ export function GoogleCalendarConnectButton({
         if (!mountedRef.current) return;
         setSelectedCalendarId(calendar.id);
         setSelectedCalendarName(calendar.name);
-        toast.success(`Syncing with "${calendar.name}"`);
+        toast.success(`Synchronisiere mit "${calendar.name}"`);
       } else {
-        toast.error('Failed to save calendar selection');
+        toast.error('Kalenderauswahl konnte nicht gespeichert werden');
       }
     } catch (error) {
       console.error('Error saving calendar:', error);
-      toast.error('Failed to save calendar selection');
+      toast.error('Kalenderauswahl konnte nicht gespeichert werden');
     } finally {
       if (mountedRef.current) {
         setIsSavingCalendar(false);
@@ -211,7 +211,7 @@ export function GoogleCalendarConnectButton({
     return (
       <Button variant="outline" disabled className="w-full">
         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-        Checking...
+        Pruefe Verbindung...
       </Button>
     );
   }
@@ -222,18 +222,18 @@ export function GoogleCalendarConnectButton({
         {/* Connected Status */}
         <Button variant="outline" disabled className="w-full">
           <Check className="w-4 h-4 mr-2 text-emerald-600" />
-          Google Calendar Connected
+          Google Kalender verbunden
         </Button>
 
         {/* Calendar Selection */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-muted-foreground">
-            Sync with calendar:
+            Mit Kalender synchronisieren:
           </label>
           {isLoadingCalendars ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              Loading calendars...
+              Lade Kalender...
             </div>
           ) : calendars.length > 0 ? (
             <Select
@@ -242,8 +242,8 @@ export function GoogleCalendarConnectButton({
               disabled={isSavingCalendar}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a calendar">
-                  {selectedCalendarName || 'Primary Calendar'}
+                <SelectValue placeholder="Kalender auswaehlen">
+                  {selectedCalendarName || 'Primaerkalender'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -251,7 +251,7 @@ export function GoogleCalendarConnectButton({
                   <SelectItem key={calendar.id} value={calendar.id}>
                     {calendar.name}
                     {calendar.primary && (
-                      <span className="ml-2 text-xs text-muted-foreground">(Primary)</span>
+                      <span className="ml-2 text-xs text-muted-foreground">(Primaer)</span>
                     )}
                   </SelectItem>
                 ))}
@@ -259,7 +259,7 @@ export function GoogleCalendarConnectButton({
             </Select>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No writable calendars found
+               Keine beschreibbaren Kalender gefunden
             </p>
           )}
         </div>
@@ -277,7 +277,7 @@ export function GoogleCalendarConnectButton({
           ) : (
             <Link2Off className="w-4 h-4 mr-1" />
           )}
-          Disconnect
+          Trennen
         </Button>
       </div>
     );
@@ -295,7 +295,7 @@ export function GoogleCalendarConnectButton({
       ) : (
         <Calendar className="w-4 h-4 mr-2" />
       )}
-      Connect Google Calendar
+      Google Kalender verbinden
     </Button>
   );
 }

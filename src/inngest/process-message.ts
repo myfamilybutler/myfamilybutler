@@ -2,7 +2,6 @@
  * Queue-Based Message Processing with Dead Letter Queue
  * 
  * Uses Inngest for async message processing with:
- * - Per-user message ordering (sequence numbers)
  * - Dead letter queue for failed jobs
  * - Idempotency keys for safe retries
  */
@@ -14,7 +13,7 @@ import { telegramAdapter } from '@/lib/channels/telegram/adapter';
 import { dialog360Adapter } from '@/lib/channels/360dialog/adapter';
 import type { Channel } from '@/lib/core/types';
 import { addToDeadLetterQueue } from '@/lib/core/dead-letter-queue';
-import { getAdminClient } from '@/lib/supabase';
+import { createHash } from 'crypto';
 
 // ===========================================
 // Register Adapters
@@ -26,36 +25,6 @@ registerAdapter(telegramAdapter);
 registerAdapter(dialog360Adapter);
 
 // ===========================================
-// Message Sequence Tracking
-// ===========================================
-
-// Message sequence tracking for per-user ordering
-
-const userSequenceNumbers = new Map<string, number>();
-
-/**
- * Get next sequence number for a user (for ordering)
- */
-async function getNextSequenceNumber(userId: string): Promise<number> {
-  const admin = getAdminClient();
-  
-  // Use database for atomic sequence number generation
-  const { data, error } = await admin.rpc('get_next_message_sequence', {
-    p_user_id: userId,
-  });
-  
-  if (error) {
-    // Fallback to in-memory counter
-    const current = userSequenceNumbers.get(userId) || 0;
-    const next = current + 1;
-    userSequenceNumbers.set(userId, next);
-    return next;
-  }
-  
-  return data || 1;
-}
-
-// ===========================================
 // Message Processing Job
 // ===========================================
 
@@ -63,7 +32,7 @@ async function getNextSequenceNumber(userId: string): Promise<number> {
  * Inngest function to process incoming messages
  * 
  * Triggered when a message is enqueued by the webhook.
- * Implements per-user ordering and dead letter queue.
+ * Implements dead letter queue handling and retries.
  */
 export const processMessage = inngest.createFunction(
   {
@@ -136,10 +105,9 @@ export interface MessageReceivedEvent {
     channel: Channel;
     payload: unknown;
     rawBody: string;
-    signature: string | null;
-    receivedAt: string;
-    idempotencyKey?: string;
-    sequenceNumber?: number;
+      signature: string | null;
+      receivedAt: string;
+      idempotencyKey?: string;
   };
 }
 
@@ -157,19 +125,15 @@ export async function enqueueMessage(
   channel: Channel,
   payload: unknown,
   rawBody: string,
-  signature: string | null,
-  userId?: string
+  signature: string | null
 ): Promise<{ queued: boolean; idempotencyKey: string }> {
-  // Generate idempotency key
-  const idempotencyKey = crypto.randomUUID();
+  // Deterministic idempotency key based on channel + payload body
+  // so retried webhook deliveries map to the same key.
+  const idempotencyKey = createHash('sha256')
+    .update(`${channel}:${rawBody}`)
+    .digest('hex');
   
   try {
-    // Get sequence number for ordering if userId provided
-    let sequenceNumber: number | undefined;
-    if (userId) {
-      sequenceNumber = await getNextSequenceNumber(userId);
-    }
-    
     await inngest.send({
       name: 'message/received',
       data: {
@@ -179,7 +143,6 @@ export async function enqueueMessage(
         signature,
         receivedAt: new Date().toISOString(),
         idempotencyKey,
-        sequenceNumber,
       },
     });
     

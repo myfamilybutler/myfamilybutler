@@ -258,6 +258,14 @@ E2E_TEST_PASSWORD=DevTest2024!Secure
 - Do not add new runtime migrations under `src/lib/supabase/migrations/`
 - If legacy migrations exist in non-canonical paths, consolidate before release
 
+## 9.2 Documentation Workflow (Required)
+
+- Follow `AI_TOOLING_RULEBOOK.md` for mandatory doc updates on major changes
+- Include a "Documentation Gate" checklist in every PR
+- Include a "Multi-Lens Review Gate" for major changes (Pass A audit, Pass B fix, Pass C re-audit)
+- Keep rule statements centralized (link to canonical docs instead of duplicating)
+- Update `Last updated` timestamp in each doc touched by behavior changes
+
 ## 10. Dev Login for Browser Testing
 
 A **dev-only password login** is available for browser testing without needing

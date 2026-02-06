@@ -280,7 +280,7 @@ async function performPullFromGoogle(
       }
     }
 
-    // Batched loop update with version increment (safer than partial-row upsert)
+    // Batch update with version increment (single write query)
     if (toUpdate.length > 0) {
       // Fetch current versions first
       const { data: currentEvents } = await admin
@@ -300,35 +300,18 @@ async function performPullFromGoogle(
         };
       });
 
-      const updateResults = await Promise.allSettled(
-        updateRows.map(({ id, ...row }) =>
-          admin
-            .from('events')
-            .update(row)
-            .eq('id', id)
-        )
-      );
+      const { error: updateError } = await admin
+        .from('events')
+        .upsert(updateRows, { onConflict: 'id' });
 
-      let updateFailures = 0;
-      for (const updateResult of updateResults) {
-        if (updateResult.status === 'rejected') {
-          updateFailures++;
-          result.errors.push(`Update batch failed: ${String(updateResult.reason)}`);
-          continue;
-        }
-
-        if (updateResult.value.error) {
-          updateFailures++;
-          result.errors.push(`Update batch failed: ${updateResult.value.error.message}`);
-        }
-      }
-
-      if (updateFailures === 0) {
+      if (updateError) {
+        result.errors.push(`Update batch failed: ${updateError.message}`);
+      } else {
         log.debug(`[Sync] Batch updated ${toUpdate.length} events`);
       }
     }
 
-    // Batched loop link (safer than partial-row upsert)
+    // Batch link by event id (single write query)
     if (toLink.length > 0) {
       const linkRows = toLink.map(({ id, googleEventId }) => ({
         id,
@@ -336,30 +319,13 @@ async function performPullFromGoogle(
         google_synced_at: new Date().toISOString(),
       }));
 
-      const linkResults = await Promise.allSettled(
-        linkRows.map(({ id, ...row }) =>
-          admin
-            .from('events')
-            .update(row)
-            .eq('id', id)
-        )
-      );
+      const { error: linkError } = await admin
+        .from('events')
+        .upsert(linkRows, { onConflict: 'id' });
 
-      let linkFailures = 0;
-      for (const linkResult of linkResults) {
-        if (linkResult.status === 'rejected') {
-          linkFailures++;
-          result.errors.push(`Link batch failed: ${String(linkResult.reason)}`);
-          continue;
-        }
-
-        if (linkResult.value.error) {
-          linkFailures++;
-          result.errors.push(`Link batch failed: ${linkResult.value.error.message}`);
-        }
-      }
-
-      if (linkFailures === 0) {
+      if (linkError) {
+        result.errors.push(`Link batch failed: ${linkError.message}`);
+      } else {
         log.debug(`[Sync] Batch linked ${toLink.length} events`);
       }
     }

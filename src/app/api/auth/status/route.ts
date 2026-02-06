@@ -21,7 +21,7 @@ export async function GET() {
       const admin = getAdminClient();
       const { data: user, error } = await admin
         .from('users')
-        .select('*')
+        .select('id, display_name, household_id, is_household_admin, is_admin, linked_email, phone_number, onboarding_modal_shown, subscription_status, onboarding_source, email_verified, phone_verified')
         .eq('id', sessionUserId.value)
         .single();
 

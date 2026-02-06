@@ -359,6 +359,12 @@ export function UpcomingEvents({
         <div className="space-y-3">
           {groupedEvents.map((group, groupIndex) => (
             <div key={group.dateLabel}>
+              <div className="mb-1 px-1">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {group.dateLabel}
+                </h4>
+              </div>
+
               {/* Events for this date */}
               <div className="space-y-2">
                 <AnimatePresence mode="popLayout">

@@ -22,6 +22,17 @@ export const ReminderSchema = z.object({
 // ===========================================
 
 /**
+ * Schema for action items extracted from messages
+ * e.g., "Bitte mitbringen: Kostüm in Schultasche"
+ */
+export const ActionItemSchema = z.object({
+  bring: z.array(z.string()).optional(),      // Items to bring
+  not_bring: z.array(z.string()).optional(),  // Items NOT to bring
+  prepare: z.array(z.string()).optional(),    // Things to prepare beforehand
+  deadline: z.string().optional(),             // Deadline for action (e.g., "vor großer Pause")
+});
+
+/**
  * Schema for a single extracted event
  */
 export const ExtractedEventSchema = z.object({
@@ -39,19 +50,34 @@ export const ExtractedEventSchema = z.object({
     by_day: z.array(z.string()).optional(),
     is_recurring: z.literal(true),
   }).optional().nullable(),
+  // New fields for enhanced parsing
+  action_items: ActionItemSchema.optional(),
+  is_cancelled: z.boolean().optional(),       // For "fällt aus" events
+  source_type: z.enum(['schoolfox', 'webuntis', 'whatsapp', 'email', 'voice', 'other']).optional(),
+  requires_confirmation: z.boolean().optional(),
 });
 
 /**
  * Schema for the event extractor response
  */
 export const EventExtractorResponseSchema = z.object({
-  intent_type: z.enum(['calendar_event', 'reminder', 'unknown']),
+  intent_type: z.enum([
+    'calendar_event',
+    'reminder', 
+    'school_announcement',  // Info-only, no calendar event
+    'action_required',      // Permission slips, bring items
+    'schedule_change',      // Cancellations, substitutions
+    'leave_request',        // Freistellung tracking
+    'unknown'
+  ]),
   events: z.array(ExtractedEventSchema).optional(),
   needs_clarification: z.boolean(),
   clarification_question: z.string().optional().nullable(),
   unknown_entities_mentioned: z.array(z.string()).optional(),
   suggested_action: z.enum(['create_event', 'dashboard_redirect', 'clarify']).optional(),
   confidence: z.number().min(0).max(1).optional(),
+  // New fields
+  action_items: ActionItemSchema.optional(),  // Message-level action items
 });
 
 /**
@@ -85,5 +111,6 @@ export const MultiEventSchema = z.object({
 });
 
 // Type exports
+export type ActionItem = z.infer<typeof ActionItemSchema>;
 export type ExtractedEvent = z.infer<typeof ExtractedEventSchema>;
 export type EventExtractorResponse = z.infer<typeof EventExtractorResponseSchema>;

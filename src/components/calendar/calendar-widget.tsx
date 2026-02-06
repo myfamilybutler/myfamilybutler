@@ -177,12 +177,14 @@ export function CalendarWidget({
   
   // Update weekDays based on locale
   const weekDays = useMemo(() => {
+    const lang = i18n.language;
     const start = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday start
-    return Array.from({ length: 7 }).map((_, i) => {
+    const days = Array.from({ length: 7 }).map((_, i) => {
       const day = addDays(start, i);
       return formatDate(day, 'EEE');
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!lang) return days;
+    return days;
   }, [i18n.language]);
 
   return (

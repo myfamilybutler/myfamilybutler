@@ -95,6 +95,82 @@ Current baseline (2026-02-06):
 
 ## Documentation Update Rules
 
+Documentation is a release gate for major changes.
+
+### Definition of Major Change
+
+Any change affecting one or more of these areas is major:
+
+- Architecture/runtime flow (Gateway, Pipeline, Brain, queues, retries)
+- Data model, migrations, constraints, or DB RPC behavior
+- AI providers/models/prompts/fallback strategy
+- Auth/session/token/identity/security behavior
+- Public API contract, webhook behavior, or onboarding flow
+- Concurrency guarantees (dedup, locking, ordering, idempotency)
+
+### Mandatory Policy
+
+- Major changes must include documentation updates in the same PR.
+- If docs are intentionally deferred, PR must include `DOCS_DEFERRED` with owner and due date (max 24h).
+- "Code-only" merges are not allowed for major changes.
+
+### PR Documentation Gate (Required)
+
+Every PR must include this checklist section:
+
+```md
+## Documentation Gate
+- [ ] I evaluated doc impact for this PR
+- [ ] I updated all impacted docs (or this PR is truly no-doc-impact)
+- [ ] I updated "Last updated" dates for changed docs
+- [ ] I verified model/provider names and file paths are accurate
+- [ ] I updated concurrency/race-condition notes when behavior changed
+```
+
+### Multi-Lens Major-Change Review (Required)
+
+For every major change, AI-assisted review must be performed across these lenses:
+
+- Senior auditor (security, privacy, compliance, abuse resistance)
+- UI/UX expert (clarity, usability, accessibility, mobile behavior)
+- Project manager (scope risk, rollout risk, operational readiness)
+- Senior frontend engineer (hooks correctness, render performance, a11y)
+- AI systems expert (prompt safety, fallback behavior, eval impact)
+
+Required review sequence:
+
+1. `Pass A - Audit`: identify bugs, race conditions, N+1 patterns, hook issues, and doc drift.
+2. `Pass B - Fix`: implement prioritized fixes.
+3. `Pass C - Re-Audit`: re-review from a different lens ordering and verify no regressions.
+
+For major changes, PRs must include this checklist section:
+
+```md
+## Multi-Lens Review Gate
+- [ ] Pass A completed (Auditor, UI/UX, PM, Frontend, AI)
+- [ ] Pass B fixes implemented
+- [ ] Pass C re-audit completed from a different viewpoint order
+- [ ] Race conditions reviewed
+- [ ] N+1 query/write patterns reviewed
+- [ ] React hooks dependency and stale closure risks reviewed
+```
+
+### Canonical Ownership
+
+- `README.md`: product-level overview and entry links only
+- `docs/ARCHITECTURE.md`: runtime/data-flow/source-of-truth architecture
+- `docs/AI_TOOLING_RULEBOOK.md`: engineering rules and delivery standards
+- `docs/SECURITY.md`: security model, controls, incident contact
+- `docs/MESSAGING_CHANNELS.md`: channel-specific behavior and operational differences
+
+Avoid duplicating normative rules across files. Link back to canonical docs.
+
+### Drift Prevention Cadence
+
+- Monthly: 30-minute docs drift review for critical docs above.
+- Release day: quick link/model/path verification pass.
+- Post-incident: update relevant docs within 24h.
+
 - Update these files together when behavior changes:
   - `README.md`
   - `docs/ARCHITECTURE.md`
@@ -102,6 +178,7 @@ Current baseline (2026-02-06):
   - `docs/PROJECT_INFO.md`
   - `docs/SECURITY.md`
   - `docs/MESSAGING_CHANNELS.md`
+  - `docs/AI_TOOLING_RULEBOOK.md`
 - Mark proposal-only content explicitly as "Planned" or "Design".
 - Add a "Last updated" date when major behavior changes.
 

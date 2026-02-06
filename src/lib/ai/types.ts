@@ -28,9 +28,27 @@ export interface EventExtractionResult {
   events: ParsedEvent[];
   needs_clarification: boolean;
   clarification_question?: string;
-  intent_type: 'calendar_event' | 'reminder' | 'unknown';
+  intent_type: 
+    | 'calendar_event' 
+    | 'reminder' 
+    | 'school_announcement'  // Info-only, no calendar event
+    | 'action_required'      // Permission slips, bring items
+    | 'schedule_change'      // Cancellations, substitutions
+    | 'leave_request'        // Freistellung tracking
+    | 'unknown';
   confidence?: number; // 0-1 confidence score
   missing_info?: string; // What information is unclear
+  action_items?: ActionItem; // Message-level action items
+}
+
+/**
+ * Action items extracted from messages (e.g., "Bitte mitbringen")
+ */
+export interface ActionItem {
+  bring?: string[];      // Items to bring
+  not_bring?: string[];  // Items NOT to bring
+  prepare?: string[];    // Things to prepare
+  deadline?: string;     // Deadline for action
 }
 
 /**

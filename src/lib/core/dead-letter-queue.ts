@@ -2,7 +2,6 @@
  * Dead Letter Queue for Failed Jobs
  * 
  * Stores failed jobs for later inspection and retry.
- * Implements per-user message ordering with sequence numbers.
  */
 
 import { getAdminClient } from '@/lib/supabase';

@@ -174,15 +174,16 @@ export function DesktopCalendarGrid({
   
   // Locale-aware week day names
   const weekDays = useMemo(() => {
-    const start = addDays(startOfMonth(currentMonth), 0);
-    const mondayStart = new Date(start);
-    mondayStart.setDate(start.getDate() - start.getDay() + 1);
-    
-    return Array.from({ length: 7 }).map((_, i) => {
+    const lang = i18n.language;
+    const start = startOfMonth(new Date());
+    const mondayStart = addDays(start, 1 - start.getDay());
+
+    const days = Array.from({ length: 7 }).map((_, i) => {
       const day = addDays(mondayStart, i);
       return formatDate(day, 'EEE');
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!lang) return days;
+    return days;
   }, [i18n.language]);
   
   const isTodayVisible = format(currentMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM');

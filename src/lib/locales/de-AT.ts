@@ -164,6 +164,78 @@ const schoolTerms: Record<string, TermDefinition> = {
     isEventType: false,
     category: 'school',
   },
+  
+  // === Carnival / Special Events ===
+  'Fasching': {
+    meaning: 'Carnival celebration (Faschingsdienstag)',
+    isEventType: true,
+    category: 'school',
+  },
+  'Faschingsfeier': {
+    meaning: 'Carnival party/celebration at school',
+    isEventType: true,
+    defaultDuration: '2h',
+    category: 'school',
+  },
+  'Kostümparade': {
+    meaning: 'Costume parade during carnival',
+    isEventType: true,
+    category: 'school',
+  },
+  
+  // === Schedule Changes (WebUntis/SchoolFox) ===
+  'Supplierung': {
+    meaning: 'Substitute teacher / lesson change',
+    isEventType: true,
+    category: 'school',
+  },
+  'Entfall': {
+    meaning: 'Period cancelled / lesson dropped',
+    isEventType: true,
+    category: 'school',
+  },
+  'große Pause': {
+    meaning: 'Long break after 3rd period (15 minutes)',
+    isEventType: false,
+    category: 'school',
+  },
+  'Büchereistunde': {
+    meaning: 'Library period',
+    isEventType: true,
+    category: 'school',
+  },
+  
+  // === Absences & Confirmations ===
+  'Abwesenheitsmeldung': {
+    meaning: 'Absence notification (via SchoolFox)',
+    isEventType: false,
+    category: 'school',
+  },
+  'Krankmeldung': {
+    meaning: 'Sick note / illness notification',
+    isEventType: false,
+    category: 'school',
+  },
+  'Bestätigung': {
+    meaning: 'Confirmation required for message',
+    isEventType: false,
+    category: 'school',
+  },
+  'Semesterzeugnis': {
+    meaning: 'Mid-year report card (Semester 1)',
+    isEventType: true,
+    category: 'school',
+  },
+  'Freistellung': {
+    meaning: 'School leave/absence request',
+    isEventType: true,
+    category: 'school',
+  },
+  'Freistellungsansuchen': {
+    meaning: 'Formal request for school leave',
+    isEventType: true,
+    category: 'school',
+  },
 };
 
 // ===========================================
@@ -222,6 +294,54 @@ const sportsTerms: Record<string, TermDefinition> = {
   'Verein': {
     meaning: 'Club/association',
     isEventType: false,
+    category: 'sports',
+  },
+  
+  // === Elite/Squad Training ===
+  'Kaderlehrgang': {
+    meaning: 'Squad/elite training camp (national team level)',
+    isEventType: true,
+    defaultDuration: '3d',
+    category: 'sports',
+  },
+  'Nationalkader': {
+    meaning: 'National team squad',
+    isEventType: false,
+    category: 'sports',
+  },
+  'Nachwuchskader': {
+    meaning: 'Youth/junior national squad',
+    isEventType: false,
+    category: 'sports',
+  },
+  
+  // === Activity Variants ===
+  'Ballett': {
+    meaning: 'Ballet class/training',
+    isEventType: true,
+    defaultDuration: '1.5h',
+    category: 'sports',
+  },
+  'Turnsport': {
+    meaning: 'Gymnastics sport',
+    isEventType: false,
+    category: 'sports',
+  },
+  'Kunstturnen': {
+    meaning: 'Artistic gymnastics',
+    isEventType: true,
+    category: 'sports',
+  },
+  
+  // === Holiday Training ===
+  'Semesterferien Training': {
+    meaning: 'Training schedule during semester break',
+    isEventType: true,
+    category: 'sports',
+  },
+  'Ferientraining': {
+    meaning: 'Holiday/vacation training',
+    isEventType: true,
     category: 'sports',
   },
 };
@@ -548,6 +668,19 @@ export const deAT: LocaleConfig = {
   holidays,
   examples,
   culturalContext,
+  
+  // School period timing (Akademisches Gymnasium Innsbruck style)
+  // Used for "3. Stunde" → "09:55" conversion
+  schoolPeriods: {
+    '1': { start: '07:55', end: '08:45' },
+    '2': { start: '08:50', end: '09:40' },
+    '3': { start: '09:55', end: '10:45' },  // After große Pause
+    '4': { start: '10:50', end: '11:40' },
+    '5': { start: '11:45', end: '12:35' },
+    '6': { start: '12:40', end: '13:30' },
+    '7': { start: '14:30', end: '15:20' },  // After lunch
+    '8': { start: '15:25', end: '16:15' },
+  },
 };
 
 export default deAT;

@@ -22,6 +22,7 @@ import { processInput as processBrain } from '@/lib/ai/brain';
 import { AI_DECISION_THRESHOLDS } from '@/lib/ai/constants';
 import {
   createEvent,
+  createEventsBulk,
   createDraftEvent,
   confirmDraftEvent,
   rejectDraftEvent,
@@ -563,16 +564,21 @@ async function handleHighConfidenceEvents(
     };
   }
 
-  const createdEvents = await Promise.all(
-    events.map(eventData =>
-      createEvent(message.householdId!, message.userId, {
-        ...eventData,
-        source_message_id: message.id,
-      })
-    )
-  );
-
-  const successfulEvents = createdEvents.filter(e => e !== null);
+  const successfulEvents = events.length === 1
+    ? (await Promise.all([
+        createEvent(message.householdId!, message.userId, {
+          ...events[0],
+          source_message_id: message.id,
+        }),
+      ])).filter(e => e !== null)
+    : await createEventsBulk(
+        message.householdId,
+        message.userId,
+        events.map(eventData => ({
+          ...eventData,
+          source_message_id: message.id,
+        }))
+      );
 
   if (successfulEvents.length > 0) {
     await setUndoState(message.userId, message.channel, successfulEvents[0]!.id);
