@@ -7,8 +7,8 @@
 
 import { inngest } from '@/lib/inngest';
 import { getPendingReminders, updateReminderStatus, getAdminClient } from '@/lib/supabase';
-import { sendTelegramMessage } from '@/lib/channels/telegram';
-import { sendWhatsAppMessage } from '@/lib/channels/whatsapp';
+import { sendTelegramMessage } from '@/lib/channels/telegram/send';
+import { sendWhatsAppMessage } from '@/lib/channels/whatsapp/send';
 import { addToDeadLetterQueue } from '@/lib/core/dead-letter-queue';
 
 /**

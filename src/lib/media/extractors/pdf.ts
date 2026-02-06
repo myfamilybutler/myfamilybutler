@@ -5,8 +5,30 @@
  * Falls back hints for scanned/image-only PDFs.
  */
 
-import { PDFParse } from 'pdf-parse';
 import type { ExtractionResult, MediaContext } from '../processor';
+
+type PDFParser = {
+  getText(): Promise<{ text: string }>;
+  destroy(): Promise<void>;
+};
+
+type PDFParserCtor = new (options: { data: Uint8Array }) => PDFParser;
+
+let cachedPDFParserCtor: PDFParserCtor | null = null;
+
+async function loadPDFParser(): Promise<PDFParserCtor> {
+  if (cachedPDFParserCtor) {
+    return cachedPDFParserCtor;
+  }
+
+  const mod = await import('pdf-parse');
+  if (typeof mod.PDFParse !== 'function') {
+    throw new Error('pdf-parse module does not export PDFParse constructor');
+  }
+
+  cachedPDFParserCtor = mod.PDFParse as PDFParserCtor;
+  return cachedPDFParserCtor;
+}
 
 /**
  * Extract text content from a PDF buffer
@@ -17,6 +39,8 @@ export async function extractPDFContent(
 ): Promise<ExtractionResult> {
   void context;
   try {
+    const PDFParse = await loadPDFParser();
+
     // Convert Buffer to Uint8Array for PDFParse
     const uint8Array = new Uint8Array(buffer);
     const parser = new PDFParse({ data: uint8Array });
