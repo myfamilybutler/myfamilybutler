@@ -69,6 +69,9 @@ export interface Reminder {
   message: string;
   remind_at: string;
   status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  claimed_at?: string | null;
+  claim_token?: string | null;
+  claim_worker_id?: string | null;
   created_at: string;
 }
 

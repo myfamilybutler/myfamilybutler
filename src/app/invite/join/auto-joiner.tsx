@@ -15,6 +15,9 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
     const [error, setError] = useState('');
 
     useEffect(() => {
+        const controller = new AbortController();
+        let cancelled = false;
+
         const attemptJoin = async () => {
             // Use token or fallback to inviteId if it acts as token
             const effectiveToken = token || inviteId;
@@ -32,15 +35,18 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token: effectiveToken }),
+                    signal: controller.signal,
                 });
 
                 const data = await res.json();
 
                 if (data.success) {
+                    if (cancelled) return;
                     // Success! Redirect to dashboard
                     router.refresh(); 
                     router.push('/dashboard?joined=true');
                 } else if (data.requiresAuth && !isLoggedIn) {
+                    if (cancelled) return;
                     // Open Invite requires login -> Redirect to Login Page
                     // We send them to Login, and set returnUrl back to THIS page
                     // so after login, they come back here (as isLoggedIn=true) and we claim it.
@@ -48,6 +54,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                     const returnUrl = encodeURIComponent(`/invite/join?${queryParam}`);
                     router.push(`/login?returnUrl=${returnUrl}&message=Please log in to accept the invitation`);
                 } else {
+                    if (cancelled) return;
                     // Generic failure
                     setError(data.error || 'Failed to join family');
                     // Optional: Redirect to login if not logged in
@@ -58,6 +65,10 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                     }
                 }
             } catch (err) {
+                if (cancelled) return;
+                if (err instanceof Error && err.name === 'AbortError') {
+                    return;
+                }
                 console.error(err);
                 // Fallback on error
                 const queryParam = token ? `token=${token}` : `id=${inviteId}`;
@@ -67,6 +78,11 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
         };
 
         attemptJoin();
+
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
     }, [token, inviteId, router, isLoggedIn]);
 
     return (

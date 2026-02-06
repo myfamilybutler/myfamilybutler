@@ -40,15 +40,25 @@ export async function generateEmailLoginToken(
         };
     }
 
-    // 2. Rate limiting: Check recent tokens for this email
-    const rateLimitTime = new Date(Date.now() - EMAIL_RATE_LIMIT_WINDOW_MS).toISOString();
-    const { count: recentCount } = await admin
-        .from('email_login_tokens')
-        .select('*', { count: 'exact', head: true })
-        .eq('email', normalizedEmail)
-        .gt('created_at', rateLimitTime);
+    // 2. Rate limiting: Atomic check in DB to avoid race conditions
+    const nowIso = new Date().toISOString();
+    const { data: rateLimitResult, error: rateLimitError } = await admin.rpc('check_rate_limit', {
+        p_key: `email_login:${normalizedEmail}`,
+        p_window_ms: EMAIL_RATE_LIMIT_WINDOW_MS,
+        p_max_count: EMAIL_RATE_LIMIT_MAX,
+        p_now: nowIso,
+    });
 
-    if ((recentCount || 0) >= EMAIL_RATE_LIMIT_MAX) {
+    if (rateLimitError) {
+        console.error('[Email Token] Rate limit RPC error:', rateLimitError);
+        return { success: false, error: 'Rate limiting unavailable. Please try again in a minute.' };
+    }
+
+    const allowed = Array.isArray(rateLimitResult)
+      ? Boolean(rateLimitResult[0]?.allowed)
+      : false;
+
+    if (!allowed) {
         console.log(`[Email Token] Rate limit exceeded for: ${normalizedEmail}`);
         return { success: false, error: 'Too many requests. Please wait a minute.' };
     }

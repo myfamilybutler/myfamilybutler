@@ -95,6 +95,80 @@ export async function createEvent(
 }
 
 /**
+ * Create many events in one DB call.
+ * Uses the same fingerprint dedup logic as createEvent and skips duplicates via upsert.
+ */
+export async function createEventsBulk(
+  householdId: string,
+  createdBy: string,
+  events: Array<{
+    title: string;
+    event_date: string;
+    event_time?: string;
+    end_time?: string;
+    is_all_day: boolean;
+    family_member?: string;
+    location?: string;
+    description?: string;
+    source_message_id?: string;
+  }>
+): Promise<Event[]> {
+  if (events.length === 0) {
+    return [];
+  }
+
+  const admin = getAdminClient();
+
+  const rows = events.map((eventData) => {
+    const fingerprint = generateEventFingerprint({
+      title: eventData.title,
+      event_date: eventData.event_date,
+      event_time: eventData.event_time,
+    });
+
+    return {
+      household_id: householdId,
+      created_by: createdBy,
+      title: eventData.title,
+      event_date: eventData.event_date,
+      event_time: eventData.event_time || null,
+      end_time: eventData.end_time || null,
+      is_all_day: eventData.is_all_day,
+      family_member: eventData.family_member || null,
+      location: eventData.location || null,
+      description: eventData.description || null,
+      source_message_id: eventData.source_message_id || null,
+      event_fingerprint: fingerprint,
+      sync_source: 'local',
+      version: 1,
+    };
+  });
+
+  const { data, error } = await admin
+    .from('events')
+    .upsert(rows, {
+      onConflict: 'household_id,event_fingerprint',
+      ignoreDuplicates: true,
+    })
+    .select('*');
+
+  if (error) {
+    console.error('Error creating events in bulk:', error);
+    return [];
+  }
+
+  const createdEvents = (data ?? []) as Event[];
+
+  if (createdBy && createdEvents.length > 0) {
+    void Promise.allSettled(
+      createdEvents.map((event) => pushCreateToGoogle(createdBy, event))
+    );
+  }
+
+  return createdEvents;
+}
+
+/**
  * Get events for a household with optional date filtering
  */
 export async function getEventsForHousehold(
@@ -165,15 +239,18 @@ export async function updateEvent(
     return null;
   }
   
+  // Normalize version (null becomes 0)
+  const currentVersion = current.version ?? 0;
+  
   // Check version for optimistic locking
-  if (expectedVersion !== undefined && current.version !== expectedVersion) {
-    console.error(`[Event] Version conflict: expected ${expectedVersion}, got ${current.version}`);
+  if (expectedVersion !== undefined && currentVersion !== expectedVersion) {
+    console.error(`[Event] Version conflict: expected ${expectedVersion}, got ${currentVersion}`);
     throw new Error('EVENT_VERSION_CONFLICT');
   }
   
   // Build update object
   const updateData: Record<string, unknown> = {
-    version: (current.version || 0) + 1, // Increment version
+    version: currentVersion + 1, // Increment version
     updated_at: new Date().toISOString(),
   };
   
@@ -197,18 +274,22 @@ export async function updateEvent(
   }
   
   // Perform update with version check
-  const { data, error } = await admin
-    .from('events')
-    .update(updateData)
-    .eq('id', eventId)
-    .eq('household_id', householdId)
-    .eq('version', current.version) // Optimistic locking check
-    .select()
-    .single();
+  // Handle both null and numeric versions for backwards compatibility
+  const versionQuery = current.version === null || current.version === undefined
+    ? admin.from('events').update(updateData).eq('id', eventId).eq('household_id', householdId).is('version', null)
+    : admin.from('events').update(updateData).eq('id', eventId).eq('household_id', householdId).eq('version', current.version);
+    
+  const { data, error } = await versionQuery.select().single();
   
   if (error) {
     console.error('Error updating event:', error);
     return null;
+  }
+  
+  // If no data returned, the version check failed (event was modified by another process)
+  if (!data) {
+    console.error(`[Event] Update failed: version mismatch for event ${eventId}. Expected version ${current.version}`);
+    throw new Error('EVENT_VERSION_CONFLICT');
   }
   
   const event = data as Event;

@@ -4,6 +4,11 @@
 import type { Reminder, User } from '@/types';
 import { getAdminClient } from './client';
 
+export interface ClaimedReminder extends Reminder {
+  users: User;
+  claim_token: string;
+}
+
 /**
  * Create a reminder
  */
@@ -73,4 +78,85 @@ export async function updateReminderStatus(
   }
   
   return true;
+}
+
+/**
+ * Atomically claims due reminders for processing.
+ */
+export async function claimDueReminders(
+  workerId: string,
+  limitCount: number = 100
+): Promise<ClaimedReminder[]> {
+  const admin = getAdminClient();
+
+  const { data, error } = await admin.rpc('claim_due_reminders', {
+    p_worker_id: workerId,
+    p_limit_count: limitCount,
+  });
+
+  if (error) {
+    console.error('Error claiming due reminders:', error);
+    return [];
+  }
+
+  return (data ?? []) as ClaimedReminder[];
+}
+
+/**
+ * Complete a claimed reminder.
+ * Only the worker with matching claim token can transition the reminder.
+ */
+export async function completeClaimedReminder(
+  reminderId: string,
+  claimToken: string,
+  status: 'sent' | 'failed'
+): Promise<boolean> {
+  const admin = getAdminClient();
+
+  const { data, error } = await admin
+    .from('reminders')
+    .update({
+      status,
+      claimed_at: null,
+      claim_token: null,
+      claim_worker_id: null,
+    })
+    .eq('id', reminderId)
+    .eq('status', 'pending')
+    .eq('claim_token', claimToken)
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    console.error('Error completing claimed reminder:', error);
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Atomically claim one specific reminder by ID.
+ */
+export async function claimReminderById(
+  reminderId: string,
+  workerId: string
+): Promise<ClaimedReminder | null> {
+  const admin = getAdminClient();
+
+  const { data, error } = await admin.rpc('claim_single_reminder', {
+    p_reminder_id: reminderId,
+    p_worker_id: workerId,
+  });
+
+  if (error) {
+    console.error('Error claiming reminder by ID:', error);
+    return null;
+  }
+
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  return data[0] as ClaimedReminder;
 }

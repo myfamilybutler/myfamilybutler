@@ -51,12 +51,17 @@ export { logMessage, getMessageHistory } from './db-messages';
 export {
   createReminder,
   getPendingReminders,
-  updateReminderStatus
+  updateReminderStatus,
+  claimDueReminders,
+  completeClaimedReminder,
+  claimReminderById,
+  type ClaimedReminder,
 } from './db-reminders';
 
 // Events
 export {
   createEvent,
+  createEventsBulk,
   getEventsForHousehold,
   updateEvent,
   deleteEvent,

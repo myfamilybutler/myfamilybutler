@@ -7,7 +7,7 @@
  * After connecting, users can select which calendar to sync with.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -46,10 +46,30 @@ export function GoogleCalendarConnectButton({
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
   const [isSavingCalendar, setIsSavingCalendar] = useState(false);
 
+  const mountedRef = useRef(true);
+  const onConnectedRef = useRef(onConnected);
+  const onDisconnectedRef = useRef(onDisconnected);
+
+  useEffect(() => {
+    onConnectedRef.current = onConnected;
+  }, [onConnected]);
+
+  useEffect(() => {
+    onDisconnectedRef.current = onDisconnected;
+  }, [onDisconnected]);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const checkConnectionStatus = useCallback(async () => {
     try {
       const response = await fetch(`/api/auth/google/status?t=${Date.now()}`);
       const data = await response.json();
+      if (!mountedRef.current) return;
+
       setIsConnected(data.connected);
       
       if (data.connected) {
@@ -60,14 +80,16 @@ export function GoogleCalendarConnectButton({
         if (data.calendarName) {
           setSelectedCalendarName(data.calendarName);
         }
-        onConnected?.();
+        onConnectedRef.current?.();
       }
     } catch (error) {
       console.error('Error checking Google connection:', error);
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, [onConnected]);
+  }, []);
 
   const fetchCalendars = useCallback(async () => {
     if (!isConnected) return;
@@ -76,6 +98,7 @@ export function GoogleCalendarConnectButton({
     try {
       const response = await fetch('/api/auth/google/calendars');
       const data = await response.json();
+      if (!mountedRef.current) return;
       
       if (data.calendars) {
         setCalendars(data.calendars);
@@ -84,19 +107,21 @@ export function GoogleCalendarConnectButton({
       console.error('Error fetching calendars:', error);
       toast.error('Failed to load calendars');
     } finally {
-      setIsLoadingCalendars(false);
+      if (mountedRef.current) {
+        setIsLoadingCalendars(false);
+      }
     }
   }, [isConnected]);
 
   // Check connection status on mount
   useEffect(() => {
-    checkConnectionStatus();
+    void checkConnectionStatus();
   }, [checkConnectionStatus]);
 
   // Fetch calendars when connected
   useEffect(() => {
     if (isConnected) {
-      fetchCalendars();
+      void fetchCalendars();
     }
   }, [isConnected, fetchCalendars]);
 
@@ -129,12 +154,13 @@ export function GoogleCalendarConnectButton({
       });
 
       if (response.ok) {
+        if (!mountedRef.current) return;
         setIsConnected(false);
         setCalendars([]);
         setSelectedCalendarId('primary');
         setSelectedCalendarName(null);
         toast.success('Google Calendar disconnected');
-        onDisconnected?.();
+        onDisconnectedRef.current?.();
       } else {
         toast.error('Failed to disconnect Google Calendar');
       }
@@ -142,7 +168,9 @@ export function GoogleCalendarConnectButton({
       console.error('Error disconnecting Google:', error);
       toast.error('Failed to disconnect');
     } finally {
-      setIsConnecting(false);
+      if (mountedRef.current) {
+        setIsConnecting(false);
+      }
     }
   };
 
@@ -162,6 +190,7 @@ export function GoogleCalendarConnectButton({
       });
 
       if (response.ok) {
+        if (!mountedRef.current) return;
         setSelectedCalendarId(calendar.id);
         setSelectedCalendarName(calendar.name);
         toast.success(`Syncing with "${calendar.name}"`);
@@ -172,7 +201,9 @@ export function GoogleCalendarConnectButton({
       console.error('Error saving calendar:', error);
       toast.error('Failed to save calendar selection');
     } finally {
-      setIsSavingCalendar(false);
+      if (mountedRef.current) {
+        setIsSavingCalendar(false);
+      }
     }
   };
 

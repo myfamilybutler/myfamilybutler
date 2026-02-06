@@ -6,10 +6,15 @@
  */
 
 import { inngest } from '@/lib/inngest';
-import { getPendingReminders, updateReminderStatus, getAdminClient } from '@/lib/supabase';
+import {
+  claimDueReminders,
+  completeClaimedReminder,
+  claimReminderById,
+} from '@/lib/supabase';
 import { sendTelegramMessage } from '@/lib/channels/telegram/send';
 import { sendWhatsAppMessage } from '@/lib/channels/whatsapp/send';
 import { addToDeadLetterQueue } from '@/lib/core/dead-letter-queue';
+import { randomUUID } from 'crypto';
 
 /**
  * Cron job: Check for due reminders every 5 minutes
@@ -23,34 +28,13 @@ export const checkDueReminders = inngest.createFunction(
   },
   { cron: '*/5 * * * *' },
   async ({ step }) => {
+    const workerId = `inngest-check-${randomUUID()}`;
+
     // Step 1: Get all pending reminders that are due with locking
     const dueReminders = await step.run('get-due-reminders', async () => {
-      const admin = getAdminClient();
-
-      const isMissingReminderLockRpc = (error: unknown): boolean => {
-        if (!error || typeof error !== 'object') return false;
-        const maybeError = error as { code?: string; message?: string; details?: string };
-        const text = `${maybeError.message ?? ''} ${maybeError.details ?? ''}`;
-        return maybeError.code === 'PGRST202' && text.includes('get_and_lock_due_reminders');
-      };
-      
-      // Use RPC for atomic fetch-and-lock operation
-      const { data: reminders, error } = await admin.rpc('get_and_lock_due_reminders', {
-        limit_count: 100,
-      });
-      
-      if (error) {
-        if (isMissingReminderLockRpc(error)) {
-          console.warn('[Inngest] Reminder lock RPC missing, falling back to non-locking query');
-        } else {
-          console.error('[Inngest] Error fetching reminders:', error);
-        }
-        // Fallback to regular fetch
-        return await getPendingReminders();
-      }
-      
-      console.log(`[Inngest] Found ${reminders?.length || 0} due reminders`);
-      return reminders || [];
+      const reminders = await claimDueReminders(workerId, 100);
+      console.log(`[Inngest] Claimed ${reminders.length} due reminders`);
+      return reminders;
     });
 
     if (dueReminders.length === 0) {
@@ -68,21 +52,8 @@ export const checkDueReminders = inngest.createFunction(
           
           if (!user) {
             console.error(`[Inngest] No user found for reminder ${reminder.id}`);
-            await updateReminderStatus(reminder.id, 'failed');
+            await completeClaimedReminder(reminder.id, reminder.claim_token, 'failed');
             return { success: false, error: 'No user found' };
-          }
-
-          // Double-check status before sending (race condition protection)
-          const admin = getAdminClient();
-          const { data: currentReminder } = await admin
-            .from('reminders')
-            .select('status')
-            .eq('id', reminder.id)
-            .single();
-            
-          if (currentReminder?.status !== 'pending') {
-            console.log(`[Inngest] Reminder ${reminder.id} already processed, skipping`);
-            return { success: true, skipped: true };
           }
 
           // Format the reminder message
@@ -111,11 +82,11 @@ export const checkDueReminders = inngest.createFunction(
           }
 
           if (sent) {
-            await updateReminderStatus(reminder.id, 'sent');
+            await completeClaimedReminder(reminder.id, reminder.claim_token, 'sent');
             return { success: true };
           } else {
             console.error(`[Inngest] Failed to send reminder ${reminder.id} - no delivery channel`);
-            await updateReminderStatus(reminder.id, 'failed');
+            await completeClaimedReminder(reminder.id, reminder.claim_token, 'failed');
             return { success: false, error: 'No delivery channel available' };
           }
         } catch (error) {
@@ -130,7 +101,7 @@ export const checkDueReminders = inngest.createFunction(
             3
           );
           
-          await updateReminderStatus(reminder.id, 'failed');
+          await completeClaimedReminder(reminder.id, reminder.claim_token, 'failed');
           return { success: false, error: String(error) };
         }
       });
@@ -163,31 +134,26 @@ export const sendReminder = inngest.createFunction(
   { event: 'reminder/due' },
   async ({ event, step }) => {
     const { reminderId } = event.data;
+    const workerId = `inngest-send-${randomUUID()}`;
 
     const result = await step.run('send-reminder', async () => {
+      let claimedReminderId: string | null = null;
+      let claimedToken: string | null = null;
+
       try {
-        const admin = getAdminClient();
+        const reminder = await claimReminderById(reminderId, workerId);
 
-        // Get reminder with user data and lock it
-        const { data: reminder, error } = await admin
-          .from('reminders')
-          .select('*, users(*)')
-          .eq('id', reminderId)
-          .single();
-
-        if (error || !reminder) {
-          console.error(`[Inngest] Reminder ${reminderId} not found`);
-          return { success: false, error: 'Reminder not found' };
-        }
-
-        // Check if already processed
-        if (reminder.status !== 'pending') {
-          console.log(`[Inngest] Reminder ${reminderId} already ${reminder.status}, skipping`);
+        if (!reminder) {
+          console.log(`[Inngest] Reminder ${reminderId} already claimed/processed, skipping`);
           return { success: true, skipped: true };
         }
 
         const user = reminder.users;
+        claimedReminderId = reminder.id;
+        claimedToken = reminder.claim_token;
+
         if (!user) {
+          await completeClaimedReminder(reminder.id, reminder.claim_token, 'failed');
           return { success: false, error: 'User not found' };
         }
 
@@ -210,14 +176,18 @@ export const sendReminder = inngest.createFunction(
         }
 
         if (sent) {
-          await updateReminderStatus(reminderId, 'sent');
+          await completeClaimedReminder(reminder.id, reminder.claim_token, 'sent');
           return { success: true };
         } else {
-          await updateReminderStatus(reminderId, 'failed');
+          await completeClaimedReminder(reminder.id, reminder.claim_token, 'failed');
           return { success: false, error: 'Failed to send' };
         }
       } catch (error) {
         console.error(`[Inngest] Error in send-reminder for ${reminderId}:`, error);
+
+        if (claimedReminderId && claimedToken) {
+          await completeClaimedReminder(claimedReminderId, claimedToken, 'failed');
+        }
         
         // Add to dead letter queue
         await addToDeadLetterQueue(

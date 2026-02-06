@@ -14,6 +14,14 @@ import type { Event } from '@/types';
 
 const GOOGLE_CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
 const TIMEZONE = 'Europe/Vienna';
+const AUTH_CONTEXT_CACHE_TTL_MS = 30_000;
+
+type GoogleAuthContext = {
+  accessToken: string;
+  calendarId: string;
+};
+
+const authContextCache = new Map<string, { expiresAt: number; value: GoogleAuthContext }>();
 
 // ===========================================
 // Types
@@ -94,6 +102,23 @@ function convertToGoogleEvent(event: Event): GoogleCalendarEvent {
   return googleEvent;
 }
 
+async function getGoogleAuthContext(userId: string): Promise<GoogleAuthContext | null> {
+  const cached = authContextCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
+  const accessToken = await getValidGoogleToken(userId);
+  if (!accessToken) {
+    return null;
+  }
+
+  const { calendarId } = await getSelectedCalendar(userId);
+  const value = { accessToken, calendarId };
+  authContextCache.set(userId, { expiresAt: Date.now() + AUTH_CONTEXT_CACHE_TTL_MS, value });
+  return value;
+}
+
 /**
  * Store Google Calendar event ID mapping in our database
  */
@@ -124,23 +149,21 @@ export async function syncEventToGoogle(
   userId: string,
   event: Event
 ): Promise<string | null> {
-  const accessToken = await getValidGoogleToken(userId);
-
-  if (!accessToken) {
+  const auth = await getGoogleAuthContext(userId);
+  if (!auth) {
     console.log(`[GoogleCalendar] No valid token for user ${userId}, skipping sync`);
     return null;
   }
 
   try {
-    const { calendarId } = await getSelectedCalendar(userId);
     const googleEvent = convertToGoogleEvent(event);
 
     const response = await fetch(
-      getCalendarEventsUrl(calendarId),
+      getCalendarEventsUrl(auth.calendarId),
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${auth.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(googleEvent),
@@ -173,22 +196,20 @@ export async function updateGoogleEvent(
   event: Event,
   googleEventId: string
 ): Promise<boolean> {
-  const accessToken = await getValidGoogleToken(userId);
-
-  if (!accessToken) {
+  const auth = await getGoogleAuthContext(userId);
+  if (!auth) {
     return false;
   }
 
   try {
-    const { calendarId } = await getSelectedCalendar(userId);
     const googleEvent = convertToGoogleEvent(event);
 
     const response = await fetch(
-      getCalendarEventsUrl(calendarId, googleEventId),
+      getCalendarEventsUrl(auth.calendarId, googleEventId),
       {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${auth.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(googleEvent),
@@ -216,20 +237,18 @@ export async function deleteGoogleEvent(
   userId: string,
   googleEventId: string
 ): Promise<boolean> {
-  const accessToken = await getValidGoogleToken(userId);
-
-  if (!accessToken) {
+  const auth = await getGoogleAuthContext(userId);
+  if (!auth) {
     return false;
   }
 
   try {
-    const { calendarId } = await getSelectedCalendar(userId);
     const response = await fetch(
-      getCalendarEventsUrl(calendarId, googleEventId),
+      getCalendarEventsUrl(auth.calendarId, googleEventId),
       {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${auth.accessToken}`,
         },
       }
     );
@@ -260,15 +279,13 @@ export async function fetchGoogleEvents(
   timeMin: string,
   timeMax: string
 ): Promise<GoogleCalendarEvent[]> {
-  const accessToken = await getValidGoogleToken(userId);
-
-  if (!accessToken) {
+  const auth = await getGoogleAuthContext(userId);
+  if (!auth) {
     console.log(`[GoogleCalendar] No valid token for user ${userId}, cannot fetch events`);
     return [];
   }
 
   try {
-    const { calendarId } = await getSelectedCalendar(userId);
     let allEvents: GoogleCalendarEvent[] = [];
     let pageToken: string | undefined = undefined;
     
@@ -286,11 +303,11 @@ export async function fetchGoogleEvents(
       }
 
       const response = await fetch(
-        `${getCalendarEventsUrl(calendarId)}?${params}`,
+        `${getCalendarEventsUrl(auth.calendarId)}?${params}`,
         {
           method: 'GET',
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${auth.accessToken}`,
           },
         }
       );
@@ -354,15 +371,13 @@ export async function fetchGoogleEventsIncremental(
   userId: string,
   syncToken: string | null
 ): Promise<IncrementalSyncResult> {
-  const accessToken = await getValidGoogleToken(userId);
-
-  if (!accessToken) {
+  const auth = await getGoogleAuthContext(userId);
+  if (!auth) {
     console.log(`[GoogleCalendar] No valid token for user ${userId}`);
     return { events: [], nextSyncToken: null, isFullSync: false };
   }
 
   try {
-    const { calendarId } = await getSelectedCalendar(userId);
     const params = new URLSearchParams({
       maxResults: '250',
       showDeleted: 'true',
@@ -383,11 +398,11 @@ export async function fetchGoogleEventsIncremental(
     }
 
     const response = await fetch(
-      `${getCalendarEventsUrl(calendarId)}?${params}`,
+      `${getCalendarEventsUrl(auth.calendarId)}?${params}`,
       {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${auth.accessToken}`,
         },
       }
     );

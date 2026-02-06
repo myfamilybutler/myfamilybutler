@@ -154,19 +154,6 @@ export async function createFamilyInvite(
     return null;
   }
   
-  // Check if invite already exists
-  const { data: existingInvite } = await admin
-    .from('household_invites')
-    .select('id, token')
-    .eq('household_id', familyId)
-    .eq('phone_number', phoneNumber)
-    .eq('status', 'pending')
-    .single();
-  
-  if (existingInvite?.token) {
-    return existingInvite.token;
-  }
-  
   // Generate secure token
   const token = randomUUID();
   const expiresAt = new Date();
@@ -185,6 +172,20 @@ export async function createFamilyInvite(
     .select('token')
     .single();
   
+  if (error?.code === '23505') {
+    const { data: existingInvite } = await admin
+      .from('household_invites')
+      .select('token')
+      .eq('household_id', familyId)
+      .eq('phone_number', phoneNumber)
+      .eq('status', 'pending')
+      .single();
+
+    if (existingInvite?.token) {
+      return existingInvite.token;
+    }
+  }
+
   if (error || !data) {
     console.error('Error creating invite:', error);
     return null;
@@ -376,20 +377,6 @@ export async function createEmailInvite(
   const admin = getAdminClient();
   const normalizedEmail = email.toLowerCase().trim();
   
-  // Check if invite already exists
-  const { data: existingInvite } = await admin
-    .from('household_invites')
-    .select('id, token')
-    .eq('household_id', familyId)
-    .eq('email', normalizedEmail)
-    .eq('status', 'pending')
-    .filter('expires_at', 'gt', new Date().toISOString()) // Only valid invites
-    .single();
-  
-  if (existingInvite?.token) {
-    return existingInvite.token;
-  }
-  
   // Create secure token and expiration
   const token = randomUUID();
   const expiresAt = new Date();
@@ -414,6 +401,20 @@ export async function createEmailInvite(
     .select('token')
     .single();
   
+  if (error?.code === '23505') {
+    const { data: existingInvite } = await admin
+      .from('household_invites')
+      .select('token')
+      .eq('household_id', familyId)
+      .eq('email', normalizedEmail)
+      .eq('status', 'pending')
+      .single();
+
+    if (existingInvite?.token) {
+      return existingInvite.token;
+    }
+  }
+
   if (error || !data) {
     console.error('Error creating email invite:', error);
     return null;

@@ -3,34 +3,36 @@
 /**
  * Process Vision Server Action
  * 
- * Handles WhatsApp image messages by:
- * 1. Downloading the image from Meta API
- * 2. Sending to GPT-4o vision for extraction
- * 3. Validating and returning structured event data
+ * Extracts calendar events from images using AI vision models.
+ * Works with any image buffer (WhatsApp, Telegram, uploaded files, etc.)
  */
 
 import OpenAI from 'openai';
-import { 
+import {
   buildVisionAgentPrompt, 
   VisionExtractionResponseSchema,
   NO_EVENTS_RESPONSE,
   type VisionExtractionResponse,
   type VisionEvent 
 } from '@/lib/ai/agents/vision-agent';
-import { createEvent } from '@/lib/supabase';
+import { createEventsBulk } from '@/lib/supabase';
 
 // ===========================================
 // Types
 // ===========================================
 
-interface ProcessVisionInput {
-  mediaId: string;           // WhatsApp Media ID
-  userId: string;            // User who sent the image
-  householdId: string;       // User's household for event creation
-  mimeType?: string;         // Image MIME type (e.g., image/jpeg)
+export interface ProcessVisionInput {
+  /** The image file buffer */
+  imageBuffer: Buffer;
+  /** User who sent the image */
+  userId: string;
+  /** User's household for event creation */
+  householdId: string;
+  /** Image MIME type (default: image/jpeg) */
+  mimeType?: string;
 }
 
-interface ProcessVisionResult {
+export interface ProcessVisionResult {
   success: boolean;
   events: VisionEvent[];
   eventsCreated: number;
@@ -41,55 +43,18 @@ interface ProcessVisionResult {
 }
 
 // ===========================================
-// Meta API Image Download
+// OpenAI Client (for fallback)
 // ===========================================
 
-/**
- * Download image from WhatsApp Media API
- * @see https://developers.facebook.com/docs/whatsapp/cloud-api/reference/media
- */
-async function downloadWhatsAppMedia(mediaId: string): Promise<Buffer> {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  
-  if (!accessToken) {
-    throw new Error('Missing WHATSAPP_ACCESS_TOKEN environment variable');
-  }
+let openaiInstance: OpenAI | null = null;
 
-  // Step 1: Get the media URL from Meta
-  const mediaInfoResponse = await fetch(
-    `https://graph.facebook.com/v18.0/${mediaId}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
-
-  if (!mediaInfoResponse.ok) {
-    const errorData = await mediaInfoResponse.text();
-    throw new Error(`Failed to get media info: ${errorData}`);
-  }
-
-  const mediaInfo = await mediaInfoResponse.json() as { url: string };
-  
-  if (!mediaInfo.url) {
-    throw new Error('No URL in media info response');
-  }
-
-    // Step 2: Download the actual image
-    const imageResponse = await fetch(mediaInfo.url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      signal: AbortSignal.timeout(10000), // 10s timeout
+function getOpenAI(): OpenAI {
+  if (!openaiInstance) {
+    openaiInstance = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
     });
-
-  if (!imageResponse.ok) {
-    throw new Error(`Failed to download image: ${imageResponse.status}`);
   }
-
-  const arrayBuffer = await imageResponse.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  return openaiInstance;
 }
 
 // ===========================================
@@ -110,7 +75,7 @@ async function getGeminiModel() {
   
   const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
   return genAI.getGenerativeModel({ 
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.0-flash',
     generationConfig: {
       temperature: 0,
       maxOutputTokens: 4000,
@@ -118,17 +83,14 @@ async function getGeminiModel() {
   });
 }
 
-/**
- * Process image with Gemini 3 Flash Preview Vision (Primary - Free/Cheap)
- */
-async function extractEventsWithGemini(
+async function extractWithGemini(
   imageBuffer: Buffer,
   mimeType: string = 'image/jpeg'
 ): Promise<VisionExtractionResponse | null> {
   const model = await getGeminiModel();
   
   if (!model) {
-    console.log('[VisionAgent] Gemini not available, skipping');
+    console.log('[Vision] Gemini not available, skipping');
     return null;
   }
 
@@ -150,11 +112,9 @@ async function extractEventsWithGemini(
     let content = response.text();
 
     if (!content) {
-      console.error('[VisionAgent] No response from Gemini');
+      console.error('[Vision] No response from Gemini');
       return null;
     }
-
-    console.log('[VisionAgent] Gemini raw response:', content);
 
     // Clean up response (remove markdown code blocks if present)
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -163,14 +123,14 @@ async function extractEventsWithGemini(
     const validated = VisionExtractionResponseSchema.safeParse(parsed);
 
     if (validated.success) {
-      console.log(`[VisionAgent] Gemini extracted ${validated.data.events.length} events with confidence ${validated.data.confidence}`);
+      console.log(`[Vision] Gemini extracted ${validated.data.events.length} events`);
       return validated.data;
     }
 
-    console.error('[VisionAgent] Gemini schema validation failed:', validated.error);
+    console.error('[Vision] Gemini validation failed:', validated.error);
     return null;
   } catch (error) {
-    console.error('[VisionAgent] Gemini processing error:', error);
+    console.error('[Vision] Gemini error:', error);
     return null;
   }
 }
@@ -179,50 +139,23 @@ async function extractEventsWithGemini(
 // OpenAI Vision Processing (Fallback)
 // ===========================================
 
-let openaiInstance: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiInstance) {
-    openaiInstance = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-  }
-  return openaiInstance;
-}
-
-/**
- * Process image with OpenAI GPT-4o-mini Vision (Fallback - Cheap)
- */
-async function extractEventsWithOpenAI(
+async function extractWithOpenAI(
   imageBuffer: Buffer,
   mimeType: string = 'image/jpeg'
 ): Promise<VisionExtractionResponse> {
   const base64Image = imageBuffer.toString('base64');
   const dataUri = `data:${mimeType};base64,${base64Image}`;
-
   const systemPrompt = buildVisionAgentPrompt();
 
   const response = await getOpenAI().chat.completions.create({
-    model: 'gpt-4o-mini', // Cheapest OpenAI vision model
+    model: 'gpt-4o-mini',
     messages: [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
+      { role: 'system', content: systemPrompt },
       {
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text: 'Bitte analysiere dieses Bild und extrahiere alle Kalendertermine. Antworte NUR mit JSON.',
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: dataUri,
-              detail: 'high',
-            },
-          },
+          { type: 'text', text: 'Bitte analysiere dieses Bild und extrahiere alle Kalendertermine. Antworte NUR mit JSON.' },
+          { type: 'image_url', image_url: { url: dataUri, detail: 'high' } },
         ],
       },
     ],
@@ -234,75 +167,60 @@ async function extractEventsWithOpenAI(
   const content = response.choices[0]?.message?.content;
 
   if (!content) {
-    console.error('[VisionAgent] No response content from OpenAI');
+    console.error('[Vision] No response from OpenAI');
     return NO_EVENTS_RESPONSE;
   }
-
-  console.log('[VisionAgent] OpenAI raw response:', content);
 
   try {
     const parsed = JSON.parse(content);
     const validated = VisionExtractionResponseSchema.safeParse(parsed);
 
     if (validated.success) {
-      console.log(`[VisionAgent] OpenAI extracted ${validated.data.events.length} events with confidence ${validated.data.confidence}`);
+      console.log(`[Vision] OpenAI extracted ${validated.data.events.length} events`);
       return validated.data;
     }
 
-    console.error('[VisionAgent] OpenAI schema validation failed:', validated.error);
+    console.error('[Vision] OpenAI validation failed:', validated.error);
     return NO_EVENTS_RESPONSE;
   } catch (parseError) {
-    console.error('[VisionAgent] JSON parse error:', parseError);
+    console.error('[Vision] JSON parse error:', parseError);
     return NO_EVENTS_RESPONSE;
   }
 }
 
 // ===========================================
-// Unified Vision Processing with Fallback
+// Unified Vision Processing
 // ===========================================
 
-/**
- * Extract events from image with automatic fallback
- * Primary: Gemini 3 Flash Preview | Fallback: OpenAI GPT-4o-mini
- */
-async function extractEventsFromImage(
+async function extractEvents(
   imageBuffer: Buffer,
   mimeType: string = 'image/jpeg'
 ): Promise<VisionExtractionResponse> {
   // Try Gemini first (free/cheap)
-  console.log('[VisionAgent] Trying Gemini 3 Flash Preview (primary)');
-  const geminiResult = await extractEventsWithGemini(imageBuffer, mimeType);
-  
-  if (geminiResult && (geminiResult.events.length > 0 || geminiResult.needs_clarification)) {
+  const geminiResult = await extractWithGemini(imageBuffer, mimeType);
+  if (geminiResult) {
     return geminiResult;
   }
 
   // Fallback to OpenAI
-  console.log('[VisionAgent] Falling back to OpenAI GPT-4o-mini');
-  return await extractEventsWithOpenAI(imageBuffer, mimeType);
+  console.log('[Vision] Falling back to OpenAI');
+  return await extractWithOpenAI(imageBuffer, mimeType);
 }
 
 // ===========================================
-// Main Server Action
+// Main Function
 // ===========================================
 
-/**
- * Process a WhatsApp image message and extract calendar events
- */
 export async function processVisionMessage(
   input: ProcessVisionInput
 ): Promise<ProcessVisionResult> {
-  const { mediaId, userId, householdId, mimeType } = input;
+  const { imageBuffer, userId, householdId, mimeType } = input;
 
-  console.log(`[VisionAgent] Processing image ${mediaId} for user ${userId}`);
+  console.log(`[Vision] Processing image for user ${userId}: ${imageBuffer.length} bytes`);
 
   try {
-    // Step 1: Download image from WhatsApp
-    const imageBuffer = await downloadWhatsAppMedia(mediaId);
-    console.log(`[VisionAgent] Downloaded image: ${imageBuffer.length} bytes`);
-
-    // Step 2: Extract events using GPT-4o Vision
-    const extraction = await extractEventsFromImage(imageBuffer, mimeType);
+    // Extract events using AI vision
+    const extraction = await extractEvents(imageBuffer, mimeType);
 
     if (!extraction.success || extraction.events.length === 0) {
       return {
@@ -315,9 +233,11 @@ export async function processVisionMessage(
       };
     }
 
-    // Step 3: Save events to database in parallel (instead of sequential N+1)
-    const eventPromises = extraction.events.map(event => 
-      createEvent(householdId, userId, {
+    // Save events to database
+    const createdEvents = await createEventsBulk(
+      householdId,
+      userId,
+      extraction.events.map((event) => ({
         title: event.title,
         event_date: event.event_date,
         event_time: event.event_time ?? undefined,
@@ -326,35 +246,29 @@ export async function processVisionMessage(
         family_member: event.family_member ?? undefined,
         location: event.location ?? undefined,
         description: event.description ?? undefined,
-      })
+      }))
     );
 
-    const results = await Promise.allSettled(eventPromises);
-    
-    const savedEvents: VisionEvent[] = [];
-    let eventsCreated = 0;
-    
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled' && result.value) {
-        eventsCreated++;
-        savedEvents.push(extraction.events[index]);
-        console.log(`[VisionAgent] Created event: "${extraction.events[index].title}" on ${extraction.events[index].event_date}`);
-      } else if (result.status === 'rejected') {
-        console.error(`[VisionAgent] Failed to create event: ${extraction.events[index].title}`, result.reason);
-      }
-    });
+    const createdFingerprints = new Set(
+      createdEvents.map((event) => `${event.title}::${event.event_date}::${event.event_time ?? ''}`)
+    );
+    const savedEvents = extraction.events.filter((event) =>
+      createdFingerprints.has(`${event.title}::${event.event_date}::${event.event_time ?? ''}`)
+    );
+
+    console.log(`[Vision] Created ${createdEvents.length} events`);
 
     return {
       success: true,
       events: savedEvents,
-      eventsCreated,
+      eventsCreated: createdEvents.length,
       documentType: extraction.document_type,
       clarificationNeeded: extraction.needs_clarification,
       clarificationQuestion: extraction.clarification_question ?? undefined,
     };
 
   } catch (error) {
-    console.error('[VisionAgent] Processing error:', error);
+    console.error('[Vision] Processing error:', error);
     return {
       success: false,
       events: [],
@@ -365,72 +279,4 @@ export async function processVisionMessage(
   }
 }
 
-/**
- * Process a local image buffer (for testing without WhatsApp)
- */
-export async function processLocalImage(
-  imageBuffer: Buffer,
-  userId: string,
-  householdId: string,
-  mimeType: string = 'image/jpeg'
-): Promise<ProcessVisionResult> {
-  console.log(`[VisionAgent] Processing local image for user ${userId}`);
 
-  try {
-    const extraction = await extractEventsFromImage(imageBuffer, mimeType);
-
-    if (!extraction.success || extraction.events.length === 0) {
-      return {
-        success: true,
-        events: [],
-        eventsCreated: 0,
-        documentType: extraction.document_type,
-        clarificationNeeded: extraction.needs_clarification,
-        clarificationQuestion: extraction.clarification_question ?? undefined,
-      };
-    }
-
-    // Save events to database in parallel
-    const eventPromises = extraction.events.map(event =>
-      createEvent(householdId, userId, {
-        title: event.title,
-        event_date: event.event_date,
-        event_time: event.event_time ?? undefined,
-        end_time: event.end_time ?? undefined,
-        is_all_day: event.is_all_day,
-        family_member: event.family_member ?? undefined,
-        location: event.location ?? undefined,
-        description: event.description ?? undefined,
-      })
-    );
-
-    const results = await Promise.allSettled(eventPromises);
-    
-    const savedEvents: VisionEvent[] = [];
-    let eventsCreated = 0;
-    
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled' && result.value) {
-        eventsCreated++;
-        savedEvents.push(extraction.events[index]);
-      }
-    });
-
-    return {
-      success: true,
-      events: savedEvents,
-      eventsCreated,
-      documentType: extraction.document_type,
-    };
-
-  } catch (error) {
-    console.error('[VisionAgent] Local processing error:', error);
-    return {
-      success: false,
-      events: [],
-      eventsCreated: 0,
-      documentType: 'other',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}

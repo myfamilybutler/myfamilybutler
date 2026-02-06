@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { stopImpersonating } from '@/actions/admin-auth';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import i18n from '@/lib/config/i18n';
 import { FamilyFilter } from './family-filter';
@@ -30,17 +30,9 @@ export function Navbar() {
   const { t } = useTranslation();
   const { user, dbUser, signOut } = useAuthStore();
   
-  const [isImpersonating, setIsImpersonating] = useState(false);
-
-  useEffect(() => {
-    // Check for cookie on mount to avoid hydration mismatch
-    if (typeof document !== 'undefined') {
-      // Use setTimeout to push state update to next tick, avoiding "synchronous setState" lint error
-      setTimeout(() => {
-        setIsImpersonating(document.cookie.includes('impersonate_id'));
-      }, 0);
-    }
-  }, []);
+  const [isImpersonating] = useState(
+    typeof document !== 'undefined' && document.cookie.includes('impersonate_id')
+  );
 
   const handleSignOut = async () => {
     await signOut();

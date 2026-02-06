@@ -36,9 +36,9 @@ export function useDashboardData() {
     setDbUserRef.current = setDbUser;
   }, [setDbUser]);
 
-  const fetchEventsData = useCallback(async (): Promise<DashboardApiResponse | null> => {
+  const fetchEventsData = useCallback(async (signal?: AbortSignal): Promise<DashboardApiResponse | null> => {
     try {
-      const response = await fetch('/api/dashboard');
+      const response = await fetch('/api/dashboard', { signal });
       const result: DashboardApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
@@ -48,14 +48,17 @@ export function useDashboardData() {
 
       return result;
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return null;
+      }
       log.error('Dashboard fetch error:', error);
       return null;
     }
   }, []);
 
-  const triggerGoogleSync = useCallback(async (): Promise<boolean> => {
+  const triggerGoogleSync = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
     try {
-      const response = await fetch('/api/calendar/sync', { method: 'POST' });
+      const response = await fetch('/api/calendar/sync', { method: 'POST', signal });
       const result: SyncResponse = await response.json();
       
       if (!response.ok) return false;
@@ -74,16 +77,19 @@ export function useDashboardData() {
       
       return hasChanges;
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return false;
+      }
       log.error('[Dashboard] Sync trigger failed:', error);
       return false;
     }
   }, []);
 
-  const loadAllData = useCallback(async () => {
+  const loadAllData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     
     // Step 1: Initial load from Database (Fast)
-    const dashboardResponse = await fetchEventsData();
+    const dashboardResponse = await fetchEventsData(signal);
     
     if (!isMounted.current) return;
     
@@ -102,11 +108,11 @@ export function useDashboardData() {
 
     // Step 2: Trigger Sync in background
     // If sync makes changes, we reload the data
-    const hasChanges = await triggerGoogleSync();
+    const hasChanges = await triggerGoogleSync(signal);
     
     if (hasChanges && isMounted.current) {
       log.debug('[Dashboard] Sync reported changes, refreshing data...');
-      const updatedResponse = await fetchEventsData();
+      const updatedResponse = await fetchEventsData(signal);
       
       if (updatedResponse?.events && isMounted.current) {
         setEvents(updatedResponse.events.map((e: CalendarEvent) => ({ 
@@ -123,7 +129,7 @@ export function useDashboardData() {
     
     void (async () => {
       if (isMounted.current) {
-        await loadAllData(); 
+        await loadAllData(abortController.signal); 
       }
     })();
     

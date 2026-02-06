@@ -58,13 +58,20 @@ export function usePwaInstall(): UsePwaInstallReturn {
     const dismissedAt = localStorage.getItem(DISMISS_KEY);
     if (dismissedAt) {
       const dismissedTime = parseInt(dismissedAt, 10);
-      if (Date.now() - dismissedTime < DISMISS_DURATION) {
-        return true;
-      }
-      localStorage.removeItem(DISMISS_KEY);
+      return Date.now() - dismissedTime < DISMISS_DURATION;
     }
     return false;
   });
+
+  useEffect(() => {
+    const dismissedAt = localStorage.getItem(DISMISS_KEY);
+    if (!dismissedAt) return;
+
+    const dismissedTime = parseInt(dismissedAt, 10);
+    if (Number.isNaN(dismissedTime) || Date.now() - dismissedTime >= DISMISS_DURATION) {
+      localStorage.removeItem(DISMISS_KEY);
+    }
+  }, []);
 
   useEffect(() => {
     // Listen for install prompt

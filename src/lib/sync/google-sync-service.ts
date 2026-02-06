@@ -18,6 +18,7 @@ import {
 } from './google';
 import { generateEventFingerprint, fingerprintFromGoogleEvent } from './event-fingerprint';
 import type { Event } from '@/types';
+import { randomUUID } from 'crypto';
 
 // ===========================================
 // Types
@@ -67,7 +68,49 @@ export async function pullFromGoogle(
   }
 
   // Start new sync and track it
-  const syncPromise = performPullFromGoogle(userId, householdId);
+  const syncPromise = (async () => {
+    const admin = getAdminClient();
+    const ownerId = randomUUID();
+    const lockKey = `google_sync:${userId}`;
+
+    const { data: lockData, error: lockError } = await admin.rpc('try_acquire_sync_lock', {
+      p_lock_key: lockKey,
+      p_owner_id: ownerId,
+      p_ttl_seconds: 120,
+    });
+
+    if (lockError) {
+      return {
+        success: false,
+        created: 0,
+        updated: 0,
+        deleted: 0,
+        linked: 0,
+        errors: [`Failed to acquire sync lock: ${lockError.message}`],
+      } satisfies SyncResult;
+    }
+
+    if (!lockData) {
+      return {
+        success: true,
+        created: 0,
+        updated: 0,
+        deleted: 0,
+        linked: 0,
+        errors: [],
+      } satisfies SyncResult;
+    }
+
+    try {
+      return await performPullFromGoogle(userId, householdId);
+    } finally {
+      await admin.rpc('release_sync_lock', {
+        p_lock_key: lockKey,
+        p_owner_id: ownerId,
+      });
+    }
+  })();
+
   syncInFlight.set(userId, syncPromise);
 
   try {
@@ -214,6 +257,7 @@ async function performPullFromGoogle(
           event_fingerprint: fingerprint,
           sync_source: 'google',
           google_synced_at: new Date().toISOString(),
+          version: 1, // Initial version for optimistic locking
         });
         result.created++;
         
@@ -228,44 +272,110 @@ async function performPullFromGoogle(
     
     // Batch delete
     if (toDelete.length > 0) {
-      await admin.from('events').delete().in('id', toDelete);
-      log.debug(`[Sync] Batch deleted ${toDelete.length} events`);
+      const { error: deleteError } = await admin.from('events').delete().in('id', toDelete);
+      if (deleteError) {
+        result.errors.push(`Delete batch failed: ${deleteError.message}`);
+      } else {
+        log.debug(`[Sync] Batch deleted ${toDelete.length} events`);
+      }
     }
 
-    // Parallel batch update (instead of sequential)
+    // Batched loop update with version increment (safer than partial-row upsert)
     if (toUpdate.length > 0) {
-      await Promise.all(
-        toUpdate.map(({ id, data }) => 
-          admin.from('events').update(data).eq('id', id)
-        )
-      );
-      log.debug(`[Sync] Batch updated ${toUpdate.length} events`);
-    }
+      // Fetch current versions first
+      const { data: currentEvents } = await admin
+        .from('events')
+        .select('id, version')
+        .in('id', toUpdate.map(u => u.id));
+      
+      const versionMap = new Map(currentEvents?.map(e => [e.id, e.version || 0]) || []);
 
-    // Parallel batch link (instead of sequential)
-    if (toLink.length > 0) {
-      await Promise.all(
-        toLink.map(({ id, googleEventId }) =>
+      const updateRows = toUpdate.map(({ id, data }) => {
+        const currentVersion = versionMap.get(id) || 0;
+        return {
+          id,
+          ...data,
+          version: currentVersion + 1,
+          updated_at: new Date().toISOString(),
+        };
+      });
+
+      const updateResults = await Promise.allSettled(
+        updateRows.map(({ id, ...row }) =>
           admin
             .from('events')
-            .update({ 
-              google_event_id: googleEventId,
-              google_synced_at: new Date().toISOString(),
-            })
+            .update(row)
             .eq('id', id)
         )
       );
-      log.debug(`[Sync] Batch linked ${toLink.length} events`);
+
+      let updateFailures = 0;
+      for (const updateResult of updateResults) {
+        if (updateResult.status === 'rejected') {
+          updateFailures++;
+          result.errors.push(`Update batch failed: ${String(updateResult.reason)}`);
+          continue;
+        }
+
+        if (updateResult.value.error) {
+          updateFailures++;
+          result.errors.push(`Update batch failed: ${updateResult.value.error.message}`);
+        }
+      }
+
+      if (updateFailures === 0) {
+        log.debug(`[Sync] Batch updated ${toUpdate.length} events`);
+      }
+    }
+
+    // Batched loop link (safer than partial-row upsert)
+    if (toLink.length > 0) {
+      const linkRows = toLink.map(({ id, googleEventId }) => ({
+        id,
+        google_event_id: googleEventId,
+        google_synced_at: new Date().toISOString(),
+      }));
+
+      const linkResults = await Promise.allSettled(
+        linkRows.map(({ id, ...row }) =>
+          admin
+            .from('events')
+            .update(row)
+            .eq('id', id)
+        )
+      );
+
+      let linkFailures = 0;
+      for (const linkResult of linkResults) {
+        if (linkResult.status === 'rejected') {
+          linkFailures++;
+          result.errors.push(`Link batch failed: ${String(linkResult.reason)}`);
+          continue;
+        }
+
+        if (linkResult.value.error) {
+          linkFailures++;
+          result.errors.push(`Link batch failed: ${linkResult.value.error.message}`);
+        }
+      }
+
+      if (linkFailures === 0) {
+        log.debug(`[Sync] Batch linked ${toLink.length} events`);
+      }
     }
 
     // Batch insert
     if (toInsert.length > 0) {
-      await admin.from('events').insert(toInsert);
-      log.debug(`[Sync] Batch inserted ${toInsert.length} events`);
+      const { error: insertError } = await admin.from('events').insert(toInsert);
+      if (insertError) {
+        result.errors.push(`Insert batch failed: ${insertError.message}`);
+      } else {
+        log.debug(`[Sync] Batch inserted ${toInsert.length} events`);
+      }
     }
 
-    // Store new sync token for next time
-    if (syncResult.nextSyncToken) {
+    // Store new sync token for next time (only when local mutations succeeded)
+    if (syncResult.nextSyncToken && result.errors.length === 0) {
       await storeSyncToken(userId, syncResult.nextSyncToken);
     }
 
