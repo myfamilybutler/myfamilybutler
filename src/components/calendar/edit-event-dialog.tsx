@@ -88,6 +88,16 @@ export function EditEventDialog({
       const result = await response.json();
       
       if (!response.ok || !result.success) {
+        // Handle version conflict (409) with specific message
+        if (response.status === 409) {
+          toast.error('Event was modified by another user. Please refresh and try again.', {
+            action: {
+              label: 'Refresh',
+              onClick: () => onEventUpdated?.(),
+            },
+          });
+          return;
+        }
         throw new Error(result.error || 'Failed to update event');
       }
 

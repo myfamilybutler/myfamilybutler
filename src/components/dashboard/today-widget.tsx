@@ -76,33 +76,9 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
     };
   }, [events, t]);
 
-  // Empty state
-  if (!hasEvents) {
-    return (
-      <Card className="border-border shadow-sm bg-gradient-to-br from-emerald-50/50 to-transparent dark:from-emerald-950/20">
-        <CardContent className="pt-6 pb-6">
-          <div className="flex flex-col items-center text-center">
-            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mb-3">
-              <CalendarDays className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <h3 className="text-sm font-medium text-foreground mb-1">
-              {t('dashboard.noEventsToday')}
-            </h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              {t('dashboard.planYourDay')}
-            </p>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={onAddEvent}
-              className="h-8 text-xs"
-            >
-              {t('dashboard.addFirstEvent')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
+  // Only show widget if there are events today
+  if (todaySection.events.length === 0) {
+    return null;
   }
 
   return (

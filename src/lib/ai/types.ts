@@ -70,18 +70,26 @@ export interface VoiceProcessingResult {
 export type InputType = 'text' | 'image' | 'voice' | 'document';
 
 /**
+ * Media attachment for processing
+ */
+export interface MediaAttachment {
+  /** The file buffer */
+  buffer: Buffer;
+  /** MIME type (e.g., 'image/jpeg', 'audio/ogg', 'application/pdf') */
+  mimeType: string;
+  /** Original filename if available */
+  filename?: string;
+}
+
+/**
  * Unified input for the Brain to process
  */
 export interface UnifiedInput {
   type: InputType;
-  /** For text: the message content */
+  /** For text/document: the message content */
   content?: string;
-  /** For image/voice/document: the WhatsApp media ID */
-  mediaId?: string;
-  /** MIME type for media */
-  mimeType?: string;
-  /** Filename for documents */
-  filename?: string;
+  /** For media types (image/voice/document): the downloaded file */
+  attachment?: MediaAttachment;
   /** User context */
   userId: string;
   householdId: string;

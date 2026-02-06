@@ -33,11 +33,7 @@ export type {
 } from './types';
 
 // Gateway
-export { gateway, registerAdapter, getAdapter, processMessage } from './gateway';
-export { isMessageProcessed } from './dedup';
-
-// Pipeline
-export { pipeline, processMessage as processPipelineMessage } from './pipeline';
+export { gateway } from './gateway';
 
 // State Management
 export {

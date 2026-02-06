@@ -176,15 +176,12 @@ export {
 // OpenAI direct access
 export { 
   parseEventWithClarification,
-  parseEventIntent,
   generateAIResponse,
-  parseReminderIntent,
 } from './providers/openai';
 
 // Gemini direct access
 export {
   parseEventWithGemini,
-  parseEventIntentGemini,
   generateGeminiResponse,
   isGeminiAvailable,
 } from './providers/gemini';

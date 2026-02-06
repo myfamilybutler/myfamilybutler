@@ -10,6 +10,7 @@ import type {
   PipelineResult,
   StandardMessage,
 } from './types';
+import { getAdapter } from './gateway';
 import {
   clearConversationState,
   setUndoState,
@@ -344,11 +345,28 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
     content: msg.content,
   }));
 
-  if (message.type === 'image' || message.type === 'voice') {
+  // For media messages (image, voice, document), download first then process
+  if ((message.type === 'image' || message.type === 'voice' || message.type === 'document') && message.mediaRef) {
+    const adapter = getAdapter(message.channel);
+    let attachment: { buffer: Buffer; mimeType: string; filename?: string } | undefined;
+    
+    if (adapter?.downloadMedia) {
+      try {
+        const buffer = await adapter.downloadMedia(message.mediaRef);
+        console.log(`[Pipeline] Downloaded ${message.type} via ${message.channel}: ${buffer.length} bytes`);
+        attachment = {
+          buffer,
+          mimeType: message.mediaRef.mimeType,
+          filename: message.mediaRef.filename,
+        };
+      } catch (error) {
+        console.error(`[Pipeline] Failed to download ${message.type}:`, error);
+      }
+    }
+    
     const brainResult = await processBrain({
       type: message.type,
-      mediaId: message.mediaRef?.id,
-      mimeType: message.mediaRef?.mimeType,
+      attachment,
       userId: message.userId,
       householdId: message.householdId || '',
       familyMembers: message.familyMembers,

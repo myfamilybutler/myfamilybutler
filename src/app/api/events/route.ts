@@ -92,14 +92,23 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update event (security check via household_id)
-    const updatedEvent = await updateEvent(eventId, user.household_id, updates, userId);
+    try {
+      const updatedEvent = await updateEvent(eventId, user.household_id, updates, userId);
 
-    if (!updatedEvent) {
-      return NextResponse.json({ error: 'Failed to update event' }, { status: 500 });
+      if (!updatedEvent) {
+        return NextResponse.json({ error: 'Failed to update event' }, { status: 500 });
+      }
+
+      console.log(`[API/events] Event ${eventId} updated by user ${userId}`);
+      return NextResponse.json({ success: true, data: updatedEvent });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'EVENT_VERSION_CONFLICT') {
+        return NextResponse.json({ 
+          error: 'Event was modified by another user. Please refresh and try again.' 
+        }, { status: 409 });
+      }
+      throw error;
     }
-
-    console.log(`[API/events] Event ${eventId} updated by user ${userId}`);
-    return NextResponse.json({ success: true, data: updatedEvent });
 
   } catch (error) {
     console.error('[API/events] PUT Internal error:', error);

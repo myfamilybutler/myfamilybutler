@@ -5,16 +5,10 @@
  */
 
 // Vision Processing
-export { 
-  processVisionMessage, 
-  processLocalImage,
-} from './process-vision';
+export { processVisionMessage } from './process-vision';
 
 // Voice Processing
-export { 
-  processVoiceMessage, 
-  processLocalAudio,
-} from './process-voice';
+export { processVoiceMessage } from './process-voice';
 
 // Reminders
 export { 
