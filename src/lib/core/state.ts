@@ -23,6 +23,7 @@ function getTtlMs(state: ConversationState): number {
 function serializeStateData(state: ConversationState): Record<string, unknown> {
   return {
     draftEventId: state.draftEventId ?? null,
+    draftBundleId: state.draftBundleId ?? null,
     undoableEventId: state.undoableEventId ?? null,
     clarificationContext: state.clarificationContext ?? null,
     attempts: state.attempts ?? 0,
@@ -33,6 +34,7 @@ function parseStateFromRow(row: {
   state: string;
   data: {
     draftEventId?: string | null;
+    draftBundleId?: string | null;
     undoableEventId?: string | null;
     clarificationContext?: string | null;
     attempts?: number | null;
@@ -44,6 +46,7 @@ function parseStateFromRow(row: {
   return {
     state: row.state as ConversationState['state'],
     draftEventId: data.draftEventId ?? undefined,
+    draftBundleId: data.draftBundleId ?? undefined,
     undoableEventId: data.undoableEventId ?? undefined,
     clarificationContext: data.clarificationContext ?? undefined,
     attempts: typeof data.attempts === 'number' ? data.attempts : undefined,
@@ -189,11 +192,15 @@ export async function getUndoableEventId(
 export async function setDraftPendingState(
   userId: string,
   channel: Channel,
-  draftEventId: string
+  draftId: string,
+  options?: { isBundle?: boolean }
 ): Promise<void> {
+  const isBundle = options?.isBundle ?? false;
+
   await setConversationState(userId, channel, {
     state: 'draft_pending',
-    draftEventId,
+    draftEventId: isBundle ? undefined : draftId,
+    draftBundleId: isBundle ? draftId : undefined,
     attempts: 0,
   });
 }
@@ -207,7 +214,15 @@ export async function getPendingDraftId(
 ): Promise<string | null> {
   const state = await getConversationState(userId, channel);
   
-  if (state.state === 'draft_pending' && state.draftEventId) {
+  if (state.state !== 'draft_pending') {
+    return null;
+  }
+
+  if (state.draftBundleId) {
+    return state.draftBundleId;
+  }
+
+  if (state.draftEventId) {
     return state.draftEventId;
   }
   

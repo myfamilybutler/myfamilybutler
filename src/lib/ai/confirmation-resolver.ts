@@ -135,6 +135,18 @@ export async function resolveConfirmationIntent(
 
 function quickIntentCheck(message: string): ConfirmationResult | null {
   const lower = message.toLowerCase().trim();
+
+  if (lower === 'confirm') {
+    return { intent: 'confirm', confidence: 0.99 };
+  }
+
+  if (lower === 'reject' || lower === 'discard') {
+    return { intent: 'reject', confidence: 0.99 };
+  }
+
+  if (lower === 'modify' || lower === 'edit') {
+    return { intent: 'modify', confidence: 0.99 };
+  }
   
   // Very short confirmations (high confidence)
   const quickConfirm = ['ja', 'yes', 'ok', 'okay', 'jo', 'yep', 'yup', 'sure', 'klar', 'passt', 'genau', 'stimmt', '👍', '✅'];
@@ -143,7 +155,7 @@ function quickIntentCheck(message: string): ConfirmationResult | null {
   }
   
   // Very short rejections
-  const quickReject = ['nein', 'no', 'nope', 'nah', 'cancel', 'abbrechen', 'weg', 'löschen', '❌', '👎'];
+  const quickReject = ['nein', 'no', 'nope', 'nah', 'cancel', 'abbrechen', 'weg', 'löschen', 'discard', 'verwerfen', '❌', '👎'];
   if (quickReject.includes(lower)) {
     return { intent: 'reject', confidence: 0.95 };
   }
@@ -369,4 +381,3 @@ function isValidIntent(intent: unknown): intent is ConfirmationIntent {
     'confirm', 'reject', 'modify', 'modify_specific', 'clarify', 'new_event', 'unclear'
   ].includes(intent);
 }
-

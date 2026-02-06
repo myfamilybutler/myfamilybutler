@@ -23,7 +23,6 @@ import { AI_DECISION_THRESHOLDS } from '@/lib/ai/constants';
 import {
   createEvent,
   createEventsBulk,
-  createDraftEvent,
   confirmDraftEvent,
   rejectDraftEvent,
   getDraftEvent,
@@ -32,6 +31,12 @@ import {
   generateDashboardLinkForUser,
   generateDashboardLink,
   createEventReminder,
+  createDraftBundle,
+  getDraftBundle,
+  confirmDraftBundle,
+  rejectDraftBundle,
+  applyDraftBundleModifications,
+  applyDraftEventModifications,
 } from '@/lib/supabase';
 import { detectLanguage, getTemplate, formatDateForLanguage } from '@/lib/ai/response-templates';
 import { logAIInteraction } from '@/lib/ai/logging';
@@ -208,8 +213,11 @@ async function handleDraftPending(
   const { message, conversationState, startTime } = context;
   const lang = detectLanguage(content);
 
-  // Need draft ID and household to proceed
-  if (!conversationState.draftEventId || !message.householdId) {
+  const draftBundleId = conversationState.draftBundleId;
+  const legacyDraftId = conversationState.draftEventId;
+
+  // Need draft reference and household to proceed
+  if ((!draftBundleId && !legacyDraftId) || !message.householdId) {
     await clearConversationState(message.userId, message.channel);
     return {
       response: {
@@ -224,9 +232,39 @@ async function handleDraftPending(
     };
   }
 
-  // Fetch the draft details
-  const draft = await getDraftEvent(conversationState.draftEventId, message.householdId);
-  if (!draft) {
+  let draft: Awaited<ReturnType<typeof getDraftEvent>> | null = null;
+  let bundleEvents: Array<{
+    id: string;
+    title: string;
+    event_date: string;
+    event_time?: string | null;
+    end_time?: string | null;
+    is_all_day: boolean;
+    family_member?: string | null;
+    location?: string | null;
+    description?: string | null;
+  }> = [];
+
+  if (draftBundleId) {
+    const bundle = await getDraftBundle(draftBundleId, message.householdId);
+    if (bundle) {
+      bundleEvents = bundle.events;
+      draft = bundle.events[0]
+        ? {
+            ...bundle.events[0],
+            reason: bundle.events[0].reason,
+            confidence: bundle.events[0].confidence,
+          }
+        : null;
+    }
+  } else if (legacyDraftId) {
+    draft = await getDraftEvent(legacyDraftId, message.householdId);
+    if (draft) {
+      bundleEvents = [draft];
+    }
+  }
+
+  if (!draft || bundleEvents.length === 0) {
     await clearConversationState(message.userId, message.channel);
     return {
       response: {
@@ -267,26 +305,41 @@ async function handleDraftPending(
 
   switch (intentResult.intent) {
     case 'confirm': {
-      const event = await confirmDraftEvent(
-        conversationState.draftEventId,
-        message.householdId,
-        message.userId
-      );
+      const events = draftBundleId
+        ? await confirmDraftBundle(
+            draftBundleId,
+            message.householdId,
+            message.userId
+          )
+        : await confirmDraftEvent(
+            legacyDraftId!,
+            message.householdId,
+            message.userId
+          ).then((event) => (event ? [event] : null));
 
       await clearConversationState(message.userId, message.channel);
 
-      if (event) {
-        await createDefaultReminder(event, message.userId);
+      if (events && events.length > 0) {
+        for (const event of events) {
+          await createDefaultReminder(event, message.userId);
+        }
+
         const dashboardLink = await getDashboardLink(message);
+        const confirmationText = events.length === 1
+          ? (lang === 'de'
+              ? `Termin "${events[0]!.title}" wurde gespeichert!\n\n⏰ Ich erinnere dich 30 Minuten vorher.`
+              : `Event "${events[0]!.title}" saved!\n\n⏰ I'll remind you 30 minutes before.`)
+          : (lang === 'de'
+              ? `${events.length} Termine wurden gespeichert!\n\n⏰ Erinnerungen wurden für alle Termine mit Uhrzeit erstellt.`
+              : `${events.length} events were saved!\n\n⏰ Reminders were created for all timed events.`);
+
         return {
           response: {
-            text: lang === 'de'
-              ? `Termin "${event.title}" wurde gespeichert!\n\n⏰ Ich erinnere dich 30 Minuten vorher.`
-              : `Event "${event.title}" saved!\n\n⏰ I'll remind you 30 minutes before.`,
+            text: confirmationText,
             urlButton: dashboardLink ? { title: 'Dashboard', url: dashboardLink } : undefined,
             metadata: { language: lang, shouldLog: true },
           },
-          eventsCreated: 1,
+          eventsCreated: events.length,
           success: true,
           latencyMs: Date.now() - startTime,
         };
@@ -306,7 +359,11 @@ async function handleDraftPending(
     }
 
     case 'reject': {
-      await rejectDraftEvent(conversationState.draftEventId, message.householdId);
+      if (draftBundleId) {
+        await rejectDraftBundle(draftBundleId, message.householdId);
+      } else {
+        await rejectDraftEvent(legacyDraftId!, message.householdId);
+      }
       await clearConversationState(message.userId, message.channel);
 
       return {
@@ -338,23 +395,108 @@ async function handleDraftPending(
     }
 
     case 'modify_specific': {
-      // User made a direct modification - apply it and show updated draft
-      // For now, ask for confirmation of the interpreted change
-      const modification = intentResult.modifications?.[0];
-      const modifyText = modification
-        ? (lang === 'de'
-          ? `Verstanden! Ich ändere ${modification.field} auf "${modification.newValue}". Stimmt das?`
-          : `Got it! I'll change ${modification.field} to "${modification.newValue}". Is that correct?`)
-        : (lang === 'de'
-          ? 'Ich habe die Änderung verstanden. Soll ich den aktualisierten Termin speichern?'
-          : 'I understood the change. Should I save the updated event?');
+      const modifications = intentResult.modifications ?? [];
+
+      if (modifications.length === 0) {
+        return {
+          response: {
+            text: lang === 'de'
+              ? 'Welche Änderung soll ich übernehmen?'
+              : 'What change should I apply?',
+            metadata: { language: lang, shouldLog: true },
+          },
+          eventsCreated: 0,
+          success: true,
+          latencyMs: Date.now() - startTime,
+        };
+      }
+
+      if (draftBundleId) {
+        const updated = await applyDraftBundleModifications(
+          draftBundleId,
+          message.householdId,
+          modifications,
+          content
+        );
+
+        if (!updated) {
+          return {
+            response: {
+              text: lang === 'de'
+                ? 'Ich konnte die Änderung leider nicht übernehmen. Bitte versuche es genauer.'
+                : 'I could not apply that change. Please be more specific.',
+              metadata: { language: lang, shouldLog: true },
+            },
+            eventsCreated: 0,
+            success: true,
+            latencyMs: Date.now() - startTime,
+          };
+        }
+
+        if (updated.ambiguousTarget) {
+          return {
+            response: {
+              text: lang === 'de'
+                ? 'Ich habe mehrere Termine im Entwurf. Für welchen Tag soll ich das ändern?'
+                : 'I found multiple events in this draft. Which day should I change?',
+              metadata: { language: lang, shouldLog: true },
+            },
+            eventsCreated: 0,
+            success: true,
+            latencyMs: Date.now() - startTime,
+          };
+        }
+
+        const confirmText = buildDraftBundlePreviewText(updated.events, lang);
+
+        return {
+          response: {
+            text: confirmText,
+            buttons: [
+              { id: 'confirm', title: lang === 'de' ? 'Ja, speichern' : 'Yes, save' },
+              { id: 'modify', title: lang === 'de' ? 'Weiter ändern' : 'Edit more' },
+              { id: 'discard', title: lang === 'de' ? 'Verwerfen' : 'Discard' },
+            ],
+            metadata: { language: lang, shouldLog: true },
+          },
+          eventsCreated: 0,
+          success: true,
+          latencyMs: Date.now() - startTime,
+        };
+      }
+
+      const updatedDraft = await applyDraftEventModifications(
+        legacyDraftId!,
+        message.householdId,
+        modifications
+      );
+
+      if (!updatedDraft) {
+        return {
+          response: {
+            text: lang === 'de'
+              ? 'Ich konnte die Änderung nicht übernehmen. Sag mir bitte genau, was ich anpassen soll.'
+              : 'I could not apply that change. Please tell me exactly what to update.',
+            metadata: { language: lang, shouldLog: true },
+          },
+          eventsCreated: 0,
+          success: true,
+          latencyMs: Date.now() - startTime,
+        };
+      }
+
+      const formattedDate = formatDateForLanguage(new Date(updatedDraft.event_date), lang);
+      const timeStr = updatedDraft.event_time || (lang === 'de' ? 'ganztagig' : 'all day');
 
       return {
         response: {
-          text: modifyText,
+          text: lang === 'de'
+            ? `${getTemplate('draftHeader', 'de')}\n\n"${updatedDraft.title}"\n${formattedDate}, ${timeStr}\n\n${getTemplate('isThisCorrect', 'de')}`
+            : `${getTemplate('draftHeader', 'en')}\n\n"${updatedDraft.title}"\n${formattedDate}, ${timeStr}\n\n${getTemplate('isThisCorrect', 'en')}`,
           buttons: [
             { id: 'confirm', title: lang === 'de' ? 'Ja, speichern' : 'Yes, save' },
-            { id: 'modify', title: lang === 'de' ? 'Nochmal ändern' : 'Change again' },
+            { id: 'modify', title: lang === 'de' ? 'Weiter ändern' : 'Edit more' },
+            { id: 'discard', title: lang === 'de' ? 'Verwerfen' : 'Discard' },
           ],
           metadata: { language: lang, shouldLog: true },
         },
@@ -376,7 +518,7 @@ async function handleDraftPending(
           text: clarifyResponse,
           buttons: [
             { id: 'confirm', title: lang === 'de' ? 'Ja, speichern' : 'Yes, save' },
-            { id: 'reject', title: lang === 'de' ? 'Nein, verwerfen' : 'No, discard' },
+            { id: 'discard', title: lang === 'de' ? 'Nein, verwerfen' : 'No, discard' },
           ],
           metadata: { language: lang, shouldLog: true },
         },
@@ -839,6 +981,30 @@ async function handleHighConfidenceEvents(
   };
 }
 
+function buildDraftBundlePreviewText(
+  events: Array<{
+    title: string;
+    event_date: string;
+    event_time?: string | null;
+  }>,
+  lang: 'de' | 'en'
+): string {
+  const previewLines = events.slice(0, 3).map((event) => {
+    const formattedDate = formatDateForLanguage(new Date(event.event_date), lang);
+    const timeStr = event.event_time || (lang === 'de' ? 'ganztagig' : 'all day');
+    return `- ${event.title}: ${formattedDate}, ${timeStr}`;
+  });
+
+  const remaining = events.length - previewLines.length;
+  const remainingLine = remaining > 0
+    ? (lang === 'de' ? `\n- ... und ${remaining} weitere` : `\n- ... and ${remaining} more`)
+    : '';
+
+  return lang === 'de'
+    ? `${getTemplate('draftHeader', 'de')}\n\nIch habe ${events.length} Termine erkannt:\n${previewLines.join('\n')}${remainingLine}\n\n${getTemplate('isThisCorrect', 'de')}`
+    : `${getTemplate('draftHeader', 'en')}\n\nI found ${events.length} events:\n${previewLines.join('\n')}${remainingLine}\n\n${getTemplate('isThisCorrect', 'en')}`;
+}
+
 async function handleMediumConfidenceEvents(
   events: Array<{ title: string; event_date: string; event_time?: string; is_all_day: boolean; family_member?: string; location?: string; description?: string }>,
   context: PipelineContext,
@@ -859,23 +1025,21 @@ async function handleMediumConfidenceEvents(
     };
   }
 
-  const firstEvent = events[0];
-  const draft = await createDraftEvent(message.householdId, message.userId, {
-    ...firstEvent,
-    is_all_day: firstEvent.is_all_day ?? !firstEvent.event_time,
-    reason: 'low_confidence',
-    confidence,
-  });
+  const draftBundle = await createDraftBundle(
+    message.householdId,
+    message.userId,
+    events.map((event) => ({
+      ...event,
+      is_all_day: event.is_all_day ?? !event.event_time,
+      reason: 'low_confidence',
+      confidence,
+    }))
+  );
 
-  if (draft) {
-    await setDraftPendingState(message.userId, message.channel, draft.id);
+  if (draftBundle) {
+    await setDraftPendingState(message.userId, message.channel, draftBundle.bundleId, { isBundle: true });
 
-    const formattedDate = formatDateForLanguage(new Date(firstEvent.event_date), lang);
-    const timeStr = firstEvent.event_time || (lang === 'de' ? 'ganztagig' : 'all day');
-
-    const confirmText = lang === 'de'
-      ? `${getTemplate('draftHeader', 'de')}\n\n"${firstEvent.title}"\n${formattedDate}, ${timeStr}\n\n${getTemplate('isThisCorrect', 'de')}`
-      : `${getTemplate('draftHeader', 'en')}\n\n"${firstEvent.title}"\n${formattedDate}, ${timeStr}\n\n${getTemplate('isThisCorrect', 'en')}`;
+    const confirmText = buildDraftBundlePreviewText(events, lang);
 
     return {
       response: {

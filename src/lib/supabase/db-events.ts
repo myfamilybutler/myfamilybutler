@@ -407,24 +407,503 @@ export async function createEventReminder(
 // Draft Events (Low Confidence)
 // ===========================================
 
+interface DraftEventInput {
+  title: string;
+  event_date: string;
+  event_time?: string;
+  end_time?: string;
+  is_all_day?: boolean;
+  family_member?: string;
+  location?: string;
+  description?: string;
+  reason: 'low_confidence' | 'missing_info' | 'user_requested';
+  confidence: number;
+}
+
+interface DraftBundleSummary {
+  id: string;
+  household_id: string;
+  created_by: string | null;
+  status: 'pending' | 'confirmed' | 'rejected' | 'expired';
+  reason: string;
+  confidence: number;
+  created_at: string;
+  expires_at: string;
+}
+
+interface DraftBundleEvent {
+  id: string;
+  bundle_id: string | null;
+  title: string;
+  event_date: string;
+  event_time?: string | null;
+  end_time?: string | null;
+  is_all_day: boolean;
+  family_member?: string | null;
+  location?: string | null;
+  description?: string | null;
+  confidence: number;
+  reason: string;
+}
+
+interface DraftModification {
+  field: string;
+  newValue: string;
+}
+
+/**
+ * Create a bundle of draft events for a single user message.
+ * Preferred path for multi-event extraction.
+ */
+export async function createDraftBundle(
+  householdId: string,
+  createdBy: string,
+  events: DraftEventInput[]
+): Promise<{ bundleId: string; eventCount: number } | null> {
+  if (events.length === 0) {
+    return null;
+  }
+
+  const admin = getAdminClient();
+  const avgConfidence = events.reduce((sum, event) => sum + event.confidence, 0) / events.length;
+  const dominantReason = events[0]?.reason ?? 'low_confidence';
+
+  try {
+    const { data: bundle, error: bundleError } = await admin
+      .from('draft_bundles')
+      .insert({
+        household_id: householdId,
+        created_by: createdBy,
+        status: 'pending',
+        reason: dominantReason,
+        confidence: avgConfidence,
+      })
+      .select('id')
+      .single();
+
+    if (bundleError || !bundle?.id) {
+      console.error('[DraftBundle] Failed to create bundle:', bundleError);
+      const fallback = await createDraftEvent(householdId, createdBy, events[0]!);
+      return fallback ? { bundleId: fallback.id, eventCount: 1 } : null;
+    }
+
+    const rows = events.map((event) => ({
+      household_id: householdId,
+      created_by: createdBy,
+      bundle_id: bundle.id,
+      title: event.title,
+      event_date: event.event_date,
+      event_time: event.event_time || null,
+      end_time: event.end_time || null,
+      is_all_day: event.is_all_day ?? !event.event_time,
+      family_member: event.family_member || null,
+      location: event.location || null,
+      description: event.description || null,
+      reason: event.reason,
+      confidence: event.confidence,
+      status: 'pending',
+    }));
+
+    const { error: eventError } = await admin
+      .from('draft_events')
+      .insert(rows);
+
+    if (eventError) {
+      console.error('[DraftBundle] Failed to create draft events:', eventError);
+      await admin.from('draft_bundles').delete().eq('id', bundle.id);
+
+      const fallback = await createDraftEvent(householdId, createdBy, events[0]!);
+      return fallback ? { bundleId: fallback.id, eventCount: 1 } : null;
+    }
+
+    return { bundleId: bundle.id, eventCount: events.length };
+  } catch (err) {
+    console.error('[DraftBundle] Unexpected error:', err);
+    const fallback = await createDraftEvent(householdId, createdBy, events[0]!);
+    return fallback ? { bundleId: fallback.id, eventCount: 1 } : null;
+  }
+}
+
+/**
+ * Get bundle metadata + all pending draft events in the bundle.
+ */
+export async function getDraftBundle(
+  bundleId: string,
+  householdId: string
+): Promise<{ bundle: DraftBundleSummary; events: DraftBundleEvent[] } | null> {
+  const admin = getAdminClient();
+
+  try {
+    const { data: bundle, error: bundleError } = await admin
+      .from('draft_bundles')
+      .select('*')
+      .eq('id', bundleId)
+      .eq('household_id', householdId)
+      .eq('status', 'pending')
+      .single();
+
+    if (bundleError || !bundle) {
+      return null;
+    }
+
+    const { data: events, error: eventsError } = await admin
+      .from('draft_events')
+      .select('*')
+      .eq('bundle_id', bundleId)
+      .eq('household_id', householdId)
+      .eq('status', 'pending')
+      .order('event_date', { ascending: true })
+      .order('event_time', { ascending: true });
+
+    if (eventsError || !events || events.length === 0) {
+      return null;
+    }
+
+    return {
+      bundle: bundle as DraftBundleSummary,
+      events: events as DraftBundleEvent[],
+    };
+  } catch (err) {
+    console.error('[DraftBundle] Error fetching bundle:', err);
+    return null;
+  }
+}
+
+/**
+ * Confirm all pending events in a draft bundle and create real events.
+ * Atomic behavior at app layer: if not all events can be created, roll back created events.
+ */
+export async function confirmDraftBundle(
+  bundleId: string,
+  householdId: string,
+  userId: string
+): Promise<Event[] | null> {
+  const admin = getAdminClient();
+  const bundleData = await getDraftBundle(bundleId, householdId);
+
+  if (!bundleData) {
+    return null;
+  }
+
+  const eventInputs = bundleData.events.map((draft) => ({
+    title: draft.title,
+    event_date: draft.event_date,
+    event_time: draft.event_time ?? undefined,
+    end_time: draft.end_time ?? undefined,
+    is_all_day: draft.is_all_day,
+    family_member: draft.family_member ?? undefined,
+    location: draft.location ?? undefined,
+    description: draft.description ?? undefined,
+  }));
+
+  const created = await createEventsBulk(householdId, userId, eventInputs);
+
+  if (created.length !== eventInputs.length) {
+    if (created.length > 0) {
+      await Promise.allSettled(
+        created.map((event) =>
+          admin.from('events').delete().eq('id', event.id).eq('household_id', householdId)
+        )
+      );
+    }
+    return null;
+  }
+
+  await admin
+    .from('draft_events')
+    .update({ status: 'confirmed' })
+    .eq('bundle_id', bundleId)
+    .eq('household_id', householdId)
+    .eq('status', 'pending');
+
+  await admin
+    .from('draft_bundles')
+    .update({ status: 'confirmed' })
+    .eq('id', bundleId)
+    .eq('household_id', householdId);
+
+  return created;
+}
+
+/**
+ * Reject all draft events in a bundle.
+ */
+export async function rejectDraftBundle(
+  bundleId: string,
+  householdId: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+
+  try {
+    const { error: eventError } = await admin
+      .from('draft_events')
+      .update({ status: 'rejected' })
+      .eq('bundle_id', bundleId)
+      .eq('household_id', householdId)
+      .eq('status', 'pending');
+
+    if (eventError) {
+      console.error('[DraftBundle] Error rejecting draft events:', eventError);
+      return false;
+    }
+
+    const { error: bundleError } = await admin
+      .from('draft_bundles')
+      .update({ status: 'rejected' })
+      .eq('id', bundleId)
+      .eq('household_id', householdId);
+
+    if (bundleError) {
+      console.error('[DraftBundle] Error rejecting bundle:', bundleError);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[DraftBundle] Unexpected reject error:', err);
+    return false;
+  }
+}
+
+function normalizeDraftField(field: string): 'title' | 'event_date' | 'event_time' | 'location' | 'family_member' | null {
+  const key = field.toLowerCase();
+  if (key === 'title') return 'title';
+  if (key === 'date' || key === 'event_date') return 'event_date';
+  if (key === 'time' || key === 'event_time') return 'event_time';
+  if (key === 'location') return 'location';
+  if (key === 'family_member' || key === 'member') return 'family_member';
+  return null;
+}
+
+function normalizeTimeValue(value: string): string | null {
+  const trimmed = value.trim().toLowerCase();
+  const ampm = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+  if (ampm) {
+    let hour = Number(ampm[1]);
+    const minute = ampm[2] ?? '00';
+    const period = ampm[3];
+    if (period === 'pm' && hour < 12) hour += 12;
+    if (period === 'am' && hour === 12) hour = 0;
+    return `${String(hour).padStart(2, '0')}:${minute}`;
+  }
+
+  const direct = trimmed.replace('.', ':').match(/^(\d{1,2})(?::(\d{2}))?$/);
+  if (!direct) return null;
+  const hour = Number(direct[1]);
+  const minute = direct[2] ?? '00';
+  if (hour < 0 || hour > 23) return null;
+  if (Number(minute) < 0 || Number(minute) > 59) return null;
+  return `${String(hour).padStart(2, '0')}:${minute}`;
+}
+
+function normalizeDateValue(value: string): string | null {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const dotDate = trimmed.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\.?$/);
+  if (!dotDate) return null;
+
+  const day = Number(dotDate[1]);
+  const month = Number(dotDate[2]);
+  let year = dotDate[3] ? Number(dotDate[3]) : new Date().getFullYear();
+  if (year < 100) {
+    year += 2000;
+  }
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function getWeekdayTargets(
+  events: DraftBundleEvent[],
+  userMessage: string
+): string[] {
+  const lower = userMessage.toLowerCase();
+  const weekdayMap: Record<string, number> = {
+    monday: 1,
+    montag: 1,
+    tuesday: 2,
+    dienstag: 2,
+    wednesday: 3,
+    mittwoch: 3,
+    thursday: 4,
+    donnerstag: 4,
+    friday: 5,
+    freitag: 5,
+    saturday: 6,
+    samstag: 6,
+    sonntag: 0,
+    sunday: 0,
+  };
+
+  const targetWeekdays = Object.entries(weekdayMap)
+    .filter(([name]) => lower.includes(name))
+    .map(([, day]) => day);
+
+  if (targetWeekdays.length === 0) {
+    return [];
+  }
+
+  return events
+    .filter((event) => {
+      const day = new Date(`${event.event_date}T00:00:00`).getDay();
+      return targetWeekdays.includes(day);
+    })
+    .map((event) => event.id);
+}
+
+/**
+ * Apply modify-specific patches to a draft bundle.
+ * Returns updated events or an ambiguity signal if a target event cannot be resolved.
+ */
+export async function applyDraftBundleModifications(
+  bundleId: string,
+  householdId: string,
+  modifications: DraftModification[],
+  userMessage: string
+): Promise<{ events: DraftBundleEvent[]; ambiguousTarget: boolean } | null> {
+  const admin = getAdminClient();
+  const bundle = await getDraftBundle(bundleId, householdId);
+
+  if (!bundle || modifications.length === 0) {
+    return null;
+  }
+
+  const weekdayTargets = getWeekdayTargets(bundle.events, userMessage);
+
+  for (const modification of modifications) {
+    const field = normalizeDraftField(modification.field);
+    if (!field) {
+      continue;
+    }
+
+    const targetIds = bundle.events.length === 1
+      ? [bundle.events[0]!.id]
+      : weekdayTargets;
+
+    if (bundle.events.length > 1 && targetIds.length === 0) {
+      return { events: bundle.events, ambiguousTarget: true };
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (field === 'event_time') {
+      const timeValue = normalizeTimeValue(modification.newValue);
+      if (!timeValue) continue;
+      updateData.event_time = timeValue;
+      updateData.is_all_day = false;
+    } else if (field === 'event_date') {
+      const dateValue = normalizeDateValue(modification.newValue);
+      if (!dateValue) continue;
+      updateData.event_date = dateValue;
+    } else {
+      updateData[field] = modification.newValue.trim();
+    }
+
+    for (const targetId of targetIds) {
+      const { error } = await admin
+        .from('draft_events')
+        .update(updateData)
+        .eq('id', targetId)
+        .eq('household_id', householdId)
+        .eq('bundle_id', bundleId)
+        .eq('status', 'pending');
+
+      if (error) {
+        console.error('[DraftBundle] Failed to update draft event:', error);
+      }
+    }
+  }
+
+  const refreshed = await getDraftBundle(bundleId, householdId);
+  if (!refreshed) {
+    return null;
+  }
+
+  return { events: refreshed.events, ambiguousTarget: false };
+}
+
+/**
+ * Apply modify-specific patches to a single legacy draft.
+ */
+export async function applyDraftEventModifications(
+  draftId: string,
+  householdId: string,
+  modifications: DraftModification[]
+): Promise<DraftBundleEvent | null> {
+  const admin = getAdminClient();
+
+  if (modifications.length === 0) {
+    return null;
+  }
+
+  const updateData: Record<string, unknown> = {};
+
+  for (const modification of modifications) {
+    const field = normalizeDraftField(modification.field);
+    if (!field) {
+      continue;
+    }
+
+    if (field === 'event_time') {
+      const timeValue = normalizeTimeValue(modification.newValue);
+      if (!timeValue) continue;
+      updateData.event_time = timeValue;
+      updateData.is_all_day = false;
+      continue;
+    }
+
+    if (field === 'event_date') {
+      const dateValue = normalizeDateValue(modification.newValue);
+      if (!dateValue) continue;
+      updateData.event_date = dateValue;
+      continue;
+    }
+
+    updateData[field] = modification.newValue.trim();
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return null;
+  }
+
+  const { error } = await admin
+    .from('draft_events')
+    .update(updateData)
+    .eq('id', draftId)
+    .eq('household_id', householdId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('[DraftEvent] Failed to update draft event:', error);
+    return null;
+  }
+
+  const { data, error: fetchError } = await admin
+    .from('draft_events')
+    .select('*')
+    .eq('id', draftId)
+    .eq('household_id', householdId)
+    .single();
+
+  if (fetchError || !data) {
+    return null;
+  }
+
+  return data as DraftBundleEvent;
+}
+
 /**
  * Create a draft event for low-confidence extractions
  */
 export async function createDraftEvent(
   householdId: string,
   createdBy: string,
-  draftData: {
-    title: string;
-    event_date: string;
-    event_time?: string;
-    end_time?: string;
-    is_all_day?: boolean;
-    family_member?: string;
-    location?: string;
-    description?: string;
-    reason: 'low_confidence' | 'missing_info' | 'user_requested';
-    confidence: number;
-  }
+  draftData: DraftEventInput
 ): Promise<{ id: string } | null> {
   const admin = getAdminClient();
   

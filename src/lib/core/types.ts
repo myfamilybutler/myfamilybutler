@@ -137,6 +137,8 @@ export interface ConversationState {
   state: ConversationStateType;
   /** Draft event awaiting confirmation */
   draftEventId?: string;
+  /** Draft bundle awaiting confirmation (multi-event) */
+  draftBundleId?: string;
   /** Event ID that can be undone */
   undoableEventId?: string;
   /** Expiry timestamp for time-limited states */
