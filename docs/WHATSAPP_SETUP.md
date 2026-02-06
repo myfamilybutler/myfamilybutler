@@ -1,12 +1,12 @@
 # WhatsApp Business API Setup
 
-> **Last Updated:** January 19, 2026
+> **Last Updated:** February 6, 2026
 
 ## Current Status
 
 | Component             | Status                                               |
 | --------------------- | ---------------------------------------------------- |
-| Phone Number          | ✅ `+43 681 20484672` connected                      |
+| Phone Number          | ✅ `<configured_business_number>` connected          |
 | Webhook URL           | ✅ `https://myfamilybutler.com/api/webhook/whatsapp` |
 | API Token             | ✅ Valid (permanent token)                           |
 | Code Implementation   | ✅ Complete                                          |
@@ -21,9 +21,9 @@
 # WhatsApp Business API
 WHATSAPP_API_TOKEN=<permanent_access_token>
 WHATSAPP_ACCESS_TOKEN=<media_download_token>
-WHATSAPP_PHONE_ID=972036659317885
-WHATSAPP_VERIFY_TOKEN=my_family_butler_secure_token_2024_xyz789
-WHATSAPP_BUSINESS_ACCOUNT_ID=747913198355547
+WHATSAPP_PHONE_ID=<phone_number_id>
+WHATSAPP_VERIFY_TOKEN=<custom_verify_token>
+WHATSAPP_BUSINESS_ACCOUNT_ID=<business_account_id>
 
 # Webhook Security (REQUIRED for production)
 WHATSAPP_APP_SECRET=<app_secret_from_meta_developer_portal>
@@ -31,6 +31,8 @@ WHATSAPP_APP_SECRET=<app_secret_from_meta_developer_portal>
 # Provider Switch
 PROVIDER_WHATSAPP_ENABLED=true
 ```
+
+Never commit real IDs, keys, or tokens to documentation.
 
 > **Security Note:** Get `WHATSAPP_APP_SECRET` from Meta Developer Portal → App
 > Settings → Basic → App Secret. This is used for webhook signature

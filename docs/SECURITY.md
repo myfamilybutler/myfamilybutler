@@ -5,6 +5,9 @@
 My Family Butler implements security measures appropriate for a consumer-facing
 family app with plans to scale to 10K+ users.
 
+For engineering execution standards (always/never, concurrency patterns, quality
+gates), see `AI_TOOLING_RULEBOOK.md`.
+
 ## Authentication
 
 ### Session Management
@@ -103,4 +106,6 @@ Used for passwordless login from messaging channels:
 
 ## Security Contacts
 
-For security issues, contact: [Add contact email]
+For security issues, contact: myfamilybutler@gmail.com
+
+_Last updated: 2026-02-06_

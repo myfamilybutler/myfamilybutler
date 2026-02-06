@@ -37,7 +37,7 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
   const { t } = useTranslation();
   const { memberColors } = useFamilyData();
 
-  const { todaySection, tomorrowSection, hasEvents } = useMemo(() => {
+  const { todaySection, tomorrowSection } = useMemo(() => {
     const today = startOfDay(new Date());
     const tomorrow = addDays(today, 1);
     const todayStr = format(today, 'yyyy-MM-dd');
@@ -72,7 +72,7 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
         events: tomorrowEvents,
         isToday: false,
       },
-      hasEvents: todayEvents.length > 0 || tomorrowEvents.length > 0,
+
     };
   }, [events, t]);
 

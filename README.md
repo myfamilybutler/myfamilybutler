@@ -17,7 +17,7 @@ reminders, and schedules via WhatsApp, Telegram, or web dashboard.
 | ----------- | ----------------------------------------------- |
 | Framework   | Next.js 16 (App Router)                         |
 | Database    | Supabase (PostgreSQL + Auth)                    |
-| AI Primary  | Gemini 1.5 Flash (free tier)                    |
+| AI Primary  | Gemini 3 Flash Preview (free tier)              |
 | AI Fallback | OpenAI GPT-4o-mini                              |
 | Messaging   | WhatsApp Cloud API, Telegram Bot API, 360dialog |
 | State       | Zustand                                         |
@@ -99,16 +99,17 @@ src/
 
 The app uses a **cost-optimized dual-provider strategy**:
 
-1. **Primary: Gemini 1.5 Flash** (Free tier / $0.075 per 1M tokens)
+1. **Primary: Gemini 3 Flash Preview** (Free tier / $0.075 per 1M tokens)
 2. **Fallback: OpenAI GPT-4o-mini** ($0.15 per 1M tokens)
 
 Automatic fallback when Gemini fails or is unavailable.
 
 ## Documentation
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture & data flow
-- [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) - Development guide & patterns
-- [PROJECT_INFO.md](./PROJECT_INFO.md) - Project status & tech stack
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System architecture & data flow
+- [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) - Development guide & patterns
+- [docs/PROJECT_INFO.md](./docs/PROJECT_INFO.md) - Project status & tech stack
+- [docs/AI_TOOLING_RULEBOOK.md](./docs/AI_TOOLING_RULEBOOK.md) - AI tool rules, concurrency, and quality gates
 
 ## Scripts
 

@@ -19,9 +19,13 @@ This document summarizes the major refactoring completed to address race conditi
 
 ### Changes
 - Removed dual-layer state (memory + database)
-- Simplified to in-memory only with TTL
+- Simplified state architecture and reduced transitions/abstractions
 - Removed complex state machine validation
 - Removed `transitionState` function (unused)
+
+> Note: Current runtime uses DB-backed conversation state in `src/lib/core/state.ts`
+> for multi-instance reliability. This summary is historical and should be read as
+> a refactoring log, not a live architecture spec.
 
 ### File Modified
 - `/src/lib/core/state.ts` - Simplified from 265 to ~180 lines

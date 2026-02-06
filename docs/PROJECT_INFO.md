@@ -2,6 +2,8 @@
 
 ## 1. Tech Stack
 
+Canonical AI/dev/concurrency rules: `AI_TOOLING_RULEBOOK.md`.
+
 | Tech                        | Purpose          | Implementation Details                                              |
 | --------------------------- | ---------------- | ------------------------------------------------------------------- |
 | **Next.js 16 (App Router)** | Core Framework   | `src/app` directory. Uses Server Actions, Middleware, and React 19. |
@@ -44,11 +46,6 @@ src/lib/
 - Text parsing: Event extraction, reminders
 - Vision: School letters, appointment cards
 - Response generation
-
-**Fallback: OpenAI GPT-4o-mini**
-
-- Used when Gemini fails or is unavailable
-- Automatic fallback with retry logic
 
 **Fallback: OpenAI GPT-4o-mini** ($0.15/1M tokens)
 
@@ -156,6 +153,12 @@ NEXT_PUBLIC_APP_URL=
 3. Create webhook route in `src/app/api/webhook/`
 4. Update provider toggles in `src/lib/channels/providers.config.ts`
 
+## 6. Quality Gate Snapshot (2026-02-06)
+
+- `npm run lint`: pass with 1 warning (`src/components/dashboard/today-widget.tsx`, unused variable)
+- `npm run build`: pass
+- `npm test -- --run`: pass (1 test file, 2 tests)
+
 ---
 
-_Last updated: 2026-01-19_
+_Last updated: 2026-02-06_

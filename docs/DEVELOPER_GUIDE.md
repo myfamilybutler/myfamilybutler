@@ -3,6 +3,9 @@
 This guide explains the architectural features implemented in `MyFamilyButler`
 and how to use them in your daily development.
 
+Canonical rules for AI tooling, concurrency safety, and quality gates live in
+`AI_TOOLING_RULEBOOK.md`.
+
 ## 1. AI Integration
 
 Current model targets:
@@ -249,6 +252,12 @@ E2E_TEST_EMAIL=test@myfamilybutler.test
 E2E_TEST_PASSWORD=DevTest2024!Secure
 ```
 
+## 9.1 Migration Policy
+
+- Canonical migration folder: `supabase/migrations/`
+- Do not add new runtime migrations under `src/lib/supabase/migrations/`
+- If legacy migrations exist in non-canonical paths, consolidate before release
+
 ## 10. Dev Login for Browser Testing
 
 A **dev-only password login** is available for browser testing without needing
@@ -294,4 +303,4 @@ E2E_TEST_PASSWORD=DevTest2024!Secure
 
 ---
 
-_Last updated: 2026-01-19_
+_Last updated: 2026-02-06_

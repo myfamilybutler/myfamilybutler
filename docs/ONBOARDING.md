@@ -1,6 +1,9 @@
 # Onboarding System Design
 
-> **Last Updated:** 2026-01-19 **Status:** Partially Implemented
+> **Last Updated:** 2026-02-06 **Status:** Partially Implemented (Design + Active Implementation)
+
+> Execution and safety standards for implementation work are defined in
+> `AI_TOOLING_RULEBOOK.md`.
 
 ---
 

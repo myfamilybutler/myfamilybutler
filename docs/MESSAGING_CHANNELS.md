@@ -2,6 +2,9 @@
 
 Complete guide for setting up and onboarding users via all messaging channels.
 
+Execution and safety rules for messaging/concurrency are standardized in
+`AI_TOOLING_RULEBOOK.md`.
+
 ## Channel Overview
 
 | Channel             | Status          | Use Case             | Webhook URL              |
@@ -220,7 +223,8 @@ All channels:
 
 - Phone numbers masked in logs (`+43***5678`)
 - Messages truncated to 4096 chars
-- Deduplication via message ID (some routes still in-memory)
+- Deduplication via message ID with DB-backed processed message tracking
+- Telegram currently uses queue + synchronous processing for near-real-time UX; idempotency and dedup remain mandatory
 
 ---
 
@@ -246,4 +250,4 @@ All channels:
 
 ---
 
-_Last updated: 2026-01-19_
+_Last updated: 2026-02-06_

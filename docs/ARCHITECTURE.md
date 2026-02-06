@@ -53,7 +53,7 @@ src/lib/
 │   └── db-users.ts
 │
 ├── sync/                       # 🔄 External sync services
-│   └── google.ts              # Google Calendar sync
+│   └── google-sync-service.ts # Google Calendar sync orchestration
 │
 ├── utils/                      # 🛠️ Generic utilities
 │   ├── cn.ts                  # Tailwind class merging
@@ -82,12 +82,17 @@ Image → Gemini 3 Flash Preview (FREE) → OpenAI GPT-4o-mini ($0.15/1M)
 
 | Provider              | Model           | Cost           | Use Case         |
 | --------------------- | --------------- | -------------- | ---------------- |
-| **Gemini (Primary)**  | 3 Flash Preview | Free tier      | Text + Vision    |
-| **OpenAI (Fallback)** | GPT-4o-mini     | $0.15/1M input | Fallback parsing |
+| **Gemini (Primary)**  | gemini-3-flash-preview | Free tier      | Text + Vision    |
+| **OpenAI (Fallback)** | gpt-4o-mini            | $0.15/1M input | Fallback parsing |
 
-> Model names should mirror `src/lib/ai/providers/*.ts` and
-> `src/actions/process-vision.ts`. | **OpenAI (Fallback)** | GPT-4o-mini |
-> $0.15/1M input | When Gemini fails |
+Model names should mirror `src/lib/ai/providers/*.ts` and `src/actions/process-vision.ts`.
+
+## 3.1 Engineering Rules
+
+- Canonical AI/dev rules: `AI_TOOLING_RULEBOOK.md`
+- Canonical DB migrations: `supabase/migrations/`
+- Concurrency-critical paths must use DB-enforced atomicity (RPC, locks, unique constraints)
+- In-memory maps are optimization-only, never source-of-truth for correctness
 
 ## 4. The Data Flow
 
@@ -193,4 +198,4 @@ PROVIDER_TELEGRAM_ENABLED=false
 | Phone masking      | PII redacted in logs (`+43***5678`)    |
 | Message truncation | Max 4096 chars to prevent DoS          |
 
-_Last updated: 2026-01-19_
+_Last updated: 2026-02-06_
