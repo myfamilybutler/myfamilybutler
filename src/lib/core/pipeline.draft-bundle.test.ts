@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   resolveConfirmationIntent: vi.fn(),
   createDraftBundle: vi.fn(),
   getDraftBundle: vi.fn(),
+  getLatestPendingDraftBundle: vi.fn(),
+  getLatestPendingDraftEvent: vi.fn(),
   confirmDraftBundle: vi.fn(),
   rejectDraftBundle: vi.fn(),
   applyDraftBundleModifications: vi.fn(),
@@ -49,6 +51,8 @@ vi.mock('@/lib/supabase', () => ({
   createEventsBulk: mocks.createEventsBulk,
   createDraftBundle: mocks.createDraftBundle,
   getDraftBundle: mocks.getDraftBundle,
+  getLatestPendingDraftBundle: mocks.getLatestPendingDraftBundle,
+  getLatestPendingDraftEvent: mocks.getLatestPendingDraftEvent,
   confirmDraftBundle: mocks.confirmDraftBundle,
   rejectDraftBundle: mocks.rejectDraftBundle,
   applyDraftBundleModifications: mocks.applyDraftBundleModifications,
@@ -117,6 +121,8 @@ describe('pipeline draft bundle flow', () => {
     mocks.generateDashboardLink.mockResolvedValue({ success: false, link: null });
     mocks.logAIInteraction.mockResolvedValue(undefined);
     mocks.generateResponseWithFallback.mockResolvedValue('fallback');
+    mocks.getLatestPendingDraftBundle.mockResolvedValue(null);
+    mocks.getLatestPendingDraftEvent.mockResolvedValue(null);
   });
 
   it('creates a draft bundle for multi-event medium-confidence extraction', async () => {
@@ -213,5 +219,30 @@ describe('pipeline draft bundle flow', () => {
     expect(mocks.applyDraftBundleModifications).toHaveBeenCalled();
     expect(result.response.text).toContain('16:30');
     expect(result.response.buttons?.map((b) => b.id)).toEqual(['confirm', 'modify', 'discard']);
+  });
+
+  it('recovers pending bundle when state is missing and user sends short reply', async () => {
+    mocks.getLatestPendingDraftBundle.mockResolvedValue({ bundleId: 'bundle-1', eventCount: 2 });
+    mocks.getDraftBundle.mockResolvedValue({
+      bundle: { id: 'bundle-1', household_id: 'house-1', created_by: 'user-1', status: 'pending', reason: 'low_confidence', confidence: 0.6, created_at: '', expires_at: '' },
+      events: [
+        { id: 'd1', bundle_id: 'bundle-1', title: 'Training (Undram)', event_date: '2026-02-09', event_time: '15:00', is_all_day: false, confidence: 0.6, reason: 'low_confidence' },
+      ],
+    });
+    mocks.resolveConfirmationIntent.mockResolvedValue({ intent: 'confirm' });
+    mocks.confirmDraftBundle.mockResolvedValue([
+      { id: 'e1', title: 'Training (Undram)', event_date: '2026-02-09', event_time: '15:00', is_all_day: false },
+    ]);
+
+    const result = await processMessage(buildContext({
+      message: { ...buildContext().message, content: 'ja' },
+      conversationState: { state: 'idle' },
+    }));
+
+    expect(mocks.getLatestPendingDraftBundle).toHaveBeenCalledWith('house-1', 'user-1');
+    expect(mocks.setDraftPendingState).toHaveBeenCalledWith('user-1', 'telegram', 'bundle-1', { isBundle: true });
+    expect(mocks.confirmDraftBundle).toHaveBeenCalledWith('bundle-1', 'house-1', 'user-1');
+    expect(mocks.parseEventWithFallback).not.toHaveBeenCalled();
+    expect(result.eventsCreated).toBe(1);
   });
 });

@@ -68,6 +68,8 @@ export {
   createEventReminder,
   createDraftBundle,
   getDraftBundle,
+  getLatestPendingDraftBundle,
+  getLatestPendingDraftEvent,
   confirmDraftBundle,
   rejectDraftBundle,
   applyDraftBundleModifications,

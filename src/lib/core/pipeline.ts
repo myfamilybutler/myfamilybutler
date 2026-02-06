@@ -33,6 +33,8 @@ import {
   createEventReminder,
   createDraftBundle,
   getDraftBundle,
+  getLatestPendingDraftBundle,
+  getLatestPendingDraftEvent,
   confirmDraftBundle,
   rejectDraftBundle,
   applyDraftBundleModifications,
@@ -41,7 +43,7 @@ import {
 import { detectLanguage, getTemplate, formatDateForLanguage } from '@/lib/ai/response-templates';
 import { logAIInteraction } from '@/lib/ai/logging';
 import type { ChatMessage } from '@/types';
-import type { MessagingChannel } from './types';
+import type { MessagingChannel, Channel } from './types';
 import type { BrainResult } from '@/lib/ai/types';
 import { resolveConfirmationIntent } from '@/lib/ai/confirmation-resolver';
 
@@ -142,6 +144,20 @@ export async function processMessage(context: PipelineContext): Promise<Pipeline
       }
     }
 
+    // Recovery path: if state was lost but user sends short confirmation text,
+    // try to restore latest pending draft for this user.
+    if (
+      conversationState.state === 'idle' &&
+      message.content &&
+      message.householdId &&
+      isLikelyDraftReply(message.content)
+    ) {
+      const recovered = await recoverDraftState(context);
+      if (recovered) {
+        return recovered;
+      }
+    }
+
     const command = message.content ? matchCommand(message.content) : null;
     if (command) {
       return handleCommand(command, context);
@@ -193,6 +209,7 @@ async function handleStatefulFlow(
 
   switch (conversationState.state) {
     case 'draft_pending':
+    case 'awaiting_confirmation': // legacy compatibility
       return handleDraftPending(context, content);
 
     case 'awaiting_undo':
@@ -216,8 +233,52 @@ async function handleDraftPending(
   const draftBundleId = conversationState.draftBundleId;
   const legacyDraftId = conversationState.draftEventId;
 
-  // Need draft reference and household to proceed
-  if ((!draftBundleId && !legacyDraftId) || !message.householdId) {
+  if (!message.householdId) {
+    await clearConversationState(message.userId, message.channel);
+    return {
+      response: {
+        text: lang === 'de'
+          ? 'Entschuldigung, ich konnte den Entwurf nicht zuordnen. Bitte erstelle den Termin erneut.'
+          : 'Sorry, I could not map the draft. Please create the event again.',
+        metadata: { language: lang, shouldLog: true },
+      },
+      eventsCreated: 0,
+      success: false,
+      latencyMs: Date.now() - startTime,
+    };
+  }
+
+  // Need draft reference to proceed
+  if (!draftBundleId && !legacyDraftId) {
+    const recovered = await recoverDraftReference(message.userId, message.channel, message.householdId);
+    if (recovered) {
+      if (recovered.type === 'bundle') {
+        return handleDraftPending(
+          {
+            ...context,
+            conversationState: {
+              ...conversationState,
+              state: 'draft_pending',
+              draftBundleId: recovered.id,
+            },
+          },
+          content
+        );
+      }
+
+      return handleDraftPending(
+        {
+          ...context,
+          conversationState: {
+            ...conversationState,
+            state: 'draft_pending',
+            draftEventId: recovered.id,
+          },
+        },
+        content
+      );
+    }
+
     await clearConversationState(message.userId, message.channel);
     return {
       response: {
@@ -1066,6 +1127,66 @@ async function handleMediumConfidenceEvents(
     success: false,
     latencyMs: Date.now() - startTime,
   };
+}
+
+function isLikelyDraftReply(content: string): boolean {
+  const lower = content.toLowerCase().trim();
+  if (lower.length === 0 || lower.length > 40) {
+    return false;
+  }
+
+  const signals = [
+    'ja', 'yes', 'ok', 'okay', 'sure', 'passt',
+    'no', 'nein', 'nope', 'cancel', 'abbrechen',
+    'confirm', 'reject', 'discard', 'modify', 'edit', 'ändern',
+  ];
+
+  return signals.some((signal) => lower === signal || lower.includes(signal));
+}
+
+async function recoverDraftReference(
+  userId: string,
+  channel: MessagingChannel | Channel,
+  householdId: string
+): Promise<{ type: 'bundle' | 'event'; id: string } | null> {
+  const pendingBundle = await getLatestPendingDraftBundle(householdId, userId);
+  if (pendingBundle) {
+    await setDraftPendingState(userId, channel, pendingBundle.bundleId, { isBundle: true });
+    return { type: 'bundle', id: pendingBundle.bundleId };
+  }
+
+  const pendingDraft = await getLatestPendingDraftEvent(householdId, userId);
+  if (pendingDraft) {
+    await setDraftPendingState(userId, channel, pendingDraft.draftId);
+    return { type: 'event', id: pendingDraft.draftId };
+  }
+
+  return null;
+}
+
+async function recoverDraftState(context: PipelineContext): Promise<PipelineResult | null> {
+  const { message, conversationState } = context;
+  if (!message.householdId) {
+    return null;
+  }
+
+  const recovered = await recoverDraftReference(message.userId, message.channel, message.householdId);
+  if (!recovered) {
+    return null;
+  }
+
+  return handleDraftPending(
+    {
+      ...context,
+      conversationState: {
+        ...conversationState,
+        state: 'draft_pending',
+        draftBundleId: recovered.type === 'bundle' ? recovered.id : undefined,
+        draftEventId: recovered.type === 'event' ? recovered.id : undefined,
+      },
+    },
+    message.content?.toLowerCase().trim() || ''
+  );
 }
 
 // Legacy export for backward compatibility

@@ -570,6 +570,81 @@ export async function getDraftBundle(
 }
 
 /**
+ * Get latest pending draft bundle created by a user.
+ * Used as recovery path if conversation state is missing.
+ */
+export async function getLatestPendingDraftBundle(
+  householdId: string,
+  createdBy: string
+): Promise<{ bundleId: string; eventCount: number } | null> {
+  const admin = getAdminClient();
+
+  try {
+    const { data: bundle, error: bundleError } = await admin
+      .from('draft_bundles')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('created_by', createdBy)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (bundleError || !bundle?.id) {
+      return null;
+    }
+
+    const { count, error: countError } = await admin
+      .from('draft_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('bundle_id', bundle.id)
+      .eq('household_id', householdId)
+      .eq('status', 'pending');
+
+    if (countError || !count || count <= 0) {
+      return null;
+    }
+
+    return { bundleId: bundle.id, eventCount: count };
+  } catch (err) {
+    console.error('[DraftBundle] Error recovering latest pending bundle:', err);
+    return null;
+  }
+}
+
+/**
+ * Get latest pending legacy draft event created by a user.
+ */
+export async function getLatestPendingDraftEvent(
+  householdId: string,
+  createdBy: string
+): Promise<{ draftId: string } | null> {
+  const admin = getAdminClient();
+
+  try {
+    const { data, error } = await admin
+      .from('draft_events')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('created_by', createdBy)
+      .is('bundle_id', null)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data?.id) {
+      return null;
+    }
+
+    return { draftId: data.id };
+  } catch (err) {
+    console.error('[DraftEvent] Error recovering latest pending draft:', err);
+    return null;
+  }
+}
+
+/**
  * Confirm all pending events in a draft bundle and create real events.
  * Atomic behavior at app layer: if not all events can be created, roll back created events.
  */
