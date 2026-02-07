@@ -2,121 +2,119 @@
 
 Canonical engineering rules for AI-assisted development in this repository.
 
+This rulebook is aligned with the shared baseline at `AI_GLOBAL_RULES.md` (workspace root) and defines MyFamilyButler-specific constraints.
+
 ## Scope
 
-This rulebook defines standards for:
+This file governs:
 
 - AI-assisted code generation and edits
 - Concurrency and race-condition safety
-- Error handling and resilience
-- Build/lint/test quality gates
-- Documentation consistency and security hygiene
+- Security and secret hygiene
+- Quality gates (lint/build/test)
+- Documentation consistency
 
-If any other document conflicts with this file, this file is the source of truth.
+If another project doc conflicts with this file, this file is the source of truth.
+
+## Tech Stack Reality
+
+- Framework: Next.js 16
+- Backend: Supabase
+- Async jobs: Inngest
+- AI: Gemini (`gemini-3-flash-preview`) with OpenAI fallback (`gpt-4o-mini`)
+- Channels: WhatsApp, Telegram, 360dialog
+
+## Canonical Ownership
+
+- Product overview and links: `README.md`
+- Runtime architecture: `docs/ARCHITECTURE.md`
+- Developer patterns: `docs/DEVELOPER_GUIDE.md`
+- Security controls and incident notes: `docs/SECURITY.md`
+- Channel behavior and operations: `docs/MESSAGING_CHANNELS.md`
+- This rulebook: `docs/AI_TOOLING_RULEBOOK.md`
+
+Avoid duplicating normative rules across docs. Link to canonical docs.
 
 ## Always
 
-- Use `supabase/migrations/` as the canonical migration directory.
-- Use atomic DB operations (`RPC`, `UPSERT`, unique constraints, row locks) for shared-state writes.
-- Use idempotency keys for async/retried workflows.
-- Validate AI outputs with Zod before applying side effects.
+- Use `supabase/migrations/` as the canonical migration path.
+- Use DB-enforced atomic operations for shared-state writes (RPC, unique constraints, locks, upsert).
+- Use idempotency keys for retried async workflows.
+- Validate AI outputs with Zod before side effects.
 - Verify webhook authenticity before processing payloads.
-- Normalize identities through `src/lib/supabase/identity.ts` (phone in E.164, normalized email).
-- Keep AI prompts centralized in `src/lib/ai/prompts.ts` and `src/lib/ai/agents/vision-agent.ts`.
-- Treat tokens/secrets as sensitive data and keep them out of docs/commits.
-- Run `npm run lint`, `npm run build`, and `npm test -- --run` before shipping major changes.
+- Normalize identities using canonical identity utilities.
+- Keep prompts centralized in `src/lib/ai/prompts.ts` and `src/lib/ai/agents/vision-agent.ts`.
+- Keep model names consistent across docs and code (`gemini-3-flash-preview`, `gpt-4o-mini`).
+- Run quality gates before shipping meaningful behavior changes.
 
 ## Never
 
-- Never rely on in-memory maps for critical distributed guarantees (dedup, global rate-limit, ordering).
-- Never bypass signature checks in production webhooks.
-- Never store plaintext secrets in docs, examples, or tracked config.
+- Never rely on in-memory structures for distributed correctness.
+- Never bypass signature checks in production webhook paths.
+- Never commit plaintext secrets, private IDs, or live credentials in docs.
 - Never add schema-changing SQL outside canonical migrations.
-- Never swallow errors silently for critical workflows (auth, payments, message delivery, sync).
-- Never update docs with aspirational architecture without marking it as proposal/planned.
+- Never silently swallow critical workflow errors (auth, delivery, sync, persistence).
+- Never document planned behavior as active implementation.
 
 ## Concurrency Rules
 
-### Message Ingestion
+### Message ingestion
 
-- Deduplicate using DB uniqueness (`processed_messages`), not process memory.
-- Queueing and sync processing must not cause duplicate side effects.
-- If dual path exists (queue + immediate), idempotency and dedup are mandatory.
+- Dedup via DB constraints (not process memory).
+- If multiple paths can process the same message, idempotency and dedup are mandatory.
 
 ### Reminders
 
-- Claim due reminders atomically with `FOR UPDATE SKIP LOCKED` or equivalent claim RPC.
-- Complete by claim token to prevent cross-worker completion races.
+- Claim due reminders atomically (`FOR UPDATE SKIP LOCKED` or equivalent claim RPC).
+- Complete by claim token or equivalent ownership guard.
 
-### Event Writes
+### Event writes
 
 - Use unique fingerprints for create dedup.
-- Use optimistic locking (`version`) for updates that can race.
+- Use optimistic locking (`version`) when concurrent updates are possible.
 
-### Google Sync
+### Google sync and token flows
 
-- Use distributed locks in DB for cross-instance sync exclusion.
-- Keep in-memory in-flight maps only as local optimization, not correctness layer.
-
-### Token Flows
-
-- Consume magic/email tokens atomically in a single DB update.
-- Short grace windows for browser prefetch are acceptable, but must be time-bounded.
+- Use distributed lock semantics for cross-instance exclusion.
+- Consume one-time tokens atomically in a single DB operation.
+- Any grace window must be explicitly bounded and documented.
 
 ## Error Handling Matrix
 
-- `Webhook verification`: fail closed in production.
-- `Rate limit service unavailable`: fail open only for non-security-critical user paths; log loudly.
-- `AI parse failure`: fallback provider, then safe user-facing retry message.
-- `External sync failure`: non-blocking for core user action; log and retry path.
-- `DB write conflict`: handle explicitly (retry, return existing, or conflict response).
+- Webhook verification failure: fail closed in production.
+- Rate-limit service unavailable: fail open only for non-security-critical paths; log loudly.
+- AI parse failure: fallback provider, then safe retry message.
+- External sync failure: non-blocking for core user action; log and retry.
+- DB conflict/write contention: explicit retry or conflict response.
 
 ## Quality Gates
 
 Minimum expected status:
 
-- Lint: zero errors; warnings are tracked and intentionally accepted.
-- Build: successful production `next build`.
-- Tests: all tests pass.
+- Lint: zero errors
+- Build: successful `next build`
+- Tests: all tests pass
 
-Current baseline (2026-02-06):
+Standard commands:
 
-- `npm run lint`: pass with 1 warning (`src/components/dashboard/today-widget.tsx`, unused var).
-- `npm run build`: pass.
-- `npm test -- --run`: pass (1 file, 2 tests).
+- `npm run lint`
+- `npm run build`
+- `npm test -- --run`
 
-## Consistency Rules
+## Documentation Gate (Required)
 
-- Keep model names consistent across docs and code (`gemini-3-flash-preview`, `gpt-4o-mini`).
-- Keep docs paths accurate (`docs/...` links from root README).
-- Keep provider names consistent (`whatsapp_business`, `telegram`, `360dialog`).
-- Keep API behavior statements aligned with implementation (for example, account-enumeration claims).
-- Use one canonical terminology per concept ("Gateway", "Pipeline", "Brain", "Identity Resolution").
+Major changes require docs updates in the same change.
 
-## Documentation Update Rules
+Definition of major change:
 
-Documentation is a release gate for major changes.
+- Architecture/runtime flow
+- Data model/migration/constraint/RPC behavior
+- AI provider/model/prompt/fallback strategy
+- Auth/session/token/security behavior
+- Public API/webhook/onboarding behavior
+- Concurrency guarantees (dedup, locking, idempotency, ordering)
 
-### Definition of Major Change
-
-Any change affecting one or more of these areas is major:
-
-- Architecture/runtime flow (Gateway, Pipeline, Brain, queues, retries)
-- Data model, migrations, constraints, or DB RPC behavior
-- AI providers/models/prompts/fallback strategy
-- Auth/session/token/identity/security behavior
-- Public API contract, webhook behavior, or onboarding flow
-- Concurrency guarantees (dedup, locking, ordering, idempotency)
-
-### Mandatory Policy
-
-- Major changes must include documentation updates in the same PR.
-- If docs are intentionally deferred, PR must include `DOCS_DEFERRED` with owner and due date (max 24h).
-- "Code-only" merges are not allowed for major changes.
-
-### PR Documentation Gate (Required)
-
-Every PR must include this checklist section:
+Required checklist:
 
 ```md
 ## Documentation Gate
@@ -127,74 +125,83 @@ Every PR must include this checklist section:
 - [ ] I updated concurrency/race-condition notes when behavior changed
 ```
 
-### Multi-Lens Major-Change Review (Required)
+## Multi-Role Review Gate (Required for Major Changes)
 
-For every major change, AI-assisted review must be performed across these lenses:
+Major changes include new features, major refactors, core/shared component changes, and architecture changes.
 
-- Senior auditor (security, privacy, compliance, abuse resistance)
-- UI/UX expert (clarity, usability, accessibility, mobile behavior)
-- Project manager (scope risk, rollout risk, operational readiness)
-- Senior frontend engineer (hooks correctness, render performance, a11y)
-- AI systems expert (prompt safety, fallback behavior, eval impact)
+Required lenses:
 
-Required review sequence:
+- Senior auditor (security/privacy/abuse resistance)
+- UI/UX expert (clarity/accessibility/mobile behavior)
+- Senior frontend engineer (hooks/render/performance)
+- Senior backend engineer (data correctness/concurrency/API behavior)
+- Project manager (scope/rollout/operational risk)
+- Architect (system boundaries/source-of-truth decisions)
+- Performance engineer (latency/render cost/query efficiency)
+- AI systems expert (prompt safety/fallback/eval impact)
 
-1. `Pass A - Audit`: identify bugs, race conditions, N+1 patterns, hook issues, and doc drift.
-2. `Pass B - Fix`: implement prioritized fixes.
-3. `Pass C - Re-Audit`: re-review from a different lens ordering and verify no regressions.
+Required sequence:
 
-For major changes, PRs must include this checklist section:
+1. Pass A - Audit
+2. Pass B - Fix
+3. Pass C - Re-audit from different lens order
+4. Repeat Pass B and Pass C until no Critical/High findings remain
+
+Required artifact:
+
+- Maintain a review report using `docs/MULTI_ROLE_REVIEW_TEMPLATE.md`.
+- Keep findings mapped to IDs through Pass A/B/C loops.
+- Record final decision and follow-up owners/dates.
+
+Severity policy:
+
+- Critical/High: must be fixed before merge
+- Medium: fix now or track with owner and due date
+- Low: backlog allowed with rationale
+
+Required checklist:
 
 ```md
-## Multi-Lens Review Gate
-- [ ] Pass A completed (Auditor, UI/UX, PM, Frontend, AI)
+## Multi-Role Review Gate
+- [ ] Pass A completed (Auditor, UI/UX, Frontend, Backend, PM, Architect, Performance, AI)
 - [ ] Pass B fixes implemented
 - [ ] Pass C re-audit completed from a different viewpoint order
+- [ ] No Critical/High findings remain
 - [ ] Race conditions reviewed
 - [ ] N+1 query/write patterns reviewed
 - [ ] React hooks dependency and stale closure risks reviewed
 ```
 
-### Canonical Ownership
+## Documentation Drift Prevention
 
-- `README.md`: product-level overview and entry links only
-- `docs/ARCHITECTURE.md`: runtime/data-flow/source-of-truth architecture
-- `docs/AI_TOOLING_RULEBOOK.md`: engineering rules and delivery standards
-- `docs/SECURITY.md`: security model, controls, incident contact
-- `docs/MESSAGING_CHANNELS.md`: channel-specific behavior and operational differences
-
-Avoid duplicating normative rules across files. Link back to canonical docs.
-
-### Drift Prevention Cadence
-
-- Monthly: 30-minute docs drift review for critical docs above.
-- Release day: quick link/model/path verification pass.
+- Monthly: docs drift review for canonical docs.
+- Release day: quick pass for links/model names/file paths.
 - Post-incident: update relevant docs within 24h.
 
-- Update these files together when behavior changes:
-  - `README.md`
-  - `docs/ARCHITECTURE.md`
-  - `docs/DEVELOPER_GUIDE.md`
-  - `docs/PROJECT_INFO.md`
-  - `docs/SECURITY.md`
-  - `docs/MESSAGING_CHANNELS.md`
-  - `docs/AI_TOOLING_RULEBOOK.md`
-- Mark proposal-only content explicitly as "Planned" or "Design".
-- Add a "Last updated" date when major behavior changes.
+When behavior changes, evaluate all of:
+
+- `README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DEVELOPER_GUIDE.md`
+- `docs/PROJECT_INFO.md`
+- `docs/SECURITY.md`
+- `docs/MESSAGING_CHANNELS.md`
+- `docs/AI_TOOLING_RULEBOOK.md`
 
 ## Security Documentation Hygiene
 
-- Use placeholders in setup docs (`<token>`, `<phone_id>`), never real values.
-- Do not include internal project/org IDs from deployment metadata.
-- Keep incident contact current in `docs/SECURITY.md`.
+- Use placeholders in setup docs (`<token>`, `<phone_id>`, `<project_id>`).
+- Do not include real account/project identifiers.
+- Keep security contact current in `docs/SECURITY.md`.
 
-## Recommended Follow-up Fixes (Code)
+## Template Notes (for Other Projects)
 
-- Normalize `check_rate_limit` RPC result handling in `src/lib/core/rate-limit.ts` to match Supabase return shape.
-- Enforce one migration location and move or deprecate `src/lib/supabase/migrations/*`.
-- Decide on Telegram webhook processing strategy (queue-only vs sync-only) and document exact idempotency guarantee.
-- Implement explicit sequence enforcement if per-user ordering is required end-to-end.
+This file is used as a template baseline for other repos. When adapting:
+
+- Keep only framework-relevant rules (do not copy webhook/inngest rules blindly).
+- Preserve core sections (Always/Never, Concurrency, Quality Gates, Doc Gate).
+- Replace runtime-specific details with project-specific ownership and commands.
 
 ---
 
-Last updated: 2026-02-06
+Last updated: 2026-02-07

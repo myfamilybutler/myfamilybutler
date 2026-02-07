@@ -262,7 +262,8 @@ E2E_TEST_PASSWORD=DevTest2024!Secure
 
 - Follow `AI_TOOLING_RULEBOOK.md` for mandatory doc updates on major changes
 - Include a "Documentation Gate" checklist in every PR
-- Include a "Multi-Lens Review Gate" for major changes (Pass A audit, Pass B fix, Pass C re-audit)
+- Include a "Multi-Role Review Gate" for major changes (Pass A audit, Pass B fix, Pass C re-audit loops until no Critical/High findings remain)
+- Use `docs/MULTI_ROLE_REVIEW_TEMPLATE.md` for major-change review reports
 - Keep rule statements centralized (link to canonical docs instead of duplicating)
 - Update `Last updated` timestamp in each doc touched by behavior changes
 
