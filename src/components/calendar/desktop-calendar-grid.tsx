@@ -189,6 +189,31 @@ export function DesktopCalendarGrid({
     }
     return event.end_date;
   }, []);
+
+  const getEventPillLayoutClasses = useCallback(
+    (event: CalendarEvent, dayStr: string) => {
+      const eventEndDate = getEventEndDate(event);
+      const isMultiDay = eventEndDate > event.event_date;
+
+      if (!isMultiDay) {
+        return "mx-1.5 sm:mx-2 rounded-md";
+      }
+
+      const isStartSegment = dayStr === event.event_date;
+      const isEndSegment = dayStr === eventEndDate;
+
+      if (isStartSegment) {
+        return "ml-1.5 sm:ml-2 -mr-px rounded-l-md rounded-r-none";
+      }
+
+      if (isEndSegment) {
+        return "-ml-px mr-1.5 sm:mr-2 rounded-r-md rounded-l-none";
+      }
+
+      return "-mx-px rounded-none";
+    },
+    [getEventEndDate]
+  );
   
   // Locale-aware week day names
   const weekDays = useMemo(() => {
@@ -290,24 +315,16 @@ export function DesktopCalendarGrid({
                   </div>
                   
                   {/* Events */}
-                  <div className="pb-1 space-y-0.5">
-                    {visibleEvents.map((event) => {
-                      const eventEndDate = getEventEndDate(event);
-                      const isMultiDay = eventEndDate > event.event_date;
-                      const isStartSegment = dayStr === event.event_date;
-                      const isEndSegment = dayStr === eventEndDate;
-
-                      return (
+                  <div className="pb-1.5 space-y-1">
+                    {visibleEvents.map((event) => (
                       <HoverCard key={event.id} openDelay={200}>
                         <HoverCardTrigger asChild>
                           <button
                             className={cn(
                               "w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
                               "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
-                              isMultiDay ? "relative z-10" : "mx-1 rounded-md",
-                              isMultiDay && isStartSegment && "ml-1 -mr-px rounded-l-md rounded-r-none",
-                              isMultiDay && !isStartSegment && !isEndSegment && "-mx-px rounded-none",
-                              isMultiDay && isEndSegment && "-ml-px mr-1 rounded-r-md rounded-l-none",
+                              "relative z-10",
+                              getEventPillLayoutClasses(event, dayStr),
                               getMemberColor(event.family_member)
                             )}
                             onClick={(e) => handleEventClick(event, e)}
@@ -378,14 +395,14 @@ export function DesktopCalendarGrid({
                           </div>
                         </HoverCardContent>
                       </HoverCard>
-                    )})}
+                    ))}
                     
                     {/* Overflow indicator */}
                     {overflowCount > 0 && (
                       <button
                         type="button"
                         onClick={(e) => handleMoreEventsClick(day, e)}
-                        className="text-xs text-muted-foreground font-medium px-1.5 hover:text-foreground transition-colors"
+                        className="text-xs text-muted-foreground font-medium px-1.5 sm:px-2 hover:text-foreground transition-colors"
                       >
                         +{overflowCount} {t('calendar.more')}
                       </button>
@@ -407,8 +424,8 @@ export function DesktopCalendarGrid({
         <div className="bg-card">{calendarContent}</div>
       ) : (
         // Standalone mode: full Card with header
-        <Card className="bg-card border-border">
-          <CardHeader className="border-b-0">
+        <Card className="bg-card border-border overflow-hidden gap-0 py-0">
+          <CardHeader className="py-4">
             <div className="flex items-center justify-between">
               {/* Month navigation */}
               <div className="flex items-center gap-1">
