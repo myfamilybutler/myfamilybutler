@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 import { getMemberColorPresentation } from "@/lib/utils/ui-helpers"
 import type { ReactNode } from "react"
 
-type FamilyMemberBadgeSize = "xs" | "sm" | "default" | "lg"
+export type FamilyMemberBadgeSize = "xs" | "sm" | "default" | "lg"
 
 interface FamilyMemberBadgeProps {
   name: string

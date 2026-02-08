@@ -5,14 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Mail, ArrowRight, Loader2, ArrowLeft, CheckCircle, AlertCircle, Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth-store';
 import { APP_LINKS } from '@/lib/config';
+import { requestEmailLoginLink } from '@/lib/auth/email-login';
 
 // Dev-only password login form component
 function DevLoginForm() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,10 +41,10 @@ function DevLoginForm() {
         useAuthStore.getState().setDbUser(data.user);
         router.push('/dashboard');
       } else {
-        setError(data.error || 'Login failed');
+        setError(data.error || t('auth.devLogin.failed'));
       }
     } catch {
-      setError('Network error');
+      setError(t('common.networkError'));
     } finally {
       setLoading(false);
     }
@@ -53,18 +56,18 @@ function DevLoginForm() {
         <div className="flex items-center gap-2">
           <Lock className="w-4 h-4 text-destructive" />
           <CardTitle className="text-sm font-bold text-destructive">
-            DEV ONLY - Password Login
+            {t('auth.devLogin.title')}
           </CardTitle>
         </div>
         <CardDescription className="text-xs text-destructive/90">
-          This form only works in development mode
+          {t('auth.devLogin.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-2">
         <form onSubmit={handleDevLogin} className="space-y-3">
           <Input
             type="email"
-            placeholder="test@myfamilybutler.test"
+            placeholder={t('auth.devLogin.emailPlaceholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="h-10 text-sm"
@@ -72,7 +75,7 @@ function DevLoginForm() {
           />
           <Input
             type="password"
-            placeholder="Password"
+            placeholder={t('auth.devLogin.passwordPlaceholder')}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="h-10 text-sm"
@@ -90,7 +93,7 @@ function DevLoginForm() {
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              'Dev Login'
+              t('auth.devLogin.submit')
             )}
           </Button>
         </form>
@@ -102,6 +105,7 @@ function DevLoginForm() {
 // Separate component for content that uses searchParams
 function LoginContent() {
   const router = useRouter();
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuthStore();
   const [email, setEmail] = useState('');
@@ -130,21 +134,17 @@ function LoginContent() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/email-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await res.json();
-
+      const data = await requestEmailLoginLink(email);
       if (data.success) {
         setEmailSent(true);
       } else {
-        setError(data.error || 'Failed to send login link');
+        const message = data.status === 429
+          ? t('auth.login.rateLimited')
+          : t('auth.login.sendLinkFailed');
+        setError(message);
       }
     } catch {
-      setError('Network error. Please try again.');
+      setError(t('auth.login.networkErrorRetry'));
     } finally {
       setLoading(false);
     }
@@ -153,7 +153,7 @@ function LoginContent() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -164,7 +164,7 @@ function LoginContent() {
       <header className="p-6">
         <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          Zurück zur Startseite
+          {t('auth.login.backToHome')}
         </Link>
       </header>
 
@@ -178,14 +178,14 @@ function LoginContent() {
         >
           <Card className="border-border shadow-lg">
             <CardHeader className="text-center pb-2">
-              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-8 h-8 text-emerald-600" />
+              <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-8 h-8 text-primary" />
               </div>
               <CardTitle className="text-2xl font-bold text-foreground">
-                Dashboard Login
+                {t('auth.login.title')}
               </CardTitle>
               <CardDescription className="text-muted-foreground">
-                Wir senden dir einen Login-Link per Email
+                {t('auth.login.description')}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
@@ -194,8 +194,8 @@ function LoginContent() {
                 <div className="mb-4 p-3 bg-destructive/10 border border-destructive/25 rounded-lg flex items-center gap-2 text-destructive text-sm">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   {urlError === 'invalid_or_expired'
-                    ? 'Link ungültig oder abgelaufen. Bitte neuen Link anfordern.'
-                    : 'Login fehlgeschlagen. Bitte erneut versuchen.'}
+                    ? t('auth.login.invalidOrExpired')
+                    : t('auth.login.loginFailed')}
                 </div>
               )}
 
@@ -205,39 +205,38 @@ function LoginContent() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-center py-6"
                 >
-                  <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-emerald-600" />
+                  <div className="w-16 h-16 bg-primary/15 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-primary" />
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">
-                    Email gesendet!
+                    {t('auth.login.emailSentTitle')}
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                    Prüfe dein Postfach bei <strong>{email}</strong>
-                    <br />und klicke auf den Login-Link.
+                    {t('auth.login.emailSentMessage', { email })}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Der Link ist 30 Minuten gültig.
+                    {t('auth.login.emailSentValidity')}
                   </p>
                   <Button
                     variant="outline"
                     className="mt-6"
                     onClick={() => { setEmailSent(false); setEmail(''); }}
                   >
-                    Andere Email verwenden
+                    {t('auth.login.useAnotherEmail')}
                   </Button>
                 </motion.div>
               ) : (
                 <form onSubmit={handleEmailLogin} className="space-y-4">
                   <div className="space-y-2">
                     <label htmlFor="email" className="text-sm font-medium text-foreground">
-                      Email-Adresse
+                      {t('auth.login.emailLabel')}
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
-                        placeholder="deine@email.com"
+                        placeholder={t('auth.login.emailPlaceholder')}
                         value={email}
                         onChange={(e) => { setEmail(e.target.value); setError(''); }}
                         className="pl-11 h-12"
@@ -266,11 +265,11 @@ function LoginContent() {
                     {loading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Wird gesendet...
+                        {t('auth.login.sendingLink')}
                       </>
                     ) : (
                       <>
-                        Login-Link senden
+                        {t('auth.login.sendLink')}
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
@@ -280,10 +279,10 @@ function LoginContent() {
 
                 <div className="mt-6 pt-6 border-t border-border text-center space-y-4">
                 <div className="text-sm text-muted-foreground">
-                  <p className="mb-2">Noch kein Konto?</p>
+                  <p className="mb-2">{t('auth.login.noAccount')}</p>
                   <div className="flex flex-col gap-2">
                     <p>
-                      Starte auf{' '}
+                      {t('auth.login.startOnWhatsApp')}{' '}
                       <a
                         href={APP_LINKS.whatsappLink}
                         className="text-primary hover:underline font-medium"
@@ -291,12 +290,12 @@ function LoginContent() {
                         WhatsApp
                       </a>
                     </p>
-                    <span className="text-xs text-muted-foreground">- oder -</span>
+                    <span className="text-xs text-muted-foreground">{t('auth.login.or')}</span>
                     <Link 
                       href={`/register${searchParams.get('returnUrl') ? `?returnUrl=${searchParams.get('returnUrl')}` : ''}`}
                       className="text-primary hover:underline font-medium"
                     >
-                      Mit Email registrieren
+                      {t('auth.login.registerWithEmail')}
                     </Link>
                   </div>
                 </div>
@@ -305,13 +304,13 @@ function LoginContent() {
           </Card>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Mit der Anmeldung akzeptierst du unsere{' '}
+            {t('auth.login.acceptTermsPrefix')}{' '}
             <Link href="/terms" className="text-primary hover:underline">
-              AGB
+              {t('auth.login.terms')}
             </Link>{' '}
-            und{' '}
+            {t('auth.login.acceptTermsAnd')}{' '}
             <Link href="/privacy" className="text-primary hover:underline">
-              Datenschutzerklärung
+              {t('auth.login.privacy')}
             </Link>
           </p>
 
@@ -330,7 +329,7 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     }>
       <LoginContent />

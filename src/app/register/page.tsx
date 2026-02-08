@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Loader2, ArrowLeft, UserPlus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getSupabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user, loading: authLoading } = useAuthStore();
   const [email, setEmail] = useState('');
@@ -34,13 +36,13 @@ export default function RegisterPage() {
 
     // Validate passwords match
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('auth.register.passwordsDoNotMatch'));
       return;
     }
 
     // Validate password strength
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError(t('auth.register.passwordMinLength'));
       return;
     }
 
@@ -93,14 +95,12 @@ export default function RegisterPage() {
     } catch (err) {
       console.error('Error signing up:', err);
       
-      let errorMessage = 'Failed to create account. Please try again.';
+      let errorMessage = t('auth.register.createFailed');
       if (err instanceof Error) {
         if (err.message.includes('already registered')) {
-          errorMessage = 'This email is already registered. Try logging in instead.';
+          errorMessage = t('auth.register.alreadyRegistered');
         } else if (err.message.includes('weak_password')) {
-          errorMessage = 'Please use a stronger password.';
-        } else {
-          errorMessage = err.message;
+          errorMessage = t('auth.register.weakPassword');
         }
       }
       
@@ -113,7 +113,7 @@ export default function RegisterPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/50">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -124,7 +124,7 @@ export default function RegisterPage() {
       <header className="p-6">
         <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          {t('auth.register.backToHome')}
         </Link>
       </header>
 
@@ -139,21 +139,21 @@ export default function RegisterPage() {
           <Card className="border-border shadow-lg">
             <CardHeader className="text-center pb-2">
               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-colors ${
-                success ? 'bg-emerald-500' : 'bg-blue-100 dark:bg-blue-500/20'
+                success ? 'bg-primary' : 'bg-primary/15'
               }`}>
                 {success ? (
-                  <UserPlus className="w-8 h-8 text-white" />
+                  <UserPlus className="w-8 h-8 text-primary-foreground" />
                 ) : (
-                  <UserPlus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  <UserPlus className="w-8 h-8 text-primary" />
                 )}
               </div>
               <CardTitle className="text-2xl font-bold text-foreground">
-                {success ? 'Account Created!' : 'Create Account'}
+                {success ? t('auth.register.successTitle') : t('auth.register.title')}
               </CardTitle>
               <CardDescription className="text-muted-foreground">
                 {success 
-                  ? 'Redirecting you to complete setup...' 
-                  : 'Join MyFamilyButler to manage your family schedule'
+                  ? t('auth.register.successDescription')
+                  : t('auth.register.description')
                 }
               </CardDescription>
             </CardHeader>
@@ -162,14 +162,14 @@ export default function RegisterPage() {
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
                     <label htmlFor="email" className="text-sm font-medium text-foreground">
-                      Email
+                      {t('auth.register.emailLabel')}
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
-                        placeholder="you@example.com"
+                        placeholder={t('auth.register.emailPlaceholder')}
                         value={email}
                         onChange={(e) => { setEmail(e.target.value); setError(''); }}
                         className="pl-11 h-12"
@@ -181,14 +181,14 @@ export default function RegisterPage() {
 
                   <div className="space-y-2">
                     <label htmlFor="password" className="text-sm font-medium text-foreground">
-                      Password
+                      {t('auth.register.passwordLabel')}
                     </label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <Input
                         id="password"
                         type="password"
-                        placeholder="At least 6 characters"
+                        placeholder={t('auth.register.passwordPlaceholder')}
                         value={password}
                         onChange={(e) => { setPassword(e.target.value); setError(''); }}
                         className="pl-11 h-12"
@@ -201,14 +201,14 @@ export default function RegisterPage() {
 
                   <div className="space-y-2">
                     <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
-                      Confirm Password
+                      {t('auth.register.confirmPasswordLabel')}
                     </label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <Input
                         id="confirmPassword"
                         type="password"
-                        placeholder="Confirm your password"
+                        placeholder={t('auth.register.confirmPasswordPlaceholder')}
                         value={confirmPassword}
                         onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
                         className="pl-11 h-12"
@@ -237,11 +237,11 @@ export default function RegisterPage() {
                     {loading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Creating account...
+                        {t('auth.register.submitting')}
                       </>
                     ) : (
                       <>
-                        Create Account
+                        {t('auth.register.submit')}
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
@@ -249,16 +249,16 @@ export default function RegisterPage() {
                 </form>
               ) : (
                 <div className="flex justify-center py-4">
-                  <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               )}
 
               {!success && (
                 <div className="mt-6 text-center">
                   <p className="text-sm text-muted-foreground">
-                    Already have an account?{' '}
+                    {t('auth.register.alreadyHaveAccount')}{' '}
                     <Link href="/login" className="text-primary hover:underline font-medium">
-                      Sign in
+                      {t('auth.register.signIn')}
                     </Link>
                   </p>
                 </div>
@@ -267,13 +267,13 @@ export default function RegisterPage() {
           </Card>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            By continuing, you agree to our{' '}
+            {t('auth.register.continuePrefix')}{' '}
             <Link href="/terms" className="text-primary hover:underline">
-              Terms of Service
+              {t('auth.register.terms')}
             </Link>{' '}
-            and{' '}
+            {t('auth.register.continueAnd')}{' '}
             <Link href="/privacy" className="text-primary hover:underline">
-              Privacy Policy
+              {t('auth.register.privacy')}
             </Link>
           </p>
         </motion.div>

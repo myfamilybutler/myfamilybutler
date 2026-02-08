@@ -167,6 +167,13 @@ Before merging UI work, verify:
    - Not allowed: static spacing/shape/color declarations that should be classes/tokens.
 4. Light/dark styles are token-based.
    - Prefer semantic Tailwind tokens over ad-hoc hardcoded colors in feature components.
+5. Family member identity UI is shared.
+   - Use `src/components/ui/family-member-row.tsx` for row-based member pickers/lists.
+   - Use `src/components/ui/family-member-badge.tsx` for member chips/badges.
+6. Type ownership is domain-first.
+   - Import member/user/data types from store/domain modules, not from presentational component exports.
+7. Layered hover UI is portal-safe.
+   - Tooltips/hover previews in calendar overlays must render via portal primitives (`HoverCard`/`Popover`) and remain above overlay z-layers.
 
 ## 7. Middleware & Auth
 

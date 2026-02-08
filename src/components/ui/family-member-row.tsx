@@ -1,9 +1,7 @@
 import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
-import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
+import { FamilyMemberBadge, type FamilyMemberBadgeSize } from '@/components/ui/family-member-badge';
 import { cn } from '@/lib/utils';
-
-type FamilyMemberBadgeSize = 'xs' | 'sm' | 'default' | 'lg';
 
 interface FamilyMemberRowProps {
   name: string;
@@ -75,4 +73,3 @@ export function FamilyMemberRow({
 
   return <div className={rowClassName}>{content}</div>;
 }
-

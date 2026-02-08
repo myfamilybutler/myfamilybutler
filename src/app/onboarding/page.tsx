@@ -35,28 +35,28 @@ export default function OnboardingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'create',
-          name: familyName || 'My Family'
+          name: familyName || t('onboarding.defaultFamilyName')
         })
       });
 
       const data = await res.json();
 
       if (res.ok && data.success) {
-        toast.success(t('onboarding.familyCreated', 'Family created successfully!'));
+        toast.success(t('onboarding.familyCreated'));
         // Force refresh to update user state
         window.location.href = '/dashboard';
       } else {
         // If user already has a family (race condition or pre-assigned), redirect
         if (data.error === 'User already has a family') {
-          toast.success(t('onboarding.familyExists', 'You already have a family. Redirecting...'));
+          toast.success(t('onboarding.familyExists'));
           window.location.href = '/dashboard';
           return;
         }
-        toast.error(data.error || 'Failed to create family');
+        toast.error(data.error || t('onboarding.createError'));
       }
     } catch (error) {
       console.error('Create family error:', error);
-      toast.error('Network error');
+      toast.error(t('onboarding.networkError'));
     } finally {
       setLoading(false);
     }
@@ -69,18 +69,18 @@ export default function OnboardingPage() {
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
             <Users className="w-6 h-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Create Your Family</CardTitle>
+          <CardTitle className="text-2xl">{t('onboarding.createTitle')}</CardTitle>
           <CardDescription>
-            Set up your household to start managing tasks and events together.
+            {t('onboarding.createDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateFamily} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="familyName">Family Name</Label>
+              <Label htmlFor="familyName">{t('onboarding.familyName')}</Label>
               <Input
                 id="familyName"
-                placeholder="e.g. The Smiths"
+                placeholder={t('onboarding.familyNamePlaceholder')}
                 value={familyName}
                 onChange={(e) => setFamilyName(e.target.value)}
                 required
@@ -91,11 +91,11 @@ export default function OnboardingPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  {t('onboarding.creating')}
                 </>
               ) : (
                 <>
-                  Get Started
+                  {t('onboarding.submit')}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </>
               )}

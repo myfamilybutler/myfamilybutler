@@ -24,6 +24,7 @@ export interface FamilyMember {
   color?: string;
   is_household_admin?: boolean;
   phone_number?: string;
+  linked_email?: string;
   display_name?: string;
 }
 
@@ -113,6 +114,7 @@ export const useFamilyStore = create<FamilyStore>()(
                   name,
                   display_name: user.display_name,
                   phone_number: user.phone_number,
+                  linked_email: user.linked_email,
                   is_household_admin: user.is_household_admin
                 });
               }

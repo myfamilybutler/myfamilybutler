@@ -30,8 +30,9 @@ import { ColorPicker } from '@/components/settings/color-picker';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
 import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
+import type { FamilyMember } from '@/stores/family-store';
 
-import { FamilyMembersList, type FamilyMember } from '@/components/dashboard/family-members-list';
+import { FamilyMembersList } from '@/components/dashboard/family-members-list';
 
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 import { useFamilyData } from '@/stores/family-store';
@@ -326,7 +327,7 @@ export default function SettingsPage() {
                   ) : (
                     <Button size="touch" className="w-full sm:w-auto" onClick={() => router.push('/onboarding')}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Create Family
+                      {t('settings.createFamily')}
                     </Button>
                   )}
                 </CardHeader>
@@ -439,7 +440,7 @@ export default function SettingsPage() {
           onOpenChange={setDeleteAccountDialog}
           title={t('settings.deleteAccountTitle')}
           description={t('settings.deleteAccountDesc')}
-          confirmText="DELETE"
+          confirmText={t('common.delete')}
           onConfirm={handleDeleteAccount}
           loading={actionLoading}
         />
@@ -450,7 +451,7 @@ export default function SettingsPage() {
           onOpenChange={setDeleteFamilyDialog}
           title={t('settings.deleteFamilyTitle')}
           description={t('settings.deleteFamilyDesc')}
-          confirmText="DELETE"
+          confirmText={t('common.delete')}
           onConfirm={handleDeleteFamily}
           loading={actionLoading}
         />
@@ -514,7 +515,7 @@ export default function SettingsPage() {
           }}
           title={t('settings.deleteMemberTitle')}
           description={t('settings.deleteMemberDesc', { name: selectedMember?.name })}
-          confirmText="DELETE"
+          confirmText={t('common.delete')}
           onConfirm={handleDeleteMember}
           loading={actionLoading}
         />

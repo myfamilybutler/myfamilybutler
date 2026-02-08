@@ -4,21 +4,10 @@ import { Crown, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FamilyMemberRow } from '@/components/ui/family-member-row';
 import { useTranslation } from 'react-i18next';
+import type { FamilyMember as StoreFamilyMember } from '@/stores/family-store';
 
-interface FamilyUser {
-  id: string;
-  display_name?: string;
-  phone_number?: string;
-  linked_email?: string;
-  color?: string;
-  is_household_admin?: boolean;  // Household owner, not super admin
-}
-
-interface FamilyMember {
-  id: string;
-  name: string;
-  color?: string; // HEX color code
-}
+type FamilyMember = StoreFamilyMember;
+type FamilyUser = StoreFamilyMember;
 
 interface FamilyMembersListProps {
   users: FamilyUser[];

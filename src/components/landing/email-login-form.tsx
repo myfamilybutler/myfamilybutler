@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 import { Mail, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { requestEmailLoginLink } from '@/lib/auth/email-login';
 
 export function EmailLoginForm() {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [emailSent, setEmailSent] = useState(false);
     const [emailLoading, setEmailLoading] = useState(false);
@@ -19,21 +22,17 @@ export function EmailLoginForm() {
         setEmailError('');
 
         try {
-            const res = await fetch('/api/auth/email-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
-
-            const data = await res.json();
-
+            const data = await requestEmailLoginLink(email);
             if (data.success) {
                 setEmailSent(true);
             } else {
-                setEmailError(data.error || 'Failed to send login link');
+                const message = data.status === 429
+                    ? t('auth.login.rateLimited')
+                    : t('auth.login.sendLinkFailed');
+                setEmailError(message);
             }
         } catch {
-            setEmailError('Network error. Please try again.');
+            setEmailError(t('auth.login.networkErrorRetry'));
         } finally {
             setEmailLoading(false);
         }
@@ -41,9 +40,9 @@ export function EmailLoginForm() {
 
     if (emailSent) {
         return (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 max-w-md mx-auto dark:bg-emerald-500/10 dark:border-emerald-500/30">
-                <p className="text-emerald-700 dark:text-emerald-300 font-medium">
-                    ✓ Login-Link gesendet! Prüfe dein Email-Postfach.
+            <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 max-w-md mx-auto">
+                <p className="text-primary font-medium">
+                    {`✓ ${t('auth.login.emailSentBanner')}`}
                 </p>
             </div>
         );
@@ -56,7 +55,7 @@ export function EmailLoginForm() {
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
                         type="email"
-                        placeholder="deine@email.com"
+                        placeholder={t('auth.login.emailPlaceholder')}
                         value={email}
                         onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
                         className="pl-11 h-12"
@@ -73,7 +72,7 @@ export function EmailLoginForm() {
                     ) : (
                         <>
                             <Mail className="w-4 h-4 mr-2" />
-                            Login-Link senden
+                            {t('auth.login.sendLink')}
                         </>
                     )}
                 </Button>

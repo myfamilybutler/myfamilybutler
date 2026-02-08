@@ -542,7 +542,7 @@ export function DesktopCalendarGrid({
 
                     {/* Timed events and overflow */}
                     <div
-                      className="relative z-10 px-1 pb-2 space-y-1"
+                      className="relative z-30 px-1 pb-2 space-y-1"
                       style={{
                         paddingTop: `${weekMaxBarDepth * BAR_STACK_OFFSET + 2}px`,
                       }}
@@ -555,7 +555,7 @@ export function DesktopCalendarGrid({
                             <HoverCardTrigger asChild>
                               <button
                                 className={cn(
-                                  "relative z-20 w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs",
+                                  "relative z-40 w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs",
                                   "rounded-md border border-transparent hover:bg-muted/70 hover:border-border/70",
                                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
                                 )}

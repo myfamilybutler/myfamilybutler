@@ -99,13 +99,17 @@ These are canonical implementation rules for UI consistency and style reuse.
 
 - User-visible strings in React UI must come from i18n dictionaries (`src/lib/locales/*.json`) via `t(...)`.
 - Avoid hardcoded UI copy in components, including labels, placeholders, tooltips, aria-labels, and toast fallback messages.
+- For localized UI changes, add/update keys in both `src/lib/locales/en.json` and `src/lib/locales/de.json` in the same change.
 - Prefer shared UI primitives/components over per-screen variants (for example member identity chips should reuse `src/components/ui/family-member-badge.tsx`).
+- Family member list rows (filter dropdown, settings member list, related selectors) must reuse `src/components/ui/family-member-row.tsx` unless a behavior difference requires a documented exception.
 - Do not duplicate semantic styles across components when a shared token/helper already exists (`src/lib/utils/ui-helpers.ts`).
+- Domain/state types must come from store/domain modules (`src/stores/*`, `src/lib/*`, `src/types/*`), not from presentational component exports.
 - Avoid inline styles for static visual design (spacing, borders, colors). Inline style is allowed only for:
   - runtime animation transforms/motion values
   - measured layout values (dynamic heights/positions)
   - user-defined dynamic colors that cannot be represented by fixed Tailwind classes
 - Light/dark behavior must use semantic tokens (`bg-*`, `text-*`, `border-*` mapped to theme variables) rather than hardcoded mode-specific hex values in feature components.
+- Hover previews/tooltips in dense layered layouts (calendar grids, overlays) must use portal-based primitives and explicit z-index above local overlay layers.
 
 ## Quality Gates
 
