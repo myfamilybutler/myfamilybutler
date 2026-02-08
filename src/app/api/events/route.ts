@@ -49,7 +49,39 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data: events });
+    const rawEvents = events || [];
+    const memberIds = Array.from(
+      new Set(
+        rawEvents
+          .map((event) => event.family_member_id as string | null | undefined)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      )
+    );
+
+    if (memberIds.length === 0) {
+      return NextResponse.json({ success: true, data: rawEvents });
+    }
+
+    const { data: memberRows, error: membersError } = await supabase
+      .from('family_members')
+      .select('id, name')
+      .eq('household_id', user.household_id)
+      .in('id', memberIds);
+
+    if (membersError) {
+      console.error('[API/events] Failed to fetch family member labels:', membersError);
+      return NextResponse.json({ success: true, data: rawEvents });
+    }
+
+    const nameById = new Map((memberRows || []).map((member) => [member.id, member.name]));
+    const hydratedEvents = rawEvents.map((event) => ({
+      ...event,
+      family_member: event.family_member_id
+        ? nameById.get(event.family_member_id) || event.family_member
+        : event.family_member,
+    }));
+
+    return NextResponse.json({ success: true, data: hydratedEvents });
 
   } catch (error) {
     console.error('[API/events] Internal error:', error);

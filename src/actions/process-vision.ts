@@ -16,6 +16,7 @@ import {
   type VisionEvent 
 } from '@/lib/ai/agents/vision-agent';
 import { createEventsBulk } from '@/lib/supabase';
+import { isAmbiguousFamilyMemberName } from '@/lib/utils/family-members';
 
 // ===========================================
 // Types
@@ -233,6 +234,21 @@ export async function processVisionMessage(
       };
     }
 
+    const hasAmbiguousMemberAssignments = extraction.events.some((event) =>
+      isAmbiguousFamilyMemberName(event.family_member)
+    );
+
+    // Guardrail for school letters / schedules that mention multiple children in one label.
+    // Route through draft confirmation instead of auto-saving to avoid confusing badge creation.
+    if (hasAmbiguousMemberAssignments) {
+      return {
+        success: true,
+        events: extraction.events,
+        eventsCreated: 0,
+        documentType: extraction.document_type,
+      };
+    }
+
     // Save events to database
     const createdEvents = await createEventsBulk(
       householdId,
@@ -278,4 +294,3 @@ export async function processVisionMessage(
     };
   }
 }
-

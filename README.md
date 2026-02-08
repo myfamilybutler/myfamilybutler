@@ -106,10 +106,19 @@ Automatic fallback when Gemini fails or is unavailable.
 
 ## Documentation
 
-- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System architecture & data flow
-- [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) - Development guide & patterns
-- [docs/PROJECT_INFO.md](./docs/PROJECT_INFO.md) - Project status & tech stack
-- [docs/AI_TOOLING_RULEBOOK.md](./docs/AI_TOOLING_RULEBOOK.md) - AI tool rules, concurrency, and quality gates
+Start here:
+- [docs/INDEX.md](./docs/INDEX.md) - Canonical documentation map and reading order
+
+Core governance:
+- [docs/AI_TOOLING_RULEBOOK.md](./docs/AI_TOOLING_RULEBOOK.md) - Hard engineering rules and merge gates
+- [docs/AI_OPERATING_MODEL.md](./docs/AI_OPERATING_MODEL.md) - AI delivery loop (build, review, fix, re-audit)
+- [docs/MULTI_ROLE_REVIEW_TEMPLATE.md](./docs/MULTI_ROLE_REVIEW_TEMPLATE.md) - Major-change review artifact
+
+Engineering and operations:
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Runtime boundaries and data flow
+- [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) - Implementation guide and commands
+- [docs/RUNBOOK_SUPABASE_MIGRATIONS.md](./docs/RUNBOOK_SUPABASE_MIGRATIONS.md) - Migration automation and recovery
+- [docs/SECURITY.md](./docs/SECURITY.md) - Security controls and incident flow
 
 ## Scripts
 

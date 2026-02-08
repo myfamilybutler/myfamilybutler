@@ -9,6 +9,20 @@ import type { Event, Reminder } from '@/types';
 import { getAdminClient } from './client';
 import { generateEventFingerprint } from '../sync/event-fingerprint';
 import { pushCreateToGoogle, pushUpdateToGoogle, pushDeleteToGoogle } from '../sync/google-sync-service';
+import { ensureAndResolveFamilyMemberIds } from './family-member-sync';
+import { familyMemberNameKey, normalizeFamilyMemberName } from '@/lib/utils/family-members';
+
+function isMissingFamilyMemberIdColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const code = error.code || '';
+  const message = (error.message || '').toLowerCase();
+  return (
+    code === 'PGRST204' ||
+    code === '42703' ||
+    (message.includes('family_member_id') &&
+      (message.includes('schema cache') || message.includes('column') || message.includes('does not exist')))
+  );
+}
 
 /**
  * Create a new event with deduplication and Google Calendar sync.
@@ -34,6 +48,13 @@ export async function createEvent(
   }
 ): Promise<Event | null> {
   const admin = getAdminClient();
+  const normalizedFamilyMember = eventData.family_member
+    ? normalizeFamilyMemberName(eventData.family_member)
+    : undefined;
+  const memberIdsByKey = await ensureAndResolveFamilyMemberIds(householdId, [normalizedFamilyMember]);
+  const resolvedFamilyMemberId = normalizedFamilyMember
+    ? memberIdsByKey.get(familyMemberNameKey(normalizedFamilyMember)) ?? null
+    : null;
   
   // Generate fingerprint for deduplication
   const fingerprint = generateEventFingerprint({
@@ -42,27 +63,44 @@ export async function createEvent(
     event_time: eventData.event_time,
   });
 
+  const insertPayload = {
+    household_id: householdId,
+    created_by: createdBy,
+    title: eventData.title,
+    event_date: eventData.event_date,
+    end_date: eventData.end_date || eventData.event_date,
+    event_time: eventData.event_time || null,
+    end_time: eventData.end_time || null,
+    is_all_day: eventData.is_all_day,
+    family_member: normalizedFamilyMember || null,
+    family_member_id: resolvedFamilyMemberId,
+    location: eventData.location || null,
+    description: eventData.description || null,
+    source_message_id: eventData.source_message_id || null,
+    event_fingerprint: fingerprint,
+    sync_source: 'local',
+  };
+
   // Try to insert directly (relies on unique constraint for atomicity)
-  const { data, error } = await admin
+  let { data, error } = await admin
     .from('events')
-    .insert({
-      household_id: householdId,
-      created_by: createdBy,
-      title: eventData.title,
-      event_date: eventData.event_date,
-      end_date: eventData.end_date || eventData.event_date,
-      event_time: eventData.event_time || null,
-      end_time: eventData.end_time || null,
-      is_all_day: eventData.is_all_day,
-      family_member: eventData.family_member || null,
-      location: eventData.location || null,
-      description: eventData.description || null,
-      source_message_id: eventData.source_message_id || null,
-      event_fingerprint: fingerprint,
-      sync_source: 'local',
-    })
+    .insert(insertPayload)
     .select()
     .single();
+
+  if (isMissingFamilyMemberIdColumnError(error)) {
+    console.warn('[Event] family_member_id column missing; retrying insert without FK linkage');
+    const fallbackPayload = { ...insertPayload };
+    delete (fallbackPayload as { family_member_id?: string | null }).family_member_id;
+
+    const retry = await admin
+      .from('events')
+      .insert(fallbackPayload)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
   
   // Handle duplicate (unique constraint violation)
   if (error?.code === '23505') {
@@ -74,6 +112,19 @@ export async function createEvent(
       .eq('event_fingerprint', fingerprint)
       .eq('household_id', householdId)
       .single();
+
+    if (
+      existing &&
+      normalizedFamilyMember &&
+      resolvedFamilyMemberId &&
+      !existing.family_member_id
+    ) {
+      await admin
+        .from('events')
+        .update({ family_member_id: resolvedFamilyMemberId })
+        .eq('id', existing.id)
+        .eq('household_id', householdId);
+    }
     
     return existing as Event | null;
   }
@@ -120,8 +171,18 @@ export async function createEventsBulk(
   }
 
   const admin = getAdminClient();
+  const preparedEvents = events.map((eventData) => ({
+    ...eventData,
+    family_member: eventData.family_member
+      ? normalizeFamilyMemberName(eventData.family_member)
+      : undefined,
+  }));
+  const memberIdsByKey = await ensureAndResolveFamilyMemberIds(
+    householdId,
+    preparedEvents.map((event) => event.family_member)
+  );
 
-  const rows = events.map((eventData) => {
+  const rows = preparedEvents.map((eventData) => {
     const fingerprint = generateEventFingerprint({
       title: eventData.title,
       event_date: eventData.event_date,
@@ -138,6 +199,9 @@ export async function createEventsBulk(
       end_time: eventData.end_time || null,
       is_all_day: eventData.is_all_day,
       family_member: eventData.family_member || null,
+      family_member_id: eventData.family_member
+        ? memberIdsByKey.get(familyMemberNameKey(eventData.family_member)) ?? null
+        : null,
       location: eventData.location || null,
       description: eventData.description || null,
       source_message_id: eventData.source_message_id || null,
@@ -146,13 +210,33 @@ export async function createEventsBulk(
     };
   });
 
-  const { data, error } = await admin
+  let { data, error } = await admin
     .from('events')
     .upsert(rows, {
       onConflict: 'household_id,event_fingerprint',
       ignoreDuplicates: true,
     })
     .select('*');
+
+  if (isMissingFamilyMemberIdColumnError(error)) {
+    console.warn('[Event] family_member_id column missing; retrying bulk upsert without FK linkage');
+    const fallbackRows = rows.map((row) => {
+      const next = { ...row };
+      delete (next as { family_member_id?: string | null }).family_member_id;
+      return next;
+    });
+
+    const retry = await admin
+      .from('events')
+      .upsert(fallbackRows, {
+        onConflict: 'household_id,event_fingerprint',
+        ignoreDuplicates: true,
+      })
+      .select('*');
+
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     if (error.code === '42P10') {
@@ -242,6 +326,19 @@ export async function updateEvent(
   expectedVersion?: number  // For optimistic locking
 ): Promise<Event | null> {
   const admin = getAdminClient();
+  let normalizedFamilyMember: string | null | undefined;
+  let resolvedFamilyMemberId: string | null | undefined;
+  if (updates.family_member !== undefined) {
+    normalizedFamilyMember = updates.family_member
+      ? normalizeFamilyMemberName(updates.family_member)
+      : null;
+    if (normalizedFamilyMember) {
+      const memberIdsByKey = await ensureAndResolveFamilyMemberIds(householdId, [normalizedFamilyMember]);
+      resolvedFamilyMemberId = memberIdsByKey.get(familyMemberNameKey(normalizedFamilyMember)) ?? null;
+    } else {
+      resolvedFamilyMemberId = null;
+    }
+  }
   
   // First, get current event with version
   const { data: current, error: fetchError } = await admin
@@ -277,7 +374,10 @@ export async function updateEvent(
   if (updates.event_time !== undefined) updateData.event_time = updates.event_time;
   if (updates.end_time !== undefined) updateData.end_time = updates.end_time;
   if (updates.is_all_day !== undefined) updateData.is_all_day = updates.is_all_day;
-  if (updates.family_member !== undefined) updateData.family_member = updates.family_member;
+  if (updates.family_member !== undefined) {
+    updateData.family_member = normalizedFamilyMember ?? null;
+    updateData.family_member_id = resolvedFamilyMemberId ?? null;
+  }
   if (updates.location !== undefined) updateData.location = updates.location;
   if (updates.description !== undefined) updateData.description = updates.description;
 
@@ -307,7 +407,21 @@ export async function updateEvent(
     ? admin.from('events').update(updateData).eq('id', eventId).eq('household_id', householdId).is('version', null)
     : admin.from('events').update(updateData).eq('id', eventId).eq('household_id', householdId).eq('version', current.version);
     
-  const { data, error } = await versionQuery.select().single();
+  let { data, error } = await versionQuery.select().single();
+
+  if (isMissingFamilyMemberIdColumnError(error) && 'family_member_id' in updateData) {
+    console.warn('[Event] family_member_id column missing; retrying update without FK linkage');
+    const fallbackUpdateData = { ...updateData };
+    delete (fallbackUpdateData as { family_member_id?: string | null }).family_member_id;
+
+    const fallbackVersionQuery = current.version === null || current.version === undefined
+      ? admin.from('events').update(fallbackUpdateData).eq('id', eventId).eq('household_id', householdId).is('version', null)
+      : admin.from('events').update(fallbackUpdateData).eq('id', eventId).eq('household_id', householdId).eq('version', current.version);
+
+    const retry = await fallbackVersionQuery.select().single();
+    data = retry.data;
+    error = retry.error;
+  }
   
   if (error) {
     console.error('Error updating event:', error);

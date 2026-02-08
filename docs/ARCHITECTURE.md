@@ -1,5 +1,9 @@
 # Project Architecture & Status Report
 
+Canonical reading order: `docs/INDEX.md`.
+Execution policy is defined in `docs/AI_TOOLING_RULEBOOK.md` and
+`docs/AI_OPERATING_MODEL.md`.
+
 ## 1. The "Clean" Stack (Active Technology)
 
 _List only the technologies that are CRITICAL. Mark others as "To Deprecate".
@@ -198,4 +202,4 @@ PROVIDER_TELEGRAM_ENABLED=false
 | Phone masking      | PII redacted in logs (`+43***5678`)    |
 | Message truncation | Max 4096 chars to prevent DoS          |
 
-_Last updated: 2026-02-06_
+_Last updated: 2026-02-08_

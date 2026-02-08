@@ -3,7 +3,9 @@
 Complete guide for setting up and onboarding users via all messaging channels.
 
 Execution and safety rules for messaging/concurrency are standardized in
-`AI_TOOLING_RULEBOOK.md`.
+`docs/AI_TOOLING_RULEBOOK.md`.
+
+Canonical reading order: `docs/INDEX.md`.
 
 ## Channel Overview
 
@@ -250,4 +252,4 @@ All channels:
 
 ---
 
-_Last updated: 2026-02-06_
+_Last updated: 2026-02-08_

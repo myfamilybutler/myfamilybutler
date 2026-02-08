@@ -1,12 +1,16 @@
 # Security Documentation
 
+Canonical reading order: `docs/INDEX.md`.
+
 ## Overview
 
 My Family Butler implements security measures appropriate for a consumer-facing
 family app with plans to scale to 10K+ users.
 
 For engineering execution standards (always/never, concurrency patterns, quality
-gates), see `AI_TOOLING_RULEBOOK.md`.
+gates), see `docs/AI_TOOLING_RULEBOOK.md`.
+
+For AI delivery lifecycle and role loops, see `docs/AI_OPERATING_MODEL.md`.
 
 ## Authentication
 
@@ -61,6 +65,8 @@ Used for passwordless login from messaging channels:
 - All secrets in environment variables
 - `.env*` files excluded from git
 - Service role key separated from anon key
+- CI secrets for migration automation are stored in GitHub repository secrets
+  (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`)
 
 ## Threat Model
 
@@ -108,4 +114,4 @@ Used for passwordless login from messaging channels:
 
 For security issues, contact: myfamilybutler@gmail.com
 
-_Last updated: 2026-02-06_
+_Last updated: 2026-02-08_

@@ -4,6 +4,8 @@
 import { getAdminClient } from './client';
 // Use Node's crypto for secure token generation
 import { randomUUID } from 'crypto';
+import { normalizeFamilyMemberName } from '@/lib/utils/family-members';
+import { ensureFamilyMembersForNames } from './family-member-sync';
 
 /**
  * Create a new family and set user as admin
@@ -202,15 +204,24 @@ export async function addFamilyMember(
   name: string
 ): Promise<boolean> {
   const admin = getAdminClient();
+  const normalizedName = normalizeFamilyMemberName(name);
+
+  if (!normalizedName) {
+    return false;
+  }
   
   const { error } = await admin
     .from('family_members')
     .insert({
       household_id: familyId,
-      name
+      name: normalizedName
     });
   
   if (error) {
+    if (error.code === '23505') {
+      // Existing member name for this household; treat as idempotent success.
+      return true;
+    }
     console.error('Error adding family member:', error);
     return false;
   }
@@ -228,8 +239,13 @@ export async function editFamilyMember(
   color?: string
 ): Promise<boolean> {
   const admin = getAdminClient();
+  const normalizedName = normalizeFamilyMemberName(name);
   
-  const updateData: { name: string; color?: string } = { name };
+  if (!normalizedName) {
+    return false;
+  }
+
+  const updateData: { name: string; color?: string } = { name: normalizedName };
   if (color) {
     updateData.color = color;
   }
@@ -241,8 +257,22 @@ export async function editFamilyMember(
     .eq('household_id', familyId); // Security: ensure member belongs to user's family
   
   if (error) {
+    if (error.code === '23505') {
+      return true;
+    }
     console.error('Error editing family member:', error);
     return false;
+  }
+
+  // Keep denormalized event labels in sync for existing assigned events.
+  const { error: eventsUpdateError } = await admin
+    .from('events')
+    .update({ family_member: normalizedName })
+    .eq('household_id', familyId)
+    .eq('family_member_id', memberId);
+
+  if (eventsUpdateError) {
+    console.error('Error syncing event family member labels:', eventsUpdateError);
   }
   
   return true;
@@ -279,17 +309,33 @@ export async function getFamilyMembers(
 ): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; linked_email?: string; is_household_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
   const admin = getAdminClient();
   
-  // Parallel fetch: users and family members at the same time
-  const [usersResult, membersResult] = await Promise.all([
+  // Fetch users and event-level member labels in parallel.
+  const [usersResult, eventMembersResult] = await Promise.all([
     admin
       .from('users')
       .select('id, display_name, phone_number, linked_email, is_household_admin')
       .eq('household_id', familyId),
     admin
-      .from('family_members')
-      .select('id, name, color')
-      .eq('household_id', familyId),
+      .from('events')
+      .select('family_member')
+      .eq('household_id', familyId)
+      .not('family_member', 'is', null),
   ]);
+
+  if (eventMembersResult.error) {
+    console.error('Error fetching event member labels:', eventMembersResult.error);
+  } else {
+    await ensureFamilyMembersForNames(
+      familyId,
+      (eventMembersResult.data ?? []).map((row) => row.family_member)
+    );
+  }
+
+  // Fetch persisted member profiles after sync.
+  const membersResult = await admin
+    .from('family_members')
+    .select('id, name, color')
+    .eq('household_id', familyId);
   
   if (usersResult.error) {
     console.error('Error fetching family users:', usersResult.error);

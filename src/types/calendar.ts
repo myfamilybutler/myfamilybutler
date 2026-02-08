@@ -11,6 +11,7 @@ export interface CalendarEvent {
   end_time?: string;
   is_all_day: boolean;
   family_member?: string;
+  family_member_id?: string;
   location?: string;
   description?: string;
   /** Source of the event: 'app' for local events, 'google' for Google Calendar */

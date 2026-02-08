@@ -54,17 +54,27 @@ export async function GET() {
       
       const { data: events } = await admin
         .from('events')
-        .select('title, event_date, event_time, is_all_day, family_member, location, description, created_at')
+        .select('title, event_date, event_time, is_all_day, family_member, family_member_id, location, description, created_at')
         .eq('household_id', user.household_id);
       
       const { data: familyMembers } = await admin
         .from('family_members')
-        .select('name')
+        .select('id, name')
         .eq('household_id', user.household_id);
+
+      const familyMemberNameById = new Map(
+        (familyMembers || []).map((member) => [member.id, member.name])
+      );
+      const hydratedEvents = (events || []).map((event) => ({
+        ...event,
+        family_member: event.family_member_id
+          ? familyMemberNameById.get(event.family_member_id) || event.family_member
+          : event.family_member,
+      }));
       
       householdData = {
         name: household?.name,
-        events: events || [],
+        events: hydratedEvents,
         familyMembers: familyMembers?.map(m => m.name) || []
       };
     }

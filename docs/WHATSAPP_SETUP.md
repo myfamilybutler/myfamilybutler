@@ -1,6 +1,10 @@
 # WhatsApp Business API Setup
 
-> **Last Updated:** February 6, 2026
+> **Last Updated:** February 8, 2026
+>
+> Canonical reading order: `docs/INDEX.md`.
+>
+> Policy and merge gates live in `docs/AI_TOOLING_RULEBOOK.md`.
 
 ## Current Status
 

@@ -46,6 +46,7 @@ import type { ChatMessage } from '@/types';
 import type { MessagingChannel, Channel } from './types';
 import type { BrainResult } from '@/lib/ai/types';
 import { resolveConfirmationIntent } from '@/lib/ai/confirmation-resolver';
+import { isAmbiguousFamilyMemberName } from '@/lib/utils/family-members';
 
 const COMMANDS = {
   dashboard: ['dashboard', 'link', 'login'],
@@ -844,6 +845,20 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
     }
 
     const confidence = extractionResult.confidence ?? 0.75;
+    const hasAmbiguousMemberAssignments = extractionResult.events.some((event) =>
+      isAmbiguousFamilyMemberName(event.family_member)
+    );
+
+    // Guardrail: avoid auto-save when one extracted event contains multiple names
+    // (e.g., "Anna und Ben") which would create confusing badges/assignments.
+    if (hasAmbiguousMemberAssignments) {
+      return handleMediumConfidenceEvents(
+        extractionResult.events,
+        context,
+        lang,
+        Math.max(confidence, AI_DECISION_THRESHOLDS.draft)
+      );
+    }
 
     if (confidence >= AI_DECISION_THRESHOLDS.save) {
       return handleHighConfidenceEvents(extractionResult.events, context, lang);

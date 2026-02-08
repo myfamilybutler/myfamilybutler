@@ -1,207 +1,132 @@
 # AI Tooling Rulebook
 
-Canonical engineering rules for AI-assisted development in this repository.
-
-This rulebook is aligned with the shared baseline at `AI_GLOBAL_RULES.md` (workspace root) and defines MyFamilyButler-specific constraints.
+Canonical engineering policy for AI-assisted development in this repository.
 
 ## Scope
 
 This file governs:
+- code generation/edit behavior
+- data integrity and concurrency rules
+- migration and CI policy
+- security and secret hygiene
+- quality gates and documentation gate
 
-- AI-assisted code generation and edits
-- Concurrency and race-condition safety
-- Security and secret hygiene
-- Quality gates (lint/build/test)
-- Documentation consistency
+If another project doc conflicts with this file, this file wins.
 
-If another project doc conflicts with this file, this file is the source of truth.
+## Rule Inheritance
 
-## Tech Stack Reality
+- Workspace baseline: `/Users/nominchuluun/dev/AI_GLOBAL_RULES.md`
+- Project-specific execution policy: this file
+- Conflict rule: stricter rule wins
 
-- Framework: Next.js 16
-- Backend: Supabase
-- Async jobs: Inngest
-- AI: Gemini (`gemini-3-flash-preview`) with OpenAI fallback (`gpt-4o-mini`)
-- Channels: WhatsApp, Telegram, 360dialog
+This repository must remain self-contained. AI agents should rely on committed
+project docs first (`docs/INDEX.md`), then optionally use workspace baseline.
 
 ## Canonical Ownership
 
-- Product overview and links: `README.md`
-- Runtime architecture: `docs/ARCHITECTURE.md`
+- Rulebook and gates: `docs/AI_TOOLING_RULEBOOK.md`
+- AI operating lifecycle: `docs/AI_OPERATING_MODEL.md`
+- Runtime architecture boundaries: `docs/ARCHITECTURE.md`
 - Developer patterns: `docs/DEVELOPER_GUIDE.md`
-- Security controls and incident notes: `docs/SECURITY.md`
-- Channel behavior and operations: `docs/MESSAGING_CHANNELS.md`
-- This rulebook: `docs/AI_TOOLING_RULEBOOK.md`
+- Security controls: `docs/SECURITY.md`
+- Messaging runbook: `docs/MESSAGING_CHANNELS.md`
+- Migration operations runbook: `docs/RUNBOOK_SUPABASE_MIGRATIONS.md`
+- Multi-role review artifact: `docs/MULTI_ROLE_REVIEW_TEMPLATE.md`
 
-Avoid duplicating normative rules across docs. Link to canonical docs.
+Avoid duplicating policy text across docs. Link to canonical sections.
 
 ## Always
 
-- Use `supabase/migrations/` as the canonical migration path.
-- Use DB-enforced atomic operations for shared-state writes (RPC, unique constraints, locks, upsert).
-- Use idempotency keys for retried async workflows.
+- Keep migration SQL only in `supabase/migrations/`.
+- Use unique migration versions (`YYYYMMDDHHMMSS_description.sql`).
+- Use DB-enforced atomic operations for shared writes.
+- Use idempotency keys/guards for retried async flows.
 - Validate AI outputs with Zod before side effects.
-- Verify webhook authenticity before processing payloads.
-- Normalize identities using canonical identity utilities.
-- Keep prompts centralized in `src/lib/ai/prompts.ts` and `src/lib/ai/agents/vision-agent.ts`.
-- Keep model names consistent across docs and code (`gemini-3-flash-preview`, `gpt-4o-mini`).
-- Run quality gates before shipping meaningful behavior changes.
+- Verify webhook authenticity in production.
+- Keep prompts centralized in AI prompt modules.
+- Keep docs and implementation aligned in the same PR.
 
 ## Never
 
-- Never rely on in-memory structures for distributed correctness.
-- Never bypass signature checks in production webhook paths.
-- Never commit plaintext secrets, private IDs, or live credentials in docs.
-- Never add schema-changing SQL outside canonical migrations.
-- Never silently swallow critical workflow errors (auth, delivery, sync, persistence).
-- Never document planned behavior as active implementation.
+- Never use in-memory state as correctness source of truth.
+- Never bypass signature checks in production paths.
+- Never commit plaintext secrets or live private identifiers.
+- Never merge behavior changes without doc impact review.
+- Never ship CI steps that require interactive input.
 
-## Concurrency Rules
+## AI Delivery Policy
+
+For all major changes, follow `docs/AI_OPERATING_MODEL.md`:
+- Pass A audit
+- Pass B fix
+- Pass C re-audit (different role order)
+- repeat until no Critical/High findings remain
+
+Required report artifact:
+- `docs/MULTI_ROLE_REVIEW_TEMPLATE.md`
+
+## Concurrency And Data Integrity Rules
 
 ### Message ingestion
+- Deduplication must be DB-backed.
+- Replayed webhook payloads must be safe no-op.
 
-- Dedup via DB constraints (not process memory).
-- If multiple paths can process the same message, idempotency and dedup are mandatory.
+### Reminder/event processing
+- Use claim ownership or lock semantics for due-work execution.
+- Guard concurrent event updates with conflict-safe strategy.
 
-### Reminders
-
-- Claim due reminders atomically (`FOR UPDATE SKIP LOCKED` or equivalent claim RPC).
-- Complete by claim token or equivalent ownership guard.
-
-### Event writes
-
-- Use unique fingerprints for create dedup.
-- Use optimistic locking (`version`) when concurrent updates are possible.
-
-### Google sync and token flows
-
-- Use distributed lock semantics for cross-instance exclusion.
-- Consume one-time tokens atomically in a single DB operation.
-- Any grace window must be explicitly bounded and documented.
-
-## Error Handling Matrix
-
-- Webhook verification failure: fail closed in production.
-- Rate-limit service unavailable: fail open only for non-security-critical paths; log loudly.
-- AI parse failure: fallback provider, then safe retry message.
-- External sync failure: non-blocking for core user action; log and retry.
-- DB conflict/write contention: explicit retry or conflict response.
+### Token and auth flows
+- Consume one-time tokens atomically.
+- Explicitly bound grace windows.
+- Fail closed for security-critical checks.
 
 ## Quality Gates
 
-Minimum expected status:
-
-- Lint: zero errors
-- Build: successful `next build`
-- Tests: all tests pass
-
-Standard commands:
-
+Minimum required:
 - `npm run lint`
 - `npm run build`
 - `npm test -- --run`
 
+If schema/migration changed:
+- verify migration naming rule
+- verify CI workflow passes (`Supabase Migrations`)
+
+## Migration And CI Rules
+
+Primary runbook: `docs/RUNBOOK_SUPABASE_MIGRATIONS.md`
+
+Required:
+- new schema change => new migration file
+- unique 14-digit version format
+- CI uses non-interactive apply command
+- no manual production SQL as normal process
+
+## Security And Secret Hygiene
+
+- Use placeholders in docs (`<token>`, `<project_ref>`, `<phone_id>`).
+- Rotate exposed secrets immediately.
+- Keep runtime secrets in environment stores (Vercel/GitHub Secrets), not files.
+- Treat service-role and access tokens as high-risk credentials.
+
 ## Documentation Gate (Required)
 
-Major changes require docs updates in the same change.
+For behavior changes in architecture/auth/security/data model/AI/CI:
 
-Definition of major change:
+- [ ] I evaluated documentation impact
+- [ ] I updated impacted source-of-truth docs
+- [ ] I updated `Last updated` dates
+- [ ] I verified commands, model names, and file paths
+- [ ] I marked planned behavior clearly as planned
 
-- Architecture/runtime flow
-- Data model/migration/constraint/RPC behavior
-- AI provider/model/prompt/fallback strategy
-- Auth/session/token/security behavior
-- Public API/webhook/onboarding behavior
-- Concurrency guarantees (dedup, locking, idempotency, ordering)
+## Merge Blocking Criteria
 
-Required checklist:
-
-```md
-## Documentation Gate
-- [ ] I evaluated doc impact for this PR
-- [ ] I updated all impacted docs (or this PR is truly no-doc-impact)
-- [ ] I updated "Last updated" dates for changed docs
-- [ ] I verified model/provider names and file paths are accurate
-- [ ] I updated concurrency/race-condition notes when behavior changed
-```
-
-## Multi-Role Review Gate (Required for Major Changes)
-
-Major changes include new features, major refactors, core/shared component changes, and architecture changes.
-
-Required lenses:
-
-- Senior auditor (security/privacy/abuse resistance)
-- UI/UX expert (clarity/accessibility/mobile behavior)
-- Senior frontend engineer (hooks/render/performance)
-- Senior backend engineer (data correctness/concurrency/API behavior)
-- Project manager (scope/rollout/operational risk)
-- Architect (system boundaries/source-of-truth decisions)
-- Performance engineer (latency/render cost/query efficiency)
-- AI systems expert (prompt safety/fallback/eval impact)
-
-Required sequence:
-
-1. Pass A - Audit
-2. Pass B - Fix
-3. Pass C - Re-audit from different lens order
-4. Repeat Pass B and Pass C until no Critical/High findings remain
-
-Required artifact:
-
-- Maintain a review report using `docs/MULTI_ROLE_REVIEW_TEMPLATE.md`.
-- Keep findings mapped to IDs through Pass A/B/C loops.
-- Record final decision and follow-up owners/dates.
-
-Severity policy:
-
-- Critical/High: must be fixed before merge
-- Medium: fix now or track with owner and due date
-- Low: backlog allowed with rationale
-
-Required checklist:
-
-```md
-## Multi-Role Review Gate
-- [ ] Pass A completed (Auditor, UI/UX, Frontend, Backend, PM, Architect, Performance, AI)
-- [ ] Pass B fixes implemented
-- [ ] Pass C re-audit completed from a different viewpoint order
-- [ ] No Critical/High findings remain
-- [ ] Race conditions reviewed
-- [ ] N+1 query/write patterns reviewed
-- [ ] React hooks dependency and stale closure risks reviewed
-```
-
-## Documentation Drift Prevention
-
-- Monthly: docs drift review for canonical docs.
-- Release day: quick pass for links/model names/file paths.
-- Post-incident: update relevant docs within 24h.
-
-When behavior changes, evaluate all of:
-
-- `README.md`
-- `docs/ARCHITECTURE.md`
-- `docs/DEVELOPER_GUIDE.md`
-- `docs/PROJECT_INFO.md`
-- `docs/SECURITY.md`
-- `docs/MESSAGING_CHANNELS.md`
-- `docs/AI_TOOLING_RULEBOOK.md`
-
-## Security Documentation Hygiene
-
-- Use placeholders in setup docs (`<token>`, `<phone_id>`, `<project_id>`).
-- Do not include real account/project identifiers.
-- Keep security contact current in `docs/SECURITY.md`.
-
-## Template Notes (for Other Projects)
-
-This file is used as a template baseline for other repos. When adapting:
-
-- Keep only framework-relevant rules (do not copy webhook/inngest rules blindly).
-- Preserve core sections (Always/Never, Concurrency, Quality Gates, Doc Gate).
-- Replace runtime-specific details with project-specific ownership and commands.
+Block merge if any of the following is true:
+- Critical/High finding unresolved
+- migration policy violated
+- CI quality gates failing
+- security-sensitive behavior undocumented
+- docs and implementation diverge
 
 ---
 
-Last updated: 2026-02-07
+Last updated: 2026-02-08

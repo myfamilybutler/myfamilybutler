@@ -4,7 +4,17 @@ This guide explains the architectural features implemented in `MyFamilyButler`
 and how to use them in your daily development.
 
 Canonical rules for AI tooling, concurrency safety, and quality gates live in
-`AI_TOOLING_RULEBOOK.md`.
+`docs/AI_TOOLING_RULEBOOK.md`.
+
+## 0. Read Order Before Coding
+
+For AI-assisted development, always read in this order:
+
+1. `docs/INDEX.md`
+2. `docs/AI_TOOLING_RULEBOOK.md`
+3. `docs/AI_OPERATING_MODEL.md`
+4. `docs/ARCHITECTURE.md`
+5. This file
 
 ## 1. AI Integration
 
@@ -255,8 +265,14 @@ E2E_TEST_PASSWORD=DevTest2024!Secure
 ## 9.1 Migration Policy
 
 - Canonical migration folder: `supabase/migrations/`
-- Do not add new runtime migrations under `src/lib/supabase/migrations/`
-- If legacy migrations exist in non-canonical paths, consolidate before release
+- Migration filename format is required: `YYYYMMDDHHMMSS_description.sql`
+- Migration versions must be unique (no duplicate numeric prefix)
+- No schema-changing SQL outside migration files
+- Database schema changes are applied through GitHub Actions workflow:
+  - `.github/workflows/supabase-migrations.yml`
+  - command: `supabase db push --linked --yes`
+
+See `docs/RUNBOOK_SUPABASE_MIGRATIONS.md` for recovery and troubleshooting.
 
 ## 9.2 Documentation Workflow (Required)
 
@@ -266,6 +282,7 @@ E2E_TEST_PASSWORD=DevTest2024!Secure
 - Use `docs/MULTI_ROLE_REVIEW_TEMPLATE.md` for major-change review reports
 - Keep rule statements centralized (link to canonical docs instead of duplicating)
 - Update `Last updated` timestamp in each doc touched by behavior changes
+- Keep behavior docs and code changes in the same PR (no delayed documentation)
 
 ## 10. Dev Login for Browser Testing
 
@@ -312,4 +329,4 @@ E2E_TEST_PASSWORD=DevTest2024!Secure
 
 ---
 
-_Last updated: 2026-02-06_
+_Last updated: 2026-02-08_

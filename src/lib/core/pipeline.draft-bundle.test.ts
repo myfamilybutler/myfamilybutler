@@ -147,6 +147,32 @@ describe('pipeline draft bundle flow', () => {
     expect(result.response.buttons?.map((b) => b.id)).toEqual(['confirm', 'modify']);
   });
 
+  it('forces draft confirmation when extracted family_member is ambiguous even at high confidence', async () => {
+    mocks.parseEventWithFallback.mockResolvedValue({
+      events: [
+        {
+          title: 'Schulauffuehrung',
+          event_date: '2026-02-12',
+          event_time: '18:00',
+          is_all_day: false,
+          family_member: 'Anna und Ben',
+        },
+      ],
+      needs_clarification: false,
+      intent_type: 'calendar_event',
+      confidence: 0.92,
+    });
+    mocks.createDraftBundle.mockResolvedValue({ bundleId: 'bundle-ambiguous', eventCount: 1 });
+
+    const result = await processMessage(buildContext());
+
+    expect(mocks.createDraftBundle).toHaveBeenCalledTimes(1);
+    expect(mocks.createEvent).not.toHaveBeenCalled();
+    expect(mocks.createEventsBulk).not.toHaveBeenCalled();
+    expect(result.eventsCreated).toBe(0);
+    expect(result.response.buttons?.map((b) => b.id)).toEqual(['confirm', 'modify']);
+  });
+
   it('confirms whole bundle on short yes reply and does not re-parse', async () => {
     mocks.getDraftBundle.mockResolvedValue({
       bundle: { id: 'bundle-1', household_id: 'house-1', created_by: 'user-1', status: 'pending', reason: 'low_confidence', confidence: 0.6, created_at: '', expires_at: '' },

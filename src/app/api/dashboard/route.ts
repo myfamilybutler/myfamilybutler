@@ -49,7 +49,37 @@ export async function GET() {
         log.error('[API/dashboard] Events fetch error:', eventsError);
         // Don't fail the whole request, just return empty events
       } else {
-        events = eventData || [];
+        const rawEvents = eventData || [];
+        const memberIds = Array.from(
+          new Set(
+            rawEvents
+              .map((event) => event.family_member_id as string | null | undefined)
+              .filter((id): id is string => typeof id === 'string' && id.length > 0)
+          )
+        );
+
+        if (memberIds.length > 0) {
+          const { data: memberRows, error: membersError } = await supabase
+            .from('family_members')
+            .select('id, name')
+            .eq('household_id', user.household_id)
+            .in('id', memberIds);
+
+          if (membersError) {
+            log.error('[API/dashboard] Family member lookup failed:', membersError);
+            events = rawEvents;
+          } else {
+            const nameById = new Map((memberRows || []).map((member) => [member.id, member.name]));
+            events = rawEvents.map((event) => ({
+              ...event,
+              family_member: event.family_member_id
+                ? nameById.get(event.family_member_id) || event.family_member
+                : event.family_member,
+            }));
+          }
+        } else {
+          events = rawEvents;
+        }
       }
     }
 

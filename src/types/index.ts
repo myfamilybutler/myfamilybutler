@@ -87,6 +87,7 @@ export interface Event {
   end_time?: string;
   is_all_day: boolean;
   family_member?: string;
+  family_member_id?: string;
   location?: string;
   description?: string;
   source_message_id?: string;

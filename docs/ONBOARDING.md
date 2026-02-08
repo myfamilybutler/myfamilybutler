@@ -1,9 +1,13 @@
 # Onboarding System Design
 
-> **Last Updated:** 2026-02-06 **Status:** Partially Implemented (Design + Active Implementation)
+> **Last Updated:** 2026-02-08 **Status:** Partially Implemented (Design + Active Implementation)
+>
+> **Document type:** Design/plan (not policy source-of-truth)
 
 > Execution and safety standards for implementation work are defined in
-> `AI_TOOLING_RULEBOOK.md`.
+> `docs/AI_TOOLING_RULEBOOK.md`.
+>
+> Canonical reading order: `docs/INDEX.md`.
 
 ---
 
