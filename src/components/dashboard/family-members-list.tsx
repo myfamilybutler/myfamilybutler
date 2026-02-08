@@ -2,7 +2,7 @@
 
 import { Crown, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
+import { FamilyMemberRow } from '@/components/ui/family-member-row';
 import { useTranslation } from 'react-i18next';
 
 interface FamilyUser {
@@ -10,6 +10,7 @@ interface FamilyUser {
   display_name?: string;
   phone_number?: string;
   linked_email?: string;
+  color?: string;
   is_household_admin?: boolean;  // Household owner, not super admin
 }
 
@@ -41,83 +42,71 @@ export function FamilyMembersList({
   return (
     <div className="space-y-2">
       {/* WhatsApp Users */}
-      {users.map((user) => (
-        <div
-          key={user.id}
-          className="flex items-center justify-between p-3 rounded-xl hover:bg-accent transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <FamilyMemberBadge
-              name={user.display_name || user.phone_number || user.linked_email || t('settings.unknownUser')}
-              size="sm"
-              showDot={false}
-              className="max-w-40"
-            />
-            <div className="flex-1 min-w-0">
-              {user.is_household_admin && (
-                <span className="text-xs text-primary flex items-center gap-1">
-                  <Crown className="w-3 h-3" /> {t('settings.householdAdmin')}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Remove user button (for admins, except self) */}
-          {showActions && isAdmin && !user.is_household_admin && (
+      {users.map((user) => {
+        const displayName = user.display_name || user.phone_number || user.linked_email || t('settings.unknownUser');
+        const rightSlot =
+          showActions && isAdmin && !user.is_household_admin ? (
             <Button
               variant="destructiveGhost"
               size="sm"
-              className="h-10 w-10 p-0"
-              aria-label={t('settings.removeMemberA11y', { name: user.display_name || user.phone_number || user.linked_email || t('settings.unknownUser') })}
-              onClick={() => onDeleteMember?.({ id: user.id, name: user.display_name || user.phone_number || user.linked_email || t('settings.unknownUser') })}
+              className="h-8 w-8 p-0 shrink-0"
+              aria-label={t('settings.removeMemberA11y', { name: displayName })}
+              onClick={() => onDeleteMember?.({ id: user.id, name: displayName })}
             >
               <Trash2 className="w-4 h-4" />
             </Button>
-          )}
-        </div>
-      ))}
+          ) : user.is_household_admin ? (
+            <span className="text-xs text-primary inline-flex items-center gap-1 shrink-0">
+              <Crown className="w-3 h-3" />
+              {t('settings.householdAdmin')}
+            </span>
+          ) : null;
+
+        return (
+          <FamilyMemberRow
+            key={user.id}
+            name={displayName}
+            colorHex={user.color}
+            rightSlot={rightSlot}
+            badgeClassName="max-w-[13rem] sm:max-w-[16rem]"
+          />
+        );
+      })}
 
       {/* Family Members (non-WhatsApp) */}
       {familyMembers.map((member) => {
-        return (
-          <div
-            key={member.id}
-            className="flex items-center justify-between p-3 rounded-xl hover:bg-accent transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <FamilyMemberBadge
-                name={member.name}
-                colorHex={member.color}
+        const rightSlot =
+          showActions && isAdmin ? (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
                 size="sm"
-                showDot={false}
-                className="max-w-40"
-              />
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                aria-label={t('settings.editMemberA11y', { name: member.name })}
+                onClick={() => onEditMember?.(member)}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="destructiveGhost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                aria-label={t('settings.deleteMemberA11y', { name: member.name })}
+                onClick={() => onDeleteMember?.(member)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
-            
-            {/* Edit/Delete buttons - only for admins when showActions is true */}
-            {showActions && isAdmin && (
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-10 w-10 p-0 text-muted-foreground hover:text-primary"
-                  aria-label={t('settings.editMemberA11y', { name: member.name })}
-                  onClick={() => onEditMember?.(member)}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="destructiveGhost"
-                  size="sm"
-                  className="h-10 w-10 p-0"
-                  aria-label={t('settings.deleteMemberA11y', { name: member.name })}
-                  onClick={() => onDeleteMember?.(member)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          </div>
+          ) : null;
+
+        return (
+          <FamilyMemberRow
+            key={member.id}
+            name={member.name}
+            colorHex={member.color}
+            rightSlot={rightSlot}
+            badgeClassName="max-w-[13rem] sm:max-w-[16rem]"
+          />
         );
       })}
 

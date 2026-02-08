@@ -1,10 +1,10 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import { Users, Check } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
+import { FamilyMemberRow } from '@/components/ui/family-member-row';
 import {
   Popover,
   PopoverContent,
@@ -75,28 +75,13 @@ export function FamilyFilter() {
               const isSelected = selectedMembers.includes(member.name);
               
               return (
-                <button
+                <FamilyMemberRow
                   key={member.id}
+                  name={member.name}
+                  colorHex={member.color}
+                  selected={isSelected}
                   onClick={() => toggleMember(member.name)}
-                  className={cn(
-                    'group flex items-center justify-between gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors',
-                    isSelected
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  )}
-                >
-                  <FamilyMemberBadge
-                    name={member.name}
-                    colorHex={member.color}
-                    size="sm"
-                    showDot={false}
-                    className={cn(
-                      'max-w-[9.5rem] transition-opacity',
-                      isSelected ? 'shadow-sm' : 'opacity-70 group-hover:opacity-100'
-                    )}
-                  />
-                  {isSelected && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
-                </button>
+                />
               );
             })}
           </div>
