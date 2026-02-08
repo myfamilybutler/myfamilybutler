@@ -57,6 +57,13 @@ interface DesktopCalendarGridProps {
   onMonthChange?: (month: Date) => void;
 }
 
+interface WeekEventSegment {
+  event: CalendarEvent;
+  lane: number;
+  startIndex: number;
+  endIndex: number;
+}
+
 export function DesktopCalendarGrid({
   events,
   onEventsChanged,
@@ -190,29 +197,121 @@ export function DesktopCalendarGrid({
     return event.end_date;
   }, []);
 
+  // Google-like week lanes: a stable row model per week avoids jitter/overlap and keeps strip continuity correct.
+  const weekLayouts = useMemo(() => {
+    return weeks.map((week) => {
+      const weekDates = week.map((day) => format(day, 'yyyy-MM-dd'));
+      const weekStart = weekDates[0];
+      const weekEnd = weekDates[6];
+
+      const intersectingEvents = filteredEvents
+        .map((event) => {
+          const eventEndDate = getEventEndDate(event);
+          if (eventEndDate < weekStart || event.event_date > weekEnd) {
+            return null;
+          }
+
+          const segmentStart = event.event_date < weekStart ? weekStart : event.event_date;
+          const segmentEnd = eventEndDate > weekEnd ? weekEnd : eventEndDate;
+          const startIndex = weekDates.indexOf(segmentStart);
+          const endIndex = weekDates.indexOf(segmentEnd);
+
+          if (startIndex === -1 || endIndex === -1) {
+            return null;
+          }
+
+          return {
+            event,
+            startIndex,
+            endIndex,
+          };
+        })
+        .filter(
+          (
+            value
+          ): value is {
+            event: CalendarEvent;
+            startIndex: number;
+            endIndex: number;
+          } => Boolean(value)
+        )
+        .sort((a, b) => {
+          if (a.startIndex !== b.startIndex) return a.startIndex - b.startIndex;
+
+          const spanA = a.endIndex - a.startIndex;
+          const spanB = b.endIndex - b.startIndex;
+          if (spanA !== spanB) return spanB - spanA;
+
+          if (a.event.is_all_day && !b.event.is_all_day) return -1;
+          if (!a.event.is_all_day && b.event.is_all_day) return 1;
+
+          const timeA = a.event.event_time || '00:00';
+          const timeB = b.event.event_time || '00:00';
+          const byTime = timeA.localeCompare(timeB);
+          if (byTime !== 0) return byTime;
+
+          return a.event.title.localeCompare(b.event.title);
+        });
+
+      const lanes: Array<Array<{ startIndex: number; endIndex: number }>> = [];
+      const segments: WeekEventSegment[] = [];
+
+      for (const item of intersectingEvents) {
+        let lane = 0;
+        while (true) {
+          const laneOccupancy = lanes[lane] || [];
+          const conflicts = laneOccupancy.some(
+            (occupied) =>
+              !(item.endIndex < occupied.startIndex || item.startIndex > occupied.endIndex)
+          );
+
+          if (!conflicts) {
+            lanes[lane] = [...laneOccupancy, { startIndex: item.startIndex, endIndex: item.endIndex }];
+            segments.push({
+              event: item.event,
+              lane,
+              startIndex: item.startIndex,
+              endIndex: item.endIndex,
+            });
+            break;
+          }
+
+          lane += 1;
+        }
+      }
+
+      const activeByDay = weekDates.map((_, dayIndex) =>
+        segments
+          .filter((segment) => dayIndex >= segment.startIndex && dayIndex <= segment.endIndex)
+          .sort((a, b) => a.lane - b.lane)
+      );
+
+      const visibleByDay = activeByDay.map((daySegments) =>
+        daySegments.filter((segment) => segment.lane < MAX_VISIBLE_EVENTS)
+      );
+
+      const overflowByDay = activeByDay.map((daySegments, dayIndex) =>
+        Math.max(0, daySegments.length - visibleByDay[dayIndex].length)
+      );
+
+      return {
+        visibleByDay,
+        overflowByDay,
+      };
+    });
+  }, [filteredEvents, getEventEndDate, weeks]);
+
   const getEventPillLayoutClasses = useCallback(
-    (event: CalendarEvent, dayStr: string) => {
-      const eventEndDate = getEventEndDate(event);
-      const isMultiDay = eventEndDate > event.event_date;
+    (segment: WeekEventSegment, dayIndex: number) => {
+      const connectLeft = dayIndex > segment.startIndex;
+      const connectRight = dayIndex < segment.endIndex;
 
-      if (!isMultiDay) {
-        return "mx-1.5 sm:mx-2 rounded-md";
-      }
-
-      const isStartSegment = dayStr === event.event_date;
-      const isEndSegment = dayStr === eventEndDate;
-
-      if (isStartSegment) {
-        return "ml-1.5 sm:ml-2 -mr-px rounded-l-md rounded-r-none";
-      }
-
-      if (isEndSegment) {
-        return "-ml-px mr-1.5 sm:mr-2 rounded-r-md rounded-l-none";
-      }
-
-      return "-mx-px rounded-none";
+      if (connectLeft && connectRight) return '-mx-px rounded-none';
+      if (!connectLeft && connectRight) return 'ml-1.5 sm:ml-2 -mr-px rounded-l-md rounded-r-none';
+      if (connectLeft && !connectRight) return '-ml-px mr-1.5 sm:mr-2 rounded-r-md rounded-l-none';
+      return 'mx-1.5 sm:mx-2 rounded-md';
     },
-    [getEventEndDate]
+    []
   );
   
   // Locale-aware week day names
@@ -276,8 +375,9 @@ export function DesktopCalendarGrid({
               const isCurrentMonth = isSameMonth(day, currentMonth);
               const isTodayDate = isToday(day);
               const dayStr = format(day, 'yyyy-MM-dd');
-              const visibleEvents = dayEvents.slice(0, MAX_VISIBLE_EVENTS);
-              const overflowCount = dayEvents.length - MAX_VISIBLE_EVENTS;
+              const weekLayout = weekLayouts[weekIndex];
+              const visibleSegments = weekLayout?.visibleByDay[dayIndex] || [];
+              const overflowCount = weekLayout?.overflowByDay[dayIndex] || 0;
               
               return (
                 <div
@@ -316,30 +416,31 @@ export function DesktopCalendarGrid({
                   
                   {/* Events */}
                   <div className="pb-1.5 space-y-1">
-                    {visibleEvents.map((event) => (
-                      <HoverCard key={event.id} openDelay={200}>
+                    {visibleSegments.map((segment) => (
+                      <HoverCard key={`${segment.event.id}:${dayStr}`} openDelay={200}>
                         <HoverCardTrigger asChild>
                           <button
                             className={cn(
                               "w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
                               "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
-                              "relative z-10",
-                              getEventPillLayoutClasses(event, dayStr),
-                              getMemberColor(event.family_member)
+                              getEventPillLayoutClasses(segment, dayIndex),
+                              getMemberColor(segment.event.family_member)
                             )}
-                            onClick={(e) => handleEventClick(event, e)}
+                            onClick={(e) => handleEventClick(segment.event, e)}
                           >
                             <span className="flex items-center gap-1 truncate">
                               {/* Urgent indicator for events within 2 hours */}
-                              {isUrgent(event) && (
+                              {isUrgent(segment.event) && (
                                 <AlertCircle className="w-3 h-3 flex-shrink-0 animate-pulse" />
                               )}
-                              {!event.is_all_day && event.event_time && dayStr === event.event_date && (
+                              {!segment.event.is_all_day &&
+                                segment.event.event_time &&
+                                dayStr === segment.event.event_date && (
                                 <span className="font-bold mr-1">
-                                  {formatTime(event.event_time)}
+                                  {formatTime(segment.event.event_time)}
                                 </span>
                               )}
-                              {event.title}
+                              {segment.event.title}
                             </span>
                           </button>
                         </HoverCardTrigger>
@@ -350,45 +451,45 @@ export function DesktopCalendarGrid({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="space-y-2">
-                            <h4 className="font-semibold text-sm">{event.title}</h4>
+                            <h4 className="font-semibold text-sm">{segment.event.title}</h4>
                             
                             {/* Time */}
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <Clock className="w-3.5 h-3.5" />
-                              {event.is_all_day ? (
+                              {segment.event.is_all_day ? (
                                 <span>{t('calendar.allDay')}</span>
                               ) : (
                                 <span>
-                                  {formatTime(event.event_time)}
-                                  {event.end_time && ` - ${formatTime(event.end_time)}`}
+                                  {formatTime(segment.event.event_time)}
+                                  {segment.event.end_time && ` - ${formatTime(segment.event.end_time)}`}
                                 </span>
                               )}
                             </div>
                             
                             {/* Location */}
-                            {event.location && (
+                            {segment.event.location && (
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <MapPin className="w-3.5 h-3.5" />
-                                <span className="truncate">{event.location}</span>
+                                <span className="truncate">{segment.event.location}</span>
                               </div>
                             )}
                             
-                            {event.description && (
+                            {segment.event.description && (
                               <p className="text-xs text-muted-foreground line-clamp-2">
-                                {event.description}
+                                {segment.event.description}
                               </p>
                             )}
                             
-                            {event.family_member && (
+                            {segment.event.family_member && (
                               <div className="flex items-center gap-2 pt-1 border-t">
                                 <span
                                   className={cn(
                                     "w-3 h-3 rounded-full",
-                                    getMemberColor(event.family_member)
+                                    getMemberColor(segment.event.family_member)
                                   )}
                                 />
                                 <span className="text-xs font-medium">
-                                  {event.family_member}
+                                  {segment.event.family_member}
                                 </span>
                               </div>
                             )}
