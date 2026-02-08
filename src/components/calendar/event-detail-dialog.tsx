@@ -13,9 +13,10 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
+import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
 import { Button } from '@/components/ui/button';
 import type { CalendarEvent } from '@/types/calendar';
+import { useFamilyData } from '@/stores/family-store';
 
 interface EventDetailDialogProps {
   event: CalendarEvent | null;
@@ -40,6 +41,7 @@ export function EventDetailDialog({
   onEdit,
 }: EventDetailDialogProps) {
   const { t, i18n } = useTranslation();
+  const { memberColors } = useFamilyData();
 
   if (!event) return null;
 
@@ -102,7 +104,11 @@ export function EventDetailDialog({
           {event.family_member && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
-              <Badge variant="outline" size="sm">{event.family_member}</Badge>
+              <FamilyMemberBadge
+                name={event.family_member}
+                colorHex={memberColors.get(event.family_member)}
+                size="sm"
+              />
             </div>
           )}
 

@@ -12,17 +12,18 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
 import {
   Card,
   CardContent,
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { EditEventDialog } from './edit-event-dialog';
 import { EventDetailDialog } from './event-detail-dialog';
 import type { CalendarEvent } from '@/types/calendar';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/lib/utils';
-import { getMemberColor, getInitials } from '@/lib/utils/ui-helpers';
+import { getMemberColor } from '@/lib/utils/ui-helpers';
+import { useFamilyData } from '@/stores/family-store';
 
 interface DayDetailDialogProps {
   date: Date | null;
@@ -40,6 +41,7 @@ export function DayDetailDialog({
   onEventsChanged,
 }: DayDetailDialogProps) {
   const { t } = useTranslation();
+  const { memberColors } = useFamilyData();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
@@ -92,7 +94,8 @@ export function DayDetailDialog({
             ) : (
               <div className="space-y-3">
                 {events.map((event) => {
-                  const pillColor = getMemberColor(event.family_member);
+                  const memberColor = event.family_member ? memberColors.get(event.family_member) : undefined;
+                  const pillColor = getMemberColor(event.family_member, memberColor);
                   const eventA11yLabel = event.is_all_day
                     ? `${event.title} ${t('calendar.allDay')}`
                     : `${event.title} ${formatTime(event.event_time)}${event.end_time ? ` - ${formatTime(event.end_time)}` : ''}`;
@@ -150,16 +153,12 @@ export function DayDetailDialog({
                             )}
 
                             {event.family_member && (
-                              <div className="flex items-center gap-1.5 shrink-0 bg-muted px-1.5 py-0.5 rounded border border-border">
-                                <Avatar className="h-3.5 w-3.5">
-                                  <AvatarFallback className="text-[8px] bg-muted text-muted-foreground">
-                                    {getInitials(event.family_member)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-[10px] font-medium text-muted-foreground max-w-20 sm:max-w-28 truncate">
-                                  {event.family_member}
-                                </span>
-                              </div>
+                              <FamilyMemberBadge
+                                name={event.family_member}
+                                colorHex={memberColor}
+                                size="xs"
+                                className="max-w-32 sm:max-w-40"
+                              />
                             )}
                           </div>
                         </div>

@@ -1,10 +1,12 @@
 'use client';
 
-import { Clock, MapPin, User } from 'lucide-react';
+import { Clock, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
 import { formatDate } from '@/lib/utils';
 import type { CalendarEvent } from '@/components/calendar/calendar-widget';
+import { useFamilyData } from '@/stores/family-store';
 
 export interface ScheduleWidgetProps {
   events: CalendarEvent[];
@@ -12,6 +14,7 @@ export interface ScheduleWidgetProps {
 
 export function ScheduleWidget({ events }: ScheduleWidgetProps) {
   const { t } = useTranslation();
+  const { memberColors } = useFamilyData();
   const today = new Date();
   const todayEvents = events; // Events are filtered by parent
 
@@ -44,10 +47,12 @@ export function ScheduleWidget({ events }: ScheduleWidgetProps) {
               {(event.family_member || event.location) && (
                 <div className="col-start-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                   {event.family_member && (
-                    <div className="flex items-center gap-1 text-xs text-primary">
-                      <User className="w-3 h-3" />
-                      <span>{event.family_member}</span>
-                    </div>
+                    <FamilyMemberBadge
+                      name={event.family_member}
+                      colorHex={memberColors.get(event.family_member)}
+                      size="xs"
+                      className="max-w-28"
+                    />
                   )}
                   {event.location && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">

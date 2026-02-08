@@ -5,12 +5,11 @@ import { format, parseISO, isBefore, startOfDay, addDays } from 'date-fns';
 import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Hand } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, PanInfo, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { cn, formatTime } from '@/lib/utils';
+import { formatTime } from '@/lib/utils';
 import type { CalendarEvent } from '@/types/calendar';
 import { EditEventDialog } from './edit-event-dialog';
-import { getMemberColor } from '@/lib/utils/ui-helpers';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/lib/utils';
 import { useSelectedMembers } from '@/stores/filter-store';
@@ -161,15 +160,11 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
             </p>
             {event.family_member && (
               <div className="mt-1">
-                <Badge
+                <FamilyMemberBadge
+                  name={event.family_member}
+                  colorHex={memberColors?.get(event.family_member)}
                   size="xs"
-                  className={cn(
-                    'text-white border-transparent',
-                    getMemberColor(event.family_member, memberColors?.get(event.family_member))
-                  )}
-                >
-                  {event.family_member}
-                </Badge>
+                />
               </div>
             )}
           </div>

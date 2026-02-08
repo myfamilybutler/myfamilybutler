@@ -9,10 +9,9 @@
 
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
 import { useFilterStore } from '@/stores/filter-store';
 import { useFamilyData } from '@/stores/family-store';
-import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
@@ -41,26 +40,24 @@ export function ActiveFiltersBar({ className }: ActiveFiltersBarProps) {
           </span>
           
           {selectedMembers.map((memberName) => {
-            const color = memberColors.get(memberName) || DEFAULT_MEMBER_COLOR;
+            const color = memberColors.get(memberName);
             
             return (
-              <Badge
-                asChild
+              <button
+                type="button"
                 key={memberName}
-                variant="outline"
-                size="sm"
-                className="shrink-0 border-border/80 bg-background/70 hover:bg-accent hover:text-foreground"
+                onClick={() => toggleMember(memberName)}
+                title={t('calendar.removeFilter')}
+                className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
               >
-                <button
-                  type="button"
-                  onClick={() => toggleMember(memberName)}
-                  title={t('calendar.removeFilter')}
-                >
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                  <span className="max-w-24 truncate">{memberName}</span>
-                  <X className="w-3 h-3 opacity-70" />
-                </button>
-              </Badge>
+                <FamilyMemberBadge
+                  name={memberName}
+                  colorHex={color}
+                  size="sm"
+                  className="cursor-pointer pr-1.5 shadow-sm"
+                  suffix={<X className="h-3 w-3 opacity-80" />}
+                />
+              </button>
             );
           })}
           

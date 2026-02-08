@@ -9,26 +9,17 @@
 
 import { useState } from 'react';
 import { User, X } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { useFamilyData } from '@/stores/family-store';
 
 interface FamilyMemberSelectorProps {
   value: string;
   onChange: (value: string) => void;
   availableMembers: string[];
-}
-
-type MemberBadgeVariant = 'success' | 'info' | 'secondary' | 'warning';
-
-function getMemberVariant(member: string): MemberBadgeVariant {
-  const lowerMember = member.toLowerCase();
-  if (lowerMember === 'mom' || lowerMember === 'mama' || lowerMember === 'mum') return 'info';
-  if (lowerMember === 'dad' || lowerMember === 'papa') return 'secondary';
-  if (lowerMember.includes('kid') || lowerMember.includes('child')) return 'warning';
-  return 'success';
 }
 
 export function FamilyMemberSelector({
@@ -37,6 +28,7 @@ export function FamilyMemberSelector({
   availableMembers,
 }: FamilyMemberSelectorProps) {
   const [customMember, setCustomMember] = useState('');
+  const { memberColors } = useFamilyData();
 
   const handleSelectMember = (member: string) => {
     onChange(value === member ? '' : member);
@@ -62,24 +54,25 @@ export function FamilyMemberSelector({
             const isSelected = value === member;
             
             return (
-              <Badge
-                asChild
+              <button
+                type="button"
                 key={member}
-                variant={isSelected ? getMemberVariant(member) : 'outline'}
-                size="default"
-                className={cn(
-                  'cursor-pointer',
-                  !isSelected && 'border-border bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
+                onClick={() => handleSelectMember(member)}
+                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
               >
-                <button
-                  type="button"
-                  onClick={() => handleSelectMember(member)}
-                >
-                  {member}
-                  {isSelected && <X className="w-3 h-3 ml-0.5" />}
-                </button>
-              </Badge>
+                <FamilyMemberBadge
+                  name={member}
+                  colorHex={memberColors.get(member)}
+                  size="default"
+                  className={cn(
+                    'cursor-pointer transition-opacity',
+                    isSelected
+                      ? 'ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-sm'
+                      : 'opacity-70 hover:opacity-100'
+                  )}
+                  suffix={isSelected ? <X className="h-3 w-3 opacity-80" /> : undefined}
+                />
+              </button>
             );
           })}
         </div>
@@ -115,7 +108,12 @@ export function FamilyMemberSelector({
       {value && !availableMembers.includes(value) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Selected:</span>
-          <Badge variant="success" size="sm">{value}</Badge>
+          <FamilyMemberBadge
+            name={value}
+            colorHex={memberColors.get(value)}
+            size="sm"
+            showDot={false}
+          />
         </div>
       )}
     </div>

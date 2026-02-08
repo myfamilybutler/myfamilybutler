@@ -9,10 +9,11 @@
 
 import { useMemo } from 'react';
 import { format, parseISO, addDays, startOfDay } from 'date-fns';
-import { MapPin, User, CalendarDays, ChevronRight } from 'lucide-react';
+import { MapPin, CalendarDays, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import type { CalendarEvent } from '@/types/calendar';
 import { useFamilyData } from '@/stores/family-store';
@@ -231,14 +232,11 @@ function DaySectionView({ section, memberColors, onEventClick, t }: DaySectionVi
                     <div className="flex items-center gap-2 mt-0.5">
                       {/* Family Member Badge */}
                       {event.family_member && (
-                        <Badge
+                        <FamilyMemberBadge
+                          name={event.family_member}
+                          colorHex={memberColor}
                           size="xs"
-                          className="text-white border-transparent"
-                          style={{ backgroundColor: memberColor }}
-                        >
-                          <User className="w-2.5 h-2.5" />
-                          {event.family_member}
-                        </Badge>
+                        />
                       )}
                       
                       {/* Location */}

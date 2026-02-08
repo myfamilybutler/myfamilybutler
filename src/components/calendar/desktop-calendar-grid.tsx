@@ -29,6 +29,7 @@ import { motion, PanInfo } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { FamilyMemberBadge } from '@/components/ui/family-member-badge';
 import {
   HoverCard,
   HoverCardContent,
@@ -602,16 +603,12 @@ export function DesktopCalendarGrid({
                                 )}
 
                                 {event.family_member && (
-                                  <div className="flex items-center gap-2 pt-1 border-t">
-                                    <span
-                                      className={cn(
-                                        "w-3 h-3 rounded-full",
-                                        color.dotBg
-                                      )}
+                                  <div className="border-t pt-1">
+                                    <FamilyMemberBadge
+                                      name={event.family_member}
+                                      colorHex={memberColors?.get(event.family_member)}
+                                      size="xs"
                                     />
-                                    <span className="text-xs font-medium">
-                                      {event.family_member}
-                                    </span>
                                   </div>
                                 )}
                               </div>
@@ -716,16 +713,12 @@ export function DesktopCalendarGrid({
                           )}
 
                           {segment.event.family_member && (
-                            <div className="flex items-center gap-2 pt-1 border-t">
-                              <span
-                                className={cn(
-                                  "w-3 h-3 rounded-full",
-                                  color.dotBg
-                                )}
+                            <div className="border-t pt-1">
+                              <FamilyMemberBadge
+                                name={segment.event.family_member}
+                                colorHex={memberColors?.get(segment.event.family_member)}
+                                size="xs"
                               />
-                              <span className="text-xs font-medium">
-                                {segment.event.family_member}
-                              </span>
                             </div>
                           )}
                         </div>
