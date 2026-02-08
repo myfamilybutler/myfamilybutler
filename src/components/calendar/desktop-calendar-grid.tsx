@@ -238,7 +238,7 @@ export function DesktopCalendarGrid({
         {weeks.map((week: Date[], weekIndex: number) => (
           <div 
             key={weekIndex} 
-            className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border last:border-b-0"
+            className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border"
           >
             {/* Week number */}
             <div className="p-2 text-xs font-medium text-muted-foreground text-center border-r border-border bg-muted/20">
@@ -290,23 +290,24 @@ export function DesktopCalendarGrid({
                   </div>
                   
                   {/* Events */}
-                  <div className="px-1 pb-1 space-y-0.5">
-                    {visibleEvents.map((event) => (
+                  <div className="pb-1 space-y-0.5">
+                    {visibleEvents.map((event) => {
+                      const eventEndDate = getEventEndDate(event);
+                      const isMultiDay = eventEndDate > event.event_date;
+                      const isStartSegment = dayStr === event.event_date;
+                      const isEndSegment = dayStr === eventEndDate;
+
+                      return (
                       <HoverCard key={event.id} openDelay={200}>
                         <HoverCardTrigger asChild>
                           <button
                             className={cn(
                               "w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
                               "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
-                              event.end_date && event.end_date > event.event_date && dayStr !== event.event_date && "-ml-px",
-                              event.end_date && event.end_date > event.event_date && dayStr !== getEventEndDate(event) && "-mr-px",
-                              event.end_date && event.end_date > event.event_date
-                                ? dayStr === event.event_date
-                                  ? "rounded-l-md rounded-r-none"
-                                  : dayStr === getEventEndDate(event)
-                                    ? "rounded-r-md rounded-l-none"
-                                    : "rounded-none"
-                                : "rounded-md",
+                              isMultiDay ? "relative z-10" : "mx-1 rounded-md",
+                              isMultiDay && isStartSegment && "ml-1 -mr-px rounded-l-md rounded-r-none",
+                              isMultiDay && !isStartSegment && !isEndSegment && "-mx-px rounded-none",
+                              isMultiDay && isEndSegment && "-ml-px mr-1 rounded-r-md rounded-l-none",
                               getMemberColor(event.family_member)
                             )}
                             onClick={(e) => handleEventClick(event, e)}
@@ -377,7 +378,7 @@ export function DesktopCalendarGrid({
                           </div>
                         </HoverCardContent>
                       </HoverCard>
-                    ))}
+                    )})}
                     
                     {/* Overflow indicator */}
                     {overflowCount > 0 && (
