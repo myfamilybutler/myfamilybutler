@@ -1,6 +1,9 @@
 import withSerwistInit from "@serwist/next";
 import type { NextConfig } from "next";
 
+// Keep CI/build output clean until Serwist has full Turbopack support.
+process.env.SERWIST_SUPPRESS_TURBOPACK_WARNING ??= "1";
+
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",

@@ -6,10 +6,14 @@ Canonical operational runbook for schema changes and migration automation.
 
 - Workflow file: `.github/workflows/supabase-migrations.yml`
 - Trigger:
+  - pull request to `main` affecting `supabase/migrations/**` (validation only)
   - push to `main` affecting `supabase/migrations/**`
   - manual `workflow_dispatch`
 - Apply command in CI:
   - `supabase db push --linked --yes`
+- Validation in CI:
+  - migration filename pattern `YYYYMMDDHHMMSS_description.sql`
+  - monotonic ordering + duplicate version check
 
 Required GitHub Secrets:
 - `SUPABASE_ACCESS_TOKEN`
@@ -35,8 +39,8 @@ Rules:
 
 1. Create a new SQL migration file in `supabase/migrations/` with unique version.
 2. Commit migration with related code changes.
-3. Push to `main`.
-4. Verify GitHub Action `Supabase Migrations` passed.
+3. Open PR and verify GitHub Action `Supabase Migrations` validation job passed.
+4. Merge to `main` and verify migration apply job passed.
 
 ## Recovery Playbook
 
