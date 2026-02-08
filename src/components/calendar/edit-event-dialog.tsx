@@ -182,8 +182,8 @@ export function EditEventDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col gap-0">
+          <DialogHeader className="flex-shrink-0 border-b pb-4">
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="w-5 h-5 text-emerald-600" />
               {t('calendar.editEvent')}
@@ -191,7 +191,7 @@ export function EditEventDialog({
           </DialogHeader>
 
           {/* Scrollable form content */}
-          <div className="flex-1 overflow-y-auto py-4 px-1">
+          <div className="flex-1 overflow-y-auto px-1 py-4">
             {isRecurringInstance && (
               <div className="mb-4 space-y-2">
                 <label className="text-sm font-medium text-foreground">
@@ -239,7 +239,7 @@ export function EditEventDialog({
             )}
           </div>
 
-          <DialogFooter className="flex-shrink-0 flex-col sm:flex-row gap-2 border-t pt-4">
+          <DialogFooter className="flex-shrink-0 flex-col sm:flex-row gap-2 border-t pt-3 sm:pt-4">
             {/* Delete Button - Opens confirmation dialog */}
             <Button
               variant="destructiveOutline"

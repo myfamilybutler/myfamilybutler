@@ -10,6 +10,7 @@ import type { CalendarEvent } from '@/types/calendar';
 import { EditEventDialog } from './edit-event-dialog';
 import { getMemberColor } from '@/lib/utils/ui-helpers';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/lib/utils';
 import { useSelectedMembers } from '@/stores/filter-store';
@@ -91,7 +92,7 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="relative overflow-hidden rounded-xl"
+      className="relative overflow-hidden rounded-xl sm:rounded-2xl"
     >
       <motion.div 
         className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2"
@@ -133,8 +134,8 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
         className="relative bg-muted/50 hover:bg-muted transition-colors cursor-grab active:cursor-grabbing"
         onClick={() => !isDragging && x.get() === 0 && onSelect(event)}
       >
-        <div className="flex items-start gap-3 p-3">
-          <div className="flex-shrink-0 w-20 text-right">
+        <div className="flex items-start gap-3 p-3 sm:p-3.5">
+          <div className="w-16 flex-shrink-0 text-right sm:w-20">
             <span className="text-sm font-semibold text-foreground">
               {event.is_all_day ? t('calendar.allDay') : formatTime(event.event_time)}
             </span>
@@ -147,14 +148,15 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
             </p>
             {event.family_member && (
               <div className="mt-1">
-                <span
+                <Badge
+                  size="xs"
                   className={cn(
-                    'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-white',
+                    'text-white border-transparent',
                     getMemberColor(event.family_member, memberColors?.get(event.family_member))
                   )}
                 >
                   {event.family_member}
-                </span>
+                </Badge>
               </div>
             )}
           </div>

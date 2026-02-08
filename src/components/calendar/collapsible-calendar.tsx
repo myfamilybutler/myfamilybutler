@@ -30,6 +30,9 @@ interface CollapsibleCalendarProps {
   defaultExpanded?: boolean;
 }
 
+const COLLAPSED_GRID_COLUMNS = 'grid-cols-[36px_repeat(7,minmax(0,1fr))]';
+const COLLAPSED_DAY_MIN_HEIGHT = 52;
+
 export function CollapsibleCalendar({
   events,
   onEventsChanged,
@@ -109,9 +112,9 @@ export function CollapsibleCalendar({
   }, [handlePrevWeek, handleNextWeek]);
 
   return (
-    <Card className="border-border shadow-sm overflow-hidden bg-card">
+    <Card className="border-border shadow-sm overflow-hidden bg-card gap-0 py-0">
       {/* Header - consistent layout with navigation */}
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center justify-between w-full gap-2">
           {/* Navigation arrows */}
           <div className="flex items-center gap-0.5">
@@ -155,17 +158,17 @@ export function CollapsibleCalendar({
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="p-0">
         {/* Persistent Week Day Headers */}
         {!isExpanded && (
-          <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/50 -mx-6">
-            <div className="text-center text-[10px] sm:text-xs font-medium text-muted-foreground p-2 border-r border-border flex items-center justify-center">
+          <div className={cn("grid border-b border-border bg-muted/50", COLLAPSED_GRID_COLUMNS)}>
+            <div className="flex items-center justify-center border-r border-border px-2 py-2 text-center text-[11px] font-medium text-muted-foreground sm:text-xs">
               {t('calendar.week')}
             </div>
             {weekDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className="text-center text-[10px] sm:text-xs font-medium text-muted-foreground py-2 uppercase"
+                className="py-2 text-center text-[11px] font-medium uppercase text-muted-foreground sm:text-xs"
               >
                 <span className="hidden sm:inline">{formatDate(day, 'EEE')}</span>
                 <span className="sm:hidden">{formatDate(day, 'EEE').charAt(0)}</span>
@@ -183,13 +186,13 @@ export function CollapsibleCalendar({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: swipeDirection === 'right' ? -30 : 30 }}
               transition={{ duration: 0.15 }}
-              className="touch-pan-y -mx-6"
+              className="touch-pan-y"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.2}
               onDragEnd={handleDragEnd}
             >
-              <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-border">
+              <div className={cn("grid border-b border-border", COLLAPSED_GRID_COLUMNS)}>
                 <div className="flex items-center justify-center text-xs font-medium text-muted-foreground border-r border-border bg-muted/20">
                   {getWeekNumber(weekDays[0])}
                 </div>
@@ -204,10 +207,11 @@ export function CollapsibleCalendar({
                       key={dateStr}
                       onClick={() => handleDayClick(day)}
                       className={cn(
-                        'flex flex-col items-center py-2 transition-colors min-h-[48px] border-r border-border last:border-r-0',
-                        'hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500',
+                        'flex flex-col items-center py-2 transition-colors border-r border-border last:border-r-0',
+                        'hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ring',
                         isSelected && !isTodayDate && 'bg-emerald-500/10',
                       )}
+                      style={{ minHeight: `${COLLAPSED_DAY_MIN_HEIGHT}px` }}
                     >
                       {/* Day number (No day name, already in header) */}
                       <span
@@ -243,7 +247,7 @@ export function CollapsibleCalendar({
                             dayColors.map((color, i) => (
                               <div
                                 key={i}
-                                className="w-[5px] h-[5px] rounded-full"
+                                className="h-1.5 w-1.5 rounded-full"
                                 style={{ backgroundColor: color }}
                               />
                             ))
@@ -254,7 +258,7 @@ export function CollapsibleCalendar({
                             const dateStr = format(d, 'yyyy-MM-dd');
                             return e.event_date === dateStr;
                           }).length > 3 && (
-                            <span className="text-[8px] text-muted-foreground leading-none">+</span>
+                            <span className="text-[9px] text-muted-foreground leading-none">+</span>
                           )}
                         </div>
                       )}
@@ -271,7 +275,7 @@ export function CollapsibleCalendar({
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="-mx-6 -mb-6" // Extend to card edges
+              className="border-t border-border"
             >
               <DesktopCalendarGrid
                 events={events}

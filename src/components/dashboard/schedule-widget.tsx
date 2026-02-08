@@ -16,8 +16,8 @@ export function ScheduleWidget({ events }: ScheduleWidgetProps) {
   const todayEvents = events; // Events are filtered by parent
 
   return (
-    <Card className="h-full border-border shadow-sm">
-      <CardHeader>
+    <Card className="h-full border-border shadow-sm gap-0 py-0">
+      <CardHeader className="border-b px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold text-foreground">
             {t('calendar.today')}
@@ -27,13 +27,13 @@ export function ScheduleWidget({ events }: ScheduleWidgetProps) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-2 px-4 py-3 sm:px-6 sm:py-4">
         {todayEvents.map((event) => (
           <div
             key={event.id}
-            className="p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
+            className="rounded-xl bg-muted/40 p-3 transition-colors hover:bg-muted/70 sm:p-3.5"
           >
-            <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-1">
+            <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-1 sm:grid-cols-[72px_minmax(0,1fr)]">
               <span className="text-sm font-medium text-muted-foreground">
                 {event.is_all_day ? t('calendar.allDay') : (event.end_time ? `${event.event_time} - ${event.end_time}` : event.event_time)}
               </span>

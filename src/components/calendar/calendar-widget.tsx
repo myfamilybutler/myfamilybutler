@@ -28,6 +28,7 @@ import type { CalendarEvent } from '@/types/calendar';
 export type { CalendarEvent } from '@/types/calendar';
 
 const MAX_VISIBLE_EVENTS = 2;
+const CALENDAR_GAP_CLASS = 'gap-0.5 sm:gap-1';
 
 export interface CalendarWidgetProps {
   events: CalendarEvent[];
@@ -188,9 +189,9 @@ export function CalendarWidget({
 
   return (
     <>
-      <Card className={cn("bg-card", className)}>
+      <Card className={cn("bg-card gap-0 py-0", className)}>
         {!hideHeader && (
-        <CardHeader className="border-b-0">
+        <CardHeader className="border-b px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center justify-between">
             {/* Month navigation */}
             <div className="flex items-center gap-1">
@@ -234,10 +235,10 @@ export function CalendarWidget({
           </div>
         </CardHeader>
         )}
-        <CardContent className={cn(hideHeader && "p-0 overflow-hidden")}>
+        <CardContent className={cn("px-4 py-3 sm:px-6 sm:py-4", hideHeader && "p-0 overflow-hidden")}>
           {/* Week day headers */}
           {!hideWeekdays && (
-            <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
+            <div className={cn("mb-2 grid grid-cols-7", CALENDAR_GAP_CLASS)}>
               {weekDays.map((day) => (
                 <div
                   key={day}
@@ -274,7 +275,7 @@ export function CalendarWidget({
                   duration: 0.3 
                 }}
               >
-                <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+                <div className={cn("grid grid-cols-7", CALENDAR_GAP_CLASS)}>
                   {calendarDays.map((day) => {
                     const dayEvents = getEventsForDay(day);
                     const isCurrentMonth = isSameMonth(day, currentMonth);
@@ -287,8 +288,8 @@ export function CalendarWidget({
                         key={day.toISOString()}
                         onClick={() => handleDayClick(day)}
                         className={cn(
-                          'relative min-h-[52px] sm:min-h-[72px] p-0.5 sm:p-1 rounded-lg text-sm transition-colors flex flex-col items-start text-left',
-                          'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1',
+                          'relative min-h-[56px] sm:min-h-[80px] p-1 rounded-lg text-sm transition-colors flex flex-col items-start text-left',
+                          'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
                           !isCurrentMonth && 'opacity-30 bg-muted/50',
                           isTodayDate && 'bg-emerald-50/50 dark:bg-emerald-900/20 ring-1 ring-emerald-200 dark:ring-emerald-800'
                         )}
@@ -296,7 +297,7 @@ export function CalendarWidget({
                         {/* Day number */}
                         <span
                           className={cn(
-                            'text-[11px] sm:text-xs font-medium self-center mb-0.5',
+                            'text-xs sm:text-sm font-medium self-center mb-0.5',
                             isTodayDate ? 'text-emerald-700 font-bold' : 'text-foreground',
                           )}
                         >
@@ -309,11 +310,11 @@ export function CalendarWidget({
                             <div
                               key={event.id}
                               className={cn(
-                                'h-[14px] sm:h-4 rounded px-1 flex items-center w-full',
+                                'h-3.5 sm:h-4 rounded px-1 flex items-center w-full',
                                 getMemberColor(event.family_member, event.family_member ? memberColors?.get(event.family_member) : undefined)
                               )}
                             >
-                              <span className="text-[8px] sm:text-[10px] font-medium text-white truncate leading-none w-full">
+                              <span className="text-[9px] sm:text-[10px] font-medium text-white truncate leading-none w-full">
                                 {event.title}
                               </span>
                             </div>
@@ -321,7 +322,7 @@ export function CalendarWidget({
                           
                           {/* Overflow indicator */}
                           {overflowCount > 0 && (
-                            <div className="text-[9px] sm:text-[10px] text-muted-foreground font-medium px-1">
+                            <div className="px-1 text-[10px] text-muted-foreground font-medium sm:text-xs">
                               +{overflowCount} {t('calendar.more')}
                             </div>
                           )}

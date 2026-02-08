@@ -55,6 +55,7 @@ const TIMED_ROW_HEIGHT = 24;
 const OVERFLOW_ROW_HEIGHT = 18;
 const DAY_CELL_BOTTOM_PADDING = 10;
 const DESKTOP_MIN_DAY_CELL_HEIGHT = 120;
+const DESKTOP_GRID_COLUMNS = 'grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))]';
 
 interface DesktopCalendarGridProps {
   events: CalendarEvent[];
@@ -444,7 +445,7 @@ export function DesktopCalendarGrid({
     >
       <div className="overflow-hidden border-t border-border/60 bg-gradient-to-b from-muted/15 via-transparent to-transparent">
         {/* Header Row: Week number + Day names */}
-        <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border/60 bg-muted/45 backdrop-blur">
+        <div className={cn("grid border-b border-border/60 bg-muted/45 backdrop-blur", DESKTOP_GRID_COLUMNS)}>
           {/* Week number header */}
           <div className="p-2 text-xs font-semibold tracking-wide text-muted-foreground text-center border-r border-border/60">
             {t('calendar.week')}
@@ -472,7 +473,7 @@ export function DesktopCalendarGrid({
           return (
             <div
               key={weekIndex}
-              className="relative grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border/60"
+              className={cn("relative grid border-b border-border/60", DESKTOP_GRID_COLUMNS)}
             >
               {/* Week number */}
               <div
@@ -636,7 +637,7 @@ export function DesktopCalendarGrid({
 
               {/* Week bar overlay (single element per multi-day/all-day event) */}
               <div
-                className="pointer-events-none absolute inset-0 z-20 grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))]"
+                className={cn("pointer-events-none absolute inset-0 z-20 grid", DESKTOP_GRID_COLUMNS)}
                 style={{
                   gridTemplateRows: `${DAY_NUMBER_ROW_HEIGHT}px repeat(${MAX_VISIBLE_BARS}, ${BAR_ROW_HEIGHT}px)`,
                   rowGap: `${BAR_ROW_GAP}px`,

@@ -52,11 +52,11 @@ export function DayDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col p-0 gap-0">
-          <DialogHeader className="px-6 py-4 border-b bg-card rounded-t-lg">
+        <DialogContent className="max-h-[85vh] max-w-[calc(100%-1rem)] sm:max-w-xl flex flex-col p-0 gap-0">
+          <DialogHeader className="rounded-t-lg border-b bg-card px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex items-center gap-3">
               <div className={cn(
-                "flex h-12 w-12 flex-col items-center justify-center rounded-lg border shadow-sm font-semibold bg-card",
+                "flex h-11 w-11 flex-col items-center justify-center rounded-lg border shadow-sm font-semibold bg-card sm:h-12 sm:w-12",
                 isToday ? "border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-border text-foreground"
               )}>
                 <span className="text-[10px] uppercase tracking-wider">{formatDate(date, 'MMM')}</span>
@@ -78,14 +78,14 @@ export function DayDetailDialog({
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-6 bg-muted/50">
+          <div className="flex-1 overflow-y-auto bg-muted/50 p-4 sm:p-6">
             {events.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
                 <div className="mb-4 rounded-full bg-muted p-4">
                   <Calendar className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <h3 className="text-base font-medium text-foreground mb-1">{t('calendar.noEvents')}</h3>
-                <p className="text-xs text-muted-foreground max-w-[220px]">
+                <p className="max-w-xs text-xs text-muted-foreground">
                   {t('calendar.noEventsDay')}
                 </p>
               </div>
@@ -103,8 +103,8 @@ export function DayDetailDialog({
                         setDetailOpen(true);
                       }}
                     >
-                      <CardContent className="p-3 flex items-start gap-3">
-                        <div className="w-14 shrink-0 flex flex-col items-end pt-0.5 gap-0.5">
+                      <CardContent className="flex items-start gap-3 p-3 sm:p-4">
+                        <div className="w-14 shrink-0 flex flex-col items-end pt-0.5 gap-0.5 sm:w-16">
                           {event.is_all_day ? (
                             <span className="text-[10px] font-bold uppercase text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm">{t('calendar.allDay')}</span>
                           ) : (
@@ -128,7 +128,7 @@ export function DayDetailDialog({
                             {event.title}
                           </h4>
 
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             {event.location && (
                               <div className="flex items-center gap-1 min-w-0">
                                 <MapPin className="h-3 w-3 shrink-0" />
@@ -137,13 +137,13 @@ export function DayDetailDialog({
                             )}
 
                             {event.family_member && (
-                              <div className="flex items-center gap-1.5 ml-auto shrink-0 bg-muted px-1.5 py-0.5 rounded border border-border">
+                              <div className="flex items-center gap-1.5 shrink-0 bg-muted px-1.5 py-0.5 rounded border border-border">
                                 <Avatar className="h-3.5 w-3.5">
-                                  <AvatarFallback className="text-[6px] bg-muted text-muted-foreground">
+                                  <AvatarFallback className="text-[8px] bg-muted text-muted-foreground">
                                     {getInitials(event.family_member)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="text-[10px] font-medium text-muted-foreground max-w-[60px] truncate">
+                                <span className="text-[10px] font-medium text-muted-foreground max-w-20 sm:max-w-28 truncate">
                                   {event.family_member}
                                 </span>
                               </div>

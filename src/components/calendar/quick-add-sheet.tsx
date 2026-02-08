@@ -101,8 +101,8 @@ export function QuickAddSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col gap-0">
+        <DialogHeader className="flex-shrink-0 border-b pb-4">
           <DialogTitle className="flex items-center gap-2">
             <Plus className="w-5 h-5 text-emerald-600" />
             {t('calendar.newEvent')}
@@ -110,7 +110,7 @@ export function QuickAddSheet({
         </DialogHeader>
 
         {/* Scrollable form content */}
-        <div className="flex-1 overflow-y-auto py-4 px-1">
+        <div className="flex-1 overflow-y-auto px-1 py-4">
           <EventForm
             data={formData}
             onChange={handleFormChange}
@@ -118,7 +118,7 @@ export function QuickAddSheet({
           />
         </div>
 
-        <DialogFooter className="flex-shrink-0 border-t pt-4">
+        <DialogFooter className="flex-shrink-0 border-t pt-3 sm:pt-4">
           <Button
             variant="outline"
             size="touch"
