@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
+import { cn, getLocale } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -27,6 +28,9 @@ export function DatePicker({
   className,
   disabled = false,
 }: DatePickerProps) {
+  const { i18n } = useTranslation();
+  const locale = React.useMemo(() => getLocale(i18n.language), [i18n.language]);
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -40,11 +44,12 @@ export function DatePicker({
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+          {date ? format(date, "PPP", { locale }) : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
+          locale={locale}
           mode="single"
           selected={date}
           onSelect={onSelect}

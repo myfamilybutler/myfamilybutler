@@ -15,6 +15,10 @@ i18n
     },
     fallbackLng: 'en',
     supportedLngs: ['en', 'de'],
+    load: 'languageOnly',
+    lowerCaseLng: true,
+    cleanCode: true,
+    nonExplicitSupportedLngs: true,
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
     },
@@ -23,5 +27,14 @@ i18n
       caches: ['localStorage'],
     },
   });
+
+if (typeof document !== 'undefined') {
+  const syncHtmlLanguage = (language: string) => {
+    document.documentElement.lang = language.startsWith('de') ? 'de' : 'en';
+  };
+
+  syncHtmlLanguage(i18n.resolvedLanguage || i18n.language || 'en');
+  i18n.on('languageChanged', syncHtmlLanguage);
+}
 
 export default i18n;

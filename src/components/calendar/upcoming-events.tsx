@@ -319,8 +319,8 @@ export function UpcomingEvents({
           dateLabel = t('calendar.tomorrow');
         } else {
           // Format based on current language
-          const formatStr = i18n.language === 'de' ? 'dd.MM.yyyy' : 'EEE, MMM d';
-          dateLabel = formatDate(parseISO(labelDate), formatStr);
+          const formatStr = i18n.language.startsWith('de') ? 'dd.MM.yyyy' : 'EEE, MMM d';
+          dateLabel = formatDate(parseISO(labelDate), formatStr, i18n.language);
         }
         return { ...event, dateLabel };
       });

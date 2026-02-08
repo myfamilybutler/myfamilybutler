@@ -13,7 +13,7 @@ import {
   addDays,
 } from 'date-fns';
 import { useTranslation } from 'react-i18next';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getWeekStartsOn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -68,11 +68,13 @@ export function CalendarWidget({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
   const isDragging = useRef(false);
+  const { t, i18n } = useTranslation();
+  const weekStartsOn = useMemo(() => getWeekStartsOn(i18n.language), [i18n.language]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
-  const calendarStart = startOfWeek(monthStart);
-  const calendarEnd = endOfWeek(monthEnd);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn });
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const selectedMembers = useSelectedMembers();
 
@@ -173,19 +175,16 @@ export function CalendarWidget({
     }),
   };
 
-  const { t, i18n } = useTranslation();
-  
   // Update weekDays based on locale
   const weekDays = useMemo(() => {
-    const lang = i18n.language;
-    const start = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday start
+    const language = i18n.language;
+    const start = startOfWeek(new Date(), { weekStartsOn });
     const days = Array.from({ length: 7 }).map((_, i) => {
       const day = addDays(start, i);
-      return formatDate(day, 'EEE');
+      return formatDate(day, 'EEE', language);
     });
-    if (!lang) return days;
     return days;
-  }, [i18n.language]);
+  }, [weekStartsOn, i18n.language]);
 
   return (
     <>

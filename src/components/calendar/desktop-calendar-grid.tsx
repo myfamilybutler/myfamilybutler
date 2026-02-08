@@ -16,7 +16,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import {
   format,
-  startOfMonth,
+  startOfWeek,
   isSameMonth,
   isToday,
   addMonths,
@@ -33,8 +33,8 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
-import { cn, formatTime, formatDate } from '@/lib/utils';
-import { getMemberColorPresentation } from '@/lib/utils/ui-helpers';
+import { cn, formatTime, formatDate, getWeekStartsOn } from '@/lib/utils';
+import { getMemberColorPresentation, getMemberColor } from '@/lib/utils/ui-helpers';
 import { getCalendarDays, getWeekNumber, groupEventsByDate } from '@/lib/utils/calendar-helpers';
 import { useSelectedMembers } from '@/stores/filter-store';
 import { useFamilyData } from '@/stores/family-store';
@@ -73,6 +73,7 @@ export function DesktopCalendarGrid({
 }: DesktopCalendarGridProps) {
   const { memberColors } = useFamilyData();
   const { t, i18n } = useTranslation();
+  const weekStartsOn = useMemo(() => getWeekStartsOn(i18n.language), [i18n.language]);
   const selectedMembers = useSelectedMembers();
   const isDragging = useRef(false);
   
@@ -105,7 +106,10 @@ export function DesktopCalendarGrid({
   }, [events, selectedMembers]);
   
   // Calculate calendar weeks
-  const weeks = useMemo(() => getCalendarDays(currentMonth), [currentMonth]);
+  const weeks = useMemo(
+    () => getCalendarDays(currentMonth, weekStartsOn),
+    [currentMonth, weekStartsOn]
+  );
   
   // Group events by date for efficient lookup
   const eventsByDate = useMemo(() => groupEventsByDate(filteredEvents), [filteredEvents]);
@@ -318,9 +322,9 @@ export function DesktopCalendarGrid({
       const connectLeft = dayIndex > segment.startIndex;
       const connectRight = dayIndex < segment.endIndex;
 
-      if (connectLeft && connectRight) return '-mx-px rounded-none';
-      if (!connectLeft && connectRight) return 'ml-1.5 sm:ml-2 -mr-px rounded-l-md rounded-r-none';
-      if (connectLeft && !connectRight) return '-ml-px mr-1.5 sm:mr-2 rounded-r-md rounded-l-none';
+      if (connectLeft && connectRight) return '-ml-[2px] -mr-[2px] rounded-none';
+      if (!connectLeft && connectRight) return 'ml-1.5 sm:ml-2 -mr-[2px] rounded-l-md rounded-r-none';
+      if (connectLeft && !connectRight) return '-ml-[2px] mr-1.5 sm:mr-2 rounded-r-md rounded-l-none';
       return 'mx-1.5 sm:mx-2 rounded-md';
     },
     []
@@ -328,17 +332,14 @@ export function DesktopCalendarGrid({
   
   // Locale-aware week day names
   const weekDays = useMemo(() => {
-    const lang = i18n.language;
-    const start = startOfMonth(new Date());
-    const mondayStart = addDays(start, 1 - start.getDay());
-
+    const language = i18n.language;
+    const start = startOfWeek(new Date(), { weekStartsOn });
     const days = Array.from({ length: 7 }).map((_, i) => {
-      const day = addDays(mondayStart, i);
-      return formatDate(day, 'EEE');
+      const day = addDays(start, i);
+      return formatDate(day, 'EEE', language);
     });
-    if (!lang) return days;
     return days;
-  }, [i18n.language]);
+  }, [weekStartsOn, i18n.language]);
   
   const isTodayVisible = format(currentMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
 
@@ -449,7 +450,7 @@ export function DesktopCalendarGrid({
                                   {formatTime(segment.event.event_time)}
                                 </span>
                               )}
-                              {segment.event.title}
+                              {dayIndex === segment.startIndex ? segment.event.title : ''}
                             </span>
                           </button>
                         </HoverCardTrigger>

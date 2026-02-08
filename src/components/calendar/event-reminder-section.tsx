@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { format, addHours, addDays, setHours, setMinutes } from 'date-fns';
+import { addHours, addDays, setHours, setMinutes } from 'date-fns';
 import { Bell, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatDate } from '@/lib/utils';
 
 interface EventReminderSectionProps {
   eventId: string;
@@ -120,7 +121,7 @@ export function EventReminderSection({
         throw new Error(result.error || 'Failed to create reminder');
       }
 
-      toast.success(`Reminder set for ${format(remindAt, 'PPp')}`);
+      toast.success(`Reminder set for ${formatDate(remindAt, 'PPp')}`);
       setShowForm(false);
       setCustomDate(undefined);
       setCustomTime('');
@@ -180,7 +181,7 @@ export function EventReminderSection({
             const remindAtDate = new Date(reminder.remind_at);
             const remindAtLabel = Number.isNaN(remindAtDate.getTime())
               ? reminder.remind_at
-              : format(remindAtDate, 'PPp');
+              : formatDate(remindAtDate, 'PPp');
 
             return (
               <div

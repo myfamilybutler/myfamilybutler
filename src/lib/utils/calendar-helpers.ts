@@ -78,17 +78,17 @@ export function getISODayOfWeek(date: Date): number {
 
 /**
  * Get all calendar days for a month view (including overflow days from prev/next months).
- * Returns weeks starting from Monday.
+ * Returns weeks based on the provided start-of-week.
  */
-export function getCalendarDays(month: Date): Date[][] {
+export function getCalendarDays(month: Date, weekStartsOn: 0 | 1 = 1): Date[][] {
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 }); // Sunday
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn });
   
   const weeks = eachWeekOfInterval(
     { start: calendarStart, end: calendarEnd },
-    { weekStartsOn: 1 }
+    { weekStartsOn }
   );
   
   return weeks.map(weekStart => 
@@ -102,12 +102,15 @@ export function getCalendarDays(month: Date): Date[][] {
 /**
  * Get the date range for a month's calendar view (including overflow days).
  */
-export function getCalendarDateRange(month: Date): { start: Date; end: Date } {
+export function getCalendarDateRange(
+  month: Date,
+  weekStartsOn: 0 | 1 = 1
+): { start: Date; end: Date } {
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
   return {
-    start: startOfWeek(monthStart, { weekStartsOn: 1 }),
-    end: endOfWeek(monthEnd, { weekStartsOn: 1 }),
+    start: startOfWeek(monthStart, { weekStartsOn }),
+    end: endOfWeek(monthEnd, { weekStartsOn }),
   };
 }
 

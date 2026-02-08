@@ -1,8 +1,9 @@
 'use client';
 
-import { format } from 'date-fns';
 import { Clock, MapPin, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDate } from '@/lib/utils';
 import type { CalendarEvent } from '@/components/calendar/calendar-widget';
 
 export interface ScheduleWidgetProps {
@@ -10,6 +11,7 @@ export interface ScheduleWidgetProps {
 }
 
 export function ScheduleWidget({ events }: ScheduleWidgetProps) {
+  const { t } = useTranslation();
   const today = new Date();
   const todayEvents = events; // Events are filtered by parent
 
@@ -18,10 +20,10 @@ export function ScheduleWidget({ events }: ScheduleWidgetProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold text-gray-900">
-            Today
+            {t('calendar.today')}
           </CardTitle>
           <span className="text-sm text-gray-500">
-            {format(today, 'EEEE, MMM d')}
+            {formatDate(today, 'EEEE, P')}
           </span>
         </div>
       </CardHeader>
@@ -34,7 +36,7 @@ export function ScheduleWidget({ events }: ScheduleWidgetProps) {
             {/* Title and time */}
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-500 shrink-0">
-                {event.is_all_day ? 'All day' : (event.end_time ? `${event.event_time} - ${event.end_time}` : event.event_time)}
+                {event.is_all_day ? t('calendar.allDay') : (event.end_time ? `${event.event_time} - ${event.end_time}` : event.event_time)}
               </span>
               <span className="text-sm font-medium text-gray-900 truncate">
                 {event.title}
@@ -64,7 +66,7 @@ export function ScheduleWidget({ events }: ScheduleWidgetProps) {
         {todayEvents.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Clock className="w-10 h-10 text-gray-300 mb-2" />
-            <p className="text-sm text-gray-500">No events today</p>
+            <p className="text-sm text-gray-500">{t('dashboard.noEvents')}</p>
           </div>
         )}
       </CardContent>

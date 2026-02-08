@@ -28,4 +28,10 @@ export {
 } from './ui-helpers';
 
 // Date utilities
-export { getLocale, formatDate } from './date';
+export {
+  getActiveLanguage,
+  getLocale,
+  getIntlLocale,
+  getWeekStartsOn,
+  formatDate,
+} from './date';

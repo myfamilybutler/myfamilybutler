@@ -41,6 +41,7 @@ export function Navbar() {
 
   // Use dbUser (raw DB) for display, fallback to user (Supabase) for email
   const displayIdentifier = dbUser?.display_name || dbUser?.linked_email || dbUser?.phone_number || user?.email || 'Account';
+  const isEnglish = (i18n.resolvedLanguage || i18n.language || 'en').startsWith('en');
 
   return (
     <div className="flex flex-col">
@@ -110,15 +111,15 @@ export function Navbar() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
-                    const newLang = i18n.language === 'en' ? 'de' : 'en';
+                    const newLang = isEnglish ? 'de' : 'en';
                     i18n.changeLanguage(newLang);
                   }}
                   className="flex items-center gap-2 cursor-pointer"
                 >
                   <span className="text-lg leading-none pt-1">
-                    {i18n.language === 'en' ? '🇺🇸' : '🇩🇪'}
+                    {isEnglish ? '🇺🇸' : '🇩🇪'}
                   </span>
-                  {i18n.language === 'en' ? 'English' : 'Deutsch'}
+                  {isEnglish ? 'English' : 'Deutsch'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

@@ -1,7 +1,7 @@
 'use client';
 
 import { MapPin, User, CalendarDays, Clock, Pencil, Repeat } from 'lucide-react';
-import { parseISO, format } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { formatDate, formatTime } from '@/lib/utils';
 import { rruleToHuman } from '@/lib/recurrence';
@@ -45,8 +45,8 @@ export function EventDetailDialog({
 
   const endDate = getEventEndDate(event);
   const isMultiDay = endDate > event.event_date;
-  const startDateLabel = formatDate(parseISO(event.event_date), 'EEEE, MMM d, yyyy');
-  const endDateLabel = formatDate(parseISO(endDate), 'EEEE, MMM d, yyyy');
+  const startDateLabel = formatDate(parseISO(event.event_date), 'PPPP', i18n.language);
+  const endDateLabel = formatDate(parseISO(endDate), 'PPPP', i18n.language);
   const recurrenceRule = normalizeRule(event.recurrence_rule);
   const recurrenceLabel = recurrenceRule
     ? rruleToHuman(recurrenceRule, i18n.language.startsWith('de') ? 'de' : 'en')
@@ -73,7 +73,7 @@ export function EventDetailDialog({
                 <span>
                   {formatTime(event.event_time)}
                   {event.end_time &&
-                    ` - ${formatTime(event.end_time)}${isMultiDay ? ` (${format(parseISO(endDate), 'MMM d')})` : ''}`}
+                    ` - ${formatTime(event.end_time)}${isMultiDay ? ` (${formatDate(parseISO(endDate), 'P', i18n.language)})` : ''}`}
                 </span>
               )}
             </div>

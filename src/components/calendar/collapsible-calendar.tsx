@@ -15,7 +15,8 @@ import {
 import { getWeekNumber } from '@/lib/utils/calendar-helpers';
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { cn, formatDate } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
+import { cn, formatDate, getWeekStartsOn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { DesktopCalendarGrid } from './desktop-calendar-grid';
@@ -35,15 +36,17 @@ export function CollapsibleCalendar({
   defaultExpanded = false,
 }: CollapsibleCalendarProps) {
   const { memberColors } = useFamilyData();
+  const { t, i18n } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right'>('right');
+  const weekStartsOn = useMemo(() => getWeekStartsOn(i18n.language), [i18n.language]);
 
   // Get current week days
   const weekDays = useMemo(() => {
-    const start = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday start
+    const start = startOfWeek(selectedDate, { weekStartsOn });
     return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
-  }, [selectedDate]);
+  }, [selectedDate, weekStartsOn]);
 
   // Group events by date and get unique colors for dots
   const eventColorsByDate = useMemo(() => {
@@ -157,7 +160,7 @@ export function CollapsibleCalendar({
         {!isExpanded && (
           <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/50 -mx-6">
             <div className="text-center text-[10px] sm:text-xs font-medium text-muted-foreground p-2 border-r border-border flex items-center justify-center">
-              Wk
+              {t('calendar.week')}
             </div>
             {weekDays.map((day) => (
               <div

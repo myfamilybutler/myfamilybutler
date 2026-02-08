@@ -13,8 +13,7 @@ import { MapPin, User, CalendarDays, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { formatTime } from '@/lib/utils';
+import { cn, formatDate, formatTime } from '@/lib/utils';
 import type { CalendarEvent } from '@/types/calendar';
 import { useFamilyData } from '@/stores/family-store';
 import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
@@ -168,7 +167,7 @@ function DaySectionView({ section, memberColors, onEventClick, t }: DaySectionVi
             {section.label}
           </span>
           <span className="text-xs text-muted-foreground">
-            {format(section.date, 'EEE, MMM d')}
+            {formatDate(section.date, 'EEE, P')}
           </span>
         </div>
         <Badge variant="secondary" className="text-xs h-5">
