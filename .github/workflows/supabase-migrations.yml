@@ -57,7 +57,9 @@ jobs:
           supabase db push --linked --include-all
 
       - name: Trigger Vercel redeploy (optional)
-        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL != '' }}
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        if: ${{ env.VERCEL_DEPLOY_HOOK_URL != '' }}
         run: |
           set -euo pipefail
-          curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
+          curl -fsS -X POST "${VERCEL_DEPLOY_HOOK_URL}"
