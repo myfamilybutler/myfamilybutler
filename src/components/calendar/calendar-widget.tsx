@@ -297,7 +297,7 @@ export function CalendarWidget({
                         <span
                           className={cn(
                             'text-[11px] sm:text-xs font-medium self-center mb-0.5',
-                            isTodayDate ? 'text-emerald-700 font-bold' : 'text-gray-700',
+                            isTodayDate ? 'text-emerald-700 font-bold' : 'text-foreground',
                           )}
                         >
                           {format(day, 'd')}

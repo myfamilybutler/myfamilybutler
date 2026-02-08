@@ -348,8 +348,8 @@ export default function SettingsPage() {
                   
                   {!isHouseholdAdmin && (
                     <Button
-                      variant="outline"
-                      className="w-full mt-4 text-orange-600 border-orange-200 hover:bg-orange-50"
+                      variant="warningOutline"
+                      className="w-full mt-4"
                       onClick={() => setLeaveFamilyDialog(true)}
                     >
                       <UserMinus className="w-4 h-4 mr-2" />
@@ -398,8 +398,8 @@ export default function SettingsPage() {
                 <CardContent className="space-y-3">
                   {isHouseholdAdmin && (
                     <Button
-                      variant="outline"
-                      className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
+                      variant="destructiveOutline"
+                      className="w-full justify-start"
                       onClick={() => setDeleteFamilyDialog(true)}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
@@ -408,8 +408,8 @@ export default function SettingsPage() {
                   )}
                   
                   <Button
-                    variant="outline"
-                    className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
+                    variant="destructiveOutline"
+                    className="w-full justify-start"
                     onClick={() => setDeleteAccountDialog(true)}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />

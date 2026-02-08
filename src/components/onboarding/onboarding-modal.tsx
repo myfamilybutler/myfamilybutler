@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Users, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
     Dialog,
@@ -99,11 +100,11 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                             exit={{ opacity: 0, x: -20 }}
                             className="space-y-4 py-4"
                         >
-                            <p className="text-gray-600 text-center">
+                            <p className="text-muted-foreground text-center">
                                 Wie möchtest du genannt werden?
                             </p>
                             <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                                 <Input
                                     placeholder="Dein Name"
                                     value={displayName}
@@ -120,7 +121,8 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                                     Überspringen
                                 </Button>
                                 <Button
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                                    variant="brand"
+                                    className="flex-1"
                                     onClick={() => setStep(2)}
                                 >
                                     Weiter <ArrowRight className="w-4 h-4 ml-2" />
@@ -138,7 +140,7 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                             exit={{ opacity: 0, x: -20 }}
                             className="space-y-4 py-4"
                         >
-                            <p className="text-gray-600 text-center">
+                            <p className="text-muted-foreground text-center">
                                 Wer gehört noch zur Familie? (optional)
                             </p>
 
@@ -146,18 +148,20 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                             {familyMembers.length > 0 && (
                                 <div className="flex flex-wrap gap-2">
                                     {familyMembers.map((name) => (
-                                        <span
+                                        <Badge
                                             key={name}
-                                            className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm"
+                                            variant="success"
+                                            size="sm"
+                                            className="inline-flex items-center gap-1"
                                         >
                                             {name}
                                             <button
                                                 onClick={() => handleRemoveMember(name)}
-                                                className="ml-1 hover:text-emerald-600"
+                                                className="ml-1 hover:text-emerald-600 dark:hover:text-emerald-300"
                                             >
                                                 <X className="w-3 h-3" />
                                             </button>
-                                        </span>
+                                        </Badge>
                                     ))}
                                 </div>
                             )}
@@ -165,7 +169,7 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                             {/* Add member input */}
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
-                                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                                     <Input
                                         placeholder="Name hinzufügen"
                                         value={newMember}
@@ -189,7 +193,8 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                                     Überspringen
                                 </Button>
                                 <Button
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                                    variant="brand"
+                                    className="flex-1"
                                     onClick={handleSubmit}
                                     disabled={loading}
                                 >
@@ -204,7 +209,7 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
                             </div>
 
                             {error && (
-                                <p className="text-sm text-red-500 text-center">{error}</p>
+                                <p className="text-sm text-destructive text-center">{error}</p>
                             )}
                         </motion.div>
                     )}

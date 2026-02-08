@@ -202,10 +202,10 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-10 bg-slate-100 rounded" />
-            <div className="h-16 bg-slate-100 rounded" />
-            <div className="h-16 bg-slate-100 rounded" />
-            <div className="h-16 bg-slate-100 rounded" />
+            <div className="h-10 bg-muted rounded" />
+            <div className="h-16 bg-muted rounded" />
+            <div className="h-16 bg-muted rounded" />
+            <div className="h-16 bg-muted rounded" />
           </div>
         </CardContent>
       </Card>
@@ -234,8 +234,8 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
             className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/50 rounded-lg gap-4 hover:bg-muted transition-colors cursor-pointer group"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="shrink-0 w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
-                <User className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+              <div className="shrink-0 w-10 h-10 bg-muted rounded-full flex items-center justify-center group-hover:bg-muted/80 transition-colors">
+                <User className="w-5 h-5 text-muted-foreground" />
               </div>
               <div className="min-w-0 overflow-hidden">
                 <p className="font-medium text-foreground leading-tight">Display Name</p>
@@ -267,18 +267,18 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                   <div className="flex items-center gap-2 h-5 mt-0.5">
                     <span className="text-sm text-muted-foreground truncate">{email}</span>
                     {isEmailVerified ? (
-                      <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
+                      <Badge variant="success" size="xs" className="shrink-0">
                         <Check className="w-3 h-3 mr-1" /> Verified
                       </Badge>
                     ) : (
-                      <Badge variant="warning" className="shrink-0 py-0 h-4 flex items-center">
+                      <Badge variant="warning" size="xs" className="shrink-0">
                         Not Verified
                       </Badge>
                     )}
                   </div>
                 ) : (
                   <div className="flex items-center h-5 mt-0.5">
-                    <span className="text-sm text-gray-400">Not set</span>
+                    <span className="text-sm text-muted-foreground/70">Not set</span>
                   </div>
                 )}
               </div>
@@ -325,22 +325,22 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                     <span className="text-sm text-muted-foreground truncate">{maskPhone(dbUser.phone_number)}</span>
                     {/* Phone is verified if whatsapp_verified, phone_verified, or has telegram */}
                     {dbUser?.whatsapp_verified ? (
-                      <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
+                      <Badge variant="success" size="xs" className="shrink-0">
                         <Check className="w-3 h-3 mr-1" /> WhatsApp
                       </Badge>
                     ) : dbUser?.phone_verified || dbUser?.telegram_chat_id ? (
-                      <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
+                      <Badge variant="success" size="xs" className="shrink-0">
                         <Check className="w-3 h-3 mr-1" /> Verified
                       </Badge>
                     ) : (
-                      <Badge variant="warning" className="shrink-0 py-0 h-4 flex items-center">
+                      <Badge variant="warning" size="xs" className="shrink-0">
                         Pending
                       </Badge>
                     )}
                   </div>
                 ) : (
                   <div className="flex items-center h-5 mt-0.5">
-                    <span className="text-sm text-gray-400">Not set – Add for WhatsApp access</span>
+                    <span className="text-sm text-muted-foreground/70">Not set – Add for WhatsApp access</span>
                   </div>
                 )}
               </div>
@@ -359,7 +359,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 {dbUser?.telegram_chat_id ? (
                   <div className="flex items-center gap-2 h-5 mt-0.5">
                     <span className="text-sm text-muted-foreground">Connected</span>
-                    <Badge variant="success" className="shrink-0 py-0 h-4 flex items-center">
+                    <Badge variant="success" size="xs" className="shrink-0">
                       <Check className="w-3 h-3 mr-1" /> Telegram
                     </Badge>
                   </div>
@@ -459,7 +459,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <User className="w-5 h-5 text-slate-600" />
+              <User className="w-5 h-5 text-muted-foreground" />
               Change Display Name
             </DialogTitle>
             <DialogDescription>

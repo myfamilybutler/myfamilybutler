@@ -28,13 +28,14 @@ import { useTranslation } from 'react-i18next';
 import { motion, PanInfo } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
 import { cn, formatTime, formatDate, getWeekStartsOn } from '@/lib/utils';
-import { getMemberColorPresentation, getMemberColor } from '@/lib/utils/ui-helpers';
+import { getMemberColorPresentation } from '@/lib/utils/ui-helpers';
 import { getCalendarDays, getWeekNumber, groupEventsByDate } from '@/lib/utils/calendar-helpers';
 import { useSelectedMembers } from '@/stores/filter-store';
 import { useFamilyData } from '@/stores/family-store';
@@ -44,7 +45,16 @@ import { DayDetailDialog } from './day-detail-dialog';
 import { EventDetailDialog } from './event-detail-dialog';
 import type { CalendarEvent } from '@/types/calendar';
 
-const MAX_VISIBLE_EVENTS = 3;
+const MAX_VISIBLE_BARS = 3;
+const MAX_VISIBLE_TIMED_EVENTS = 2;
+const DAY_NUMBER_ROW_HEIGHT = 34;
+const BAR_ROW_HEIGHT = 24;
+const BAR_ROW_GAP = 4;
+const BAR_STACK_OFFSET = BAR_ROW_HEIGHT + BAR_ROW_GAP;
+const TIMED_ROW_HEIGHT = 24;
+const OVERFLOW_ROW_HEIGHT = 18;
+const DAY_CELL_BOTTOM_PADDING = 10;
+const DESKTOP_MIN_DAY_CELL_HEIGHT = 120;
 
 interface DesktopCalendarGridProps {
   events: CalendarEvent[];
@@ -68,7 +78,8 @@ interface WeekLayout {
   visibleBars: WeekEventSegment[];
   visibleTimedByDay: CalendarEvent[][];
   overflowByDay: number[];
-  barDepthByDay: number[];
+  maxBarDepth: number;
+  weekMinHeight: number;
 }
 
 export function DesktopCalendarGrid({
@@ -194,6 +205,8 @@ export function DesktopCalendarGrid({
     return event.end_date;
   }, []);
 
+  const minDayCellHeight = hideHeader ? 88 : DESKTOP_MIN_DAY_CELL_HEIGHT;
+
   // Google-like week lanes: a stable row model per week avoids jitter/overlap and keeps strip continuity correct.
   const weekLayouts = useMemo<WeekLayout[]>(() => {
     return weeks.map((week) => {
@@ -302,20 +315,19 @@ export function DesktopCalendarGrid({
       );
 
       const visibleBarsByDay = activeByDay.map((daySegments) =>
-        daySegments.filter((segment) => segment.lane < MAX_VISIBLE_EVENTS)
+        daySegments.filter((segment) => segment.lane < MAX_VISIBLE_BARS)
       );
 
-      const visibleBars = segments.filter((segment) => segment.lane < MAX_VISIBLE_EVENTS);
+      const visibleBars = segments.filter((segment) => segment.lane < MAX_VISIBLE_BARS);
 
       const barDepthByDay = visibleBarsByDay.map((daySegments) => {
         if (daySegments.length === 0) return 0;
         return Math.max(...daySegments.map((segment) => segment.lane)) + 1;
       });
 
-      const visibleTimedByDay = timedEventsByDay.map((dayTimedEvents, dayIndex) => {
-        const remainingSlots = Math.max(0, MAX_VISIBLE_EVENTS - barDepthByDay[dayIndex]);
-        return dayTimedEvents.slice(0, remainingSlots);
-      });
+      const visibleTimedByDay = timedEventsByDay.map((dayTimedEvents) =>
+        dayTimedEvents.slice(0, MAX_VISIBLE_TIMED_EVENTS)
+      );
 
       const overflowByDay = activeByDay.map((daySegments, dayIndex) => {
         const hiddenBars = Math.max(0, daySegments.length - visibleBarsByDay[dayIndex].length);
@@ -323,14 +335,27 @@ export function DesktopCalendarGrid({
         return hiddenBars + hiddenTimed;
       });
 
+      const maxBarDepth = barDepthByDay.reduce((max, depth) => Math.max(max, depth), 0);
+      const maxTimedDepth = visibleTimedByDay.reduce((max, dayEvents) => Math.max(max, dayEvents.length), 0);
+      const showOverflowRow = overflowByDay.some((count) => count > 0);
+      const weekMinHeight = Math.max(
+        minDayCellHeight,
+        DAY_NUMBER_ROW_HEIGHT +
+          maxBarDepth * BAR_STACK_OFFSET +
+          maxTimedDepth * TIMED_ROW_HEIGHT +
+          (showOverflowRow ? OVERFLOW_ROW_HEIGHT : 0) +
+          DAY_CELL_BOTTOM_PADDING
+      );
+
       return {
         visibleBars,
         visibleTimedByDay,
         overflowByDay,
-        barDepthByDay,
+        maxBarDepth,
+        weekMinHeight,
       };
     });
-  }, [filteredEvents, getEventEndDate, weeks]);
+  }, [filteredEvents, getEventEndDate, minDayCellHeight, weeks]);
 
   const getWeekBarLayoutClasses = useCallback(
     (segment: WeekEventSegment, weekStart: string, weekEnd: string) => {
@@ -360,6 +385,50 @@ export function DesktopCalendarGrid({
     });
     return days;
   }, [weekStartsOn, i18n.language]);
+
+  const monthStats = useMemo(() => {
+    if (weeks.length === 0) {
+      return {
+        total: 0,
+        allDay: 0,
+        timed: 0,
+      };
+    }
+
+    const rangeStart = format(weeks[0][0], 'yyyy-MM-dd');
+    const rangeEnd = format(weeks[weeks.length - 1][6], 'yyyy-MM-dd');
+
+    let total = 0;
+    let allDay = 0;
+
+    for (const event of filteredEvents) {
+      const eventEndDate = getEventEndDate(event);
+      if (eventEndDate < rangeStart || event.event_date > rangeEnd) {
+        continue;
+      }
+
+      total += 1;
+      if (event.is_all_day) {
+        allDay += 1;
+      }
+    }
+
+    return {
+      total,
+      allDay,
+      timed: Math.max(0, total - allDay),
+    };
+  }, [filteredEvents, getEventEndDate, weeks]);
+
+  const visibleWeekRangeLabel = useMemo(() => {
+    if (weeks.length === 0) return '';
+    const firstWeek = getWeekNumber(weeks[0][0]);
+    const lastWeek = getWeekNumber(weeks[weeks.length - 1][6]);
+    if (firstWeek === lastWeek) {
+      return `${t('calendar.week')} ${firstWeek}`;
+    }
+    return `${t('calendar.week')} ${firstWeek}-${lastWeek}`;
+  }, [t, weeks]);
   
   const isTodayVisible = format(currentMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
 
@@ -373,18 +442,18 @@ export function DesktopCalendarGrid({
       onDragEnd={handleDragEnd}
       className="touch-pan-y"
     >
-      <div className="overflow-hidden border-t border-border">
+      <div className="overflow-hidden border-t border-border/60 bg-gradient-to-b from-muted/15 via-transparent to-transparent">
         {/* Header Row: Week number + Day names */}
-        <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border bg-muted/50">
+        <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border/60 bg-muted/45 backdrop-blur">
           {/* Week number header */}
-          <div className="p-2 text-xs font-medium text-muted-foreground text-center border-r border-border">
+          <div className="p-2 text-xs font-semibold tracking-wide text-muted-foreground text-center border-r border-border/60">
             {t('calendar.week')}
           </div>
           {/* Day names */}
           {weekDays.map((day, i) => (
             <div
               key={i}
-              className="p-2 text-xs font-medium text-foreground/70 text-center uppercase tracking-wider border-r border-border last:border-r-0"
+              className="p-2 text-xs font-semibold text-foreground/70 text-center uppercase tracking-[0.14em] border-r border-border/60 last:border-r-0"
             >
               {day}
             </div>
@@ -397,14 +466,19 @@ export function DesktopCalendarGrid({
           const weekStart = format(week[0], 'yyyy-MM-dd');
           const weekEnd = format(week[6], 'yyyy-MM-dd');
           const visibleWeekBars = weekLayout?.visibleBars || [];
+          const weekMaxBarDepth = weekLayout?.maxBarDepth || 0;
+          const weekMinHeight = weekLayout?.weekMinHeight || minDayCellHeight;
 
           return (
             <div
               key={weekIndex}
-              className="relative grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border"
+              className="relative grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border/60"
             >
               {/* Week number */}
-              <div className="p-2 text-xs font-medium text-muted-foreground text-center border-r border-border bg-muted/20">
+              <div
+                className="p-2 text-xs font-semibold text-muted-foreground text-center border-r border-border/60 bg-muted/20"
+                style={{ minHeight: `${weekMinHeight}px` }}
+              >
                 {getWeekNumber(week[0])}
               </div>
 
@@ -416,16 +490,17 @@ export function DesktopCalendarGrid({
                 const dayStr = format(day, 'yyyy-MM-dd');
                 const visibleTimedEvents = weekLayout?.visibleTimedByDay[dayIndex] || [];
                 const overflowCount = weekLayout?.overflowByDay[dayIndex] || 0;
-                const barDepth = weekLayout?.barDepthByDay[dayIndex] || 0;
 
                 return (
                   <div
                     key={dayIndex}
                     className={cn(
-                      "relative overflow-visible min-h-[60px] sm:min-h-[100px] cursor-pointer transition-colors",
-                      "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500",
-                      !isCurrentMonth && "bg-muted/10 text-muted-foreground/50"
+                      "relative overflow-visible cursor-pointer transition-colors bg-background/70",
+                      "hover:bg-emerald-500/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/70",
+                      isTodayDate && "bg-emerald-500/[0.08]",
+                      !isCurrentMonth && "bg-muted/15 text-muted-foreground/50"
                     )}
+                    style={{ minHeight: `${weekMinHeight}px` }}
                     onClick={() => handleCellClick(day)}
                     role="button"
                     tabIndex={0}
@@ -440,17 +515,20 @@ export function DesktopCalendarGrid({
                     {dayIndex < week.length - 1 && (
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute inset-y-0 right-0 w-px bg-border z-0"
+                        className="pointer-events-none absolute inset-y-0 right-0 w-px bg-border/60 z-0"
                       />
                     )}
 
                     {/* Day number */}
-                    <div className="p-1.5 flex justify-end">
+                    <div
+                      className="px-2 pt-1.5 flex justify-end"
+                      style={{ minHeight: `${DAY_NUMBER_ROW_HEIGHT}px` }}
+                    >
                       <span
                         className={cn(
-                          "inline-flex items-center justify-center w-7 h-7 text-sm font-medium rounded-full",
+                          "inline-flex items-center justify-center w-7 h-7 text-sm font-semibold rounded-full",
                           isTodayDate
-                            ? "bg-emerald-500 text-white"
+                            ? "bg-emerald-500 text-white shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                             : isCurrentMonth
                               ? "text-foreground"
                               : "text-muted-foreground"
@@ -462,8 +540,10 @@ export function DesktopCalendarGrid({
 
                     {/* Timed events and overflow */}
                     <div
-                      className="relative z-10 pb-1.5 space-y-1"
-                      style={barDepth > 0 ? { paddingTop: `${barDepth * 28}px` } : undefined}
+                      className="relative z-10 px-1 pb-2 space-y-1"
+                      style={{
+                        paddingTop: `${weekMaxBarDepth * BAR_STACK_OFFSET + 2}px`,
+                      }}
                     >
                       {visibleTimedEvents.map((event) => {
                         const color = getMemberAppearance(event.family_member);
@@ -473,13 +553,14 @@ export function DesktopCalendarGrid({
                             <HoverCardTrigger asChild>
                               <button
                                 className={cn(
-                                  "relative z-20 w-full text-left px-1.5 sm:px-2 py-0.5 text-[11px] sm:text-xs",
-                                  "rounded-sm hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+                                  "relative z-20 w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs",
+                                  "rounded-md border border-transparent hover:bg-muted/70 hover:border-border/70",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                                 )}
                                 onClick={(e) => handleEventClick(event, e)}
                               >
                                 <span className="flex items-center gap-1 min-w-0">
-                                  <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", color.dotBg)} />
+                                  <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0 shadow-sm", color.dotBg)} />
                                   {event.event_time && (
                                     <span className={cn("font-semibold tabular-nums whitespace-nowrap", color.text)}>
                                       {formatTime(event.event_time)}
@@ -543,7 +624,7 @@ export function DesktopCalendarGrid({
                         <button
                           type="button"
                           onClick={(e) => handleMoreEventsClick(day, e)}
-                          className="text-xs text-muted-foreground font-medium px-1.5 sm:px-2 hover:text-foreground transition-colors"
+                          className="text-[11px] sm:text-xs text-muted-foreground font-semibold px-1.5 sm:px-2 py-0.5 rounded-md hover:bg-muted/50 hover:text-foreground transition-colors"
                         >
                           +{overflowCount} {t('calendar.more')}
                         </button>
@@ -554,7 +635,13 @@ export function DesktopCalendarGrid({
               })}
 
               {/* Week bar overlay (single element per multi-day/all-day event) */}
-              <div className="pointer-events-none absolute inset-0 z-20 grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] grid-rows-[30px_repeat(3,24px)] sm:grid-rows-[34px_repeat(3,24px)] gap-y-1">
+              <div
+                className="pointer-events-none absolute inset-0 z-20 grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))]"
+                style={{
+                  gridTemplateRows: `${DAY_NUMBER_ROW_HEIGHT}px repeat(${MAX_VISIBLE_BARS}, ${BAR_ROW_HEIGHT}px)`,
+                  rowGap: `${BAR_ROW_GAP}px`,
+                }}
+              >
                 {visibleWeekBars.map((segment) => {
                   const segmentStart = week[segment.startIndex];
                   const segmentStartDate = format(segmentStart, 'yyyy-MM-dd');
@@ -569,8 +656,9 @@ export function DesktopCalendarGrid({
                         <button
                           aria-label={segment.event.title}
                           className={cn(
-                            "pointer-events-auto relative z-20 flex h-6 w-full items-center text-left px-1.5 sm:px-2 text-[11px] sm:text-xs font-medium text-white",
-                            "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
+                            "pointer-events-auto relative z-20 flex h-6 w-full items-center text-left px-1.5 sm:px-2 text-[11px] sm:text-xs font-semibold text-white",
+                            "shadow-[0_8px_14px_-8px_rgba(15,23,42,0.7)] ring-1 ring-black/10 dark:ring-white/15",
+                            "hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50",
                             getWeekBarLayoutClasses(segment, weekStart, weekEnd),
                             color.barBg
                           )}
@@ -631,7 +719,7 @@ export function DesktopCalendarGrid({
                               <span
                                 className={cn(
                                   "w-3 h-3 rounded-full",
-                                  getMemberColor(segment.event.family_member)
+                                  color.dotBg
                                 )}
                               />
                               <span className="text-xs font-medium">
@@ -659,48 +747,68 @@ export function DesktopCalendarGrid({
         <div className="bg-card">{calendarContent}</div>
       ) : (
         // Standalone mode: full Card with header
-        <Card className="bg-card border-border overflow-hidden gap-0 py-0">
-          <CardHeader className="py-4">
-            <div className="flex items-center justify-between">
-              {/* Month navigation */}
-              <div className="flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={handlePrevMonth}
-                  className="h-8 w-8 hover:bg-accent"
-                  aria-label={t('common.prevMonth')}
+        <Card className="relative bg-card/95 border-border/60 overflow-hidden gap-0 py-0 shadow-[0_24px_64px_-40px_rgba(16,185,129,0.5)]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-emerald-500/18 via-cyan-500/8 to-blue-500/14" />
+          <CardHeader className="relative py-4 sm:py-5 border-b border-border/60 bg-background/40 backdrop-blur">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3">
+                {/* Month navigation */}
+                <div className="flex items-center gap-1 rounded-full border border-border/70 bg-background/75 p-1 shadow-sm">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={handlePrevMonth}
+                    className="h-8 w-8 rounded-full hover:bg-accent/70"
+                    aria-label={t('common.prevMonth')}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={handleNextMonth}
+                    className="h-8 w-8 rounded-full hover:bg-accent/70"
+                    aria-label={t('common.nextMonth')}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                {/* Month/Year title */}
+                <div className="flex-1 text-center">
+                  <h2 className="text-xl font-bold tracking-tight text-foreground capitalize">
+                    {formatDate(currentMonth, 'MMMM yyyy')}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {visibleWeekRangeLabel}
+                  </p>
+                </div>
+                
+                {/* Today button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleToday}
+                  className={cn(
+                    "h-8 text-xs font-semibold border-border/70 bg-background/70 backdrop-blur",
+                    isTodayVisible && "opacity-55"
+                  )}
                 >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={handleNextMonth}
-                  className="h-8 w-8 hover:bg-accent"
-                  aria-label={t('common.nextMonth')}
-                >
-                  <ChevronRight className="w-4 h-4" />
+                  {t('calendar.today')}
                 </Button>
               </div>
-              
-              {/* Month/Year title */}
-              <h2 className="text-xl font-bold text-foreground capitalize">
-                {formatDate(currentMonth, 'MMMM yyyy')}
-              </h2>
-              
-              {/* Today button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleToday}
-                className={cn(
-                  "h-8 text-xs font-medium",
-                  isTodayVisible && "opacity-50"
-                )}
-              >
-                {t('calendar.today')}
-              </Button>
+
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
+                <Badge variant="secondary" size="sm">
+                  {monthStats.total} {t('calendar.events')}
+                </Badge>
+                <Badge variant="success" size="sm">
+                  {monthStats.allDay} {t('calendar.allDay')}
+                </Badge>
+                <Badge variant="info" size="sm">
+                  {monthStats.timed} {t('calendar.time')}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           

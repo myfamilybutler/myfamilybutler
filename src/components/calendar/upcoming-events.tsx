@@ -97,17 +97,21 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
         className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2"
         style={{ opacity: actionsOpacity, scale: actionsScale }}
       >
-        <button
+        <Button
           onClick={handleEditClick}
-          className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-500 text-white shadow-lg active:scale-95 transition-transform"
+          variant="brand"
+          size="icon"
+          className="h-12 w-12 rounded-xl shadow-lg active:scale-95 transition-transform"
           aria-label={t('common.edit')}
         >
           <Pencil className="w-5 h-5" />
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleDeleteClick}
           disabled={isDeleting}
-          className="flex items-center justify-center w-12 h-12 rounded-xl bg-red-500 text-white shadow-lg active:scale-95 transition-transform disabled:opacity-50"
+          variant="destructive"
+          size="icon"
+          className="h-12 w-12 rounded-xl shadow-lg active:scale-95 transition-transform"
           aria-label={t('common.delete')}
         >
           {isDeleting ? (
@@ -115,7 +119,7 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
           ) : (
             <Trash2 className="w-5 h-5" />
           )}
-        </button>
+        </Button>
       </motion.div>
 
       <motion.div
@@ -367,7 +371,7 @@ export function UpcomingEvents({
           {excludeTodayAndTomorrow ? t('dashboard.laterEvents') : t('calendar.upcomingEvents')}
         </h3>
         <div className="flex flex-col items-center justify-center py-8 text-center">
-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+          <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-3">
             <Clock className="w-6 h-6 text-muted-foreground/50" />
           </div>
           <p className="text-sm text-muted-foreground">
@@ -400,7 +404,7 @@ export function UpcomingEvents({
         {/* No results with filter */}
         {allUpcomingEvents.length === 0 && hasActiveFilters && (
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <p className="text-sm text-gray-500">{t('calendar.noEventsFilter')}</p>
+            <p className="text-sm text-muted-foreground">{t('calendar.noEventsFilter')}</p>
             {/* We don't show clear button here as the filter is in navbar */}
           </div>
         )}
@@ -473,7 +477,7 @@ export function UpcomingEvents({
             )}
 
             {visibleCount >= maxEvents && totalEvents >= maxEvents && (
-              <p className="text-xs text-gray-400 text-center">
+              <p className="text-xs text-muted-foreground/70 text-center">
                 {t('calendar.maxEvents', { count: maxEvents })}
               </p>
             )}

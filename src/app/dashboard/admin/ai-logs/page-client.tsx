@@ -121,13 +121,13 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
                          {log.user_message}
                        </TableCell>
                        <TableCell>
-                         <Badge variant="outline">{log.intent_detected}</Badge>
+                         <Badge variant="outline" size="xs">{log.intent_detected}</Badge>
                        </TableCell>
                        <TableCell>
                          {log.was_successful ? (
-                           <Badge variant="success">Success</Badge>
+                           <Badge variant="success" size="xs">Success</Badge>
                          ) : (
-                           <Badge variant="destructive">Error</Badge>
+                           <Badge variant="destructive" size="xs">Error</Badge>
                          )}
                        </TableCell>
                        <TableCell className="text-right text-xs">
@@ -137,12 +137,12 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
                      {expandedLog === log.id && (
                        <TableRow>
                          <TableCell colSpan={5} className="bg-muted/50 p-4">
-                           <div className="rounded-md bg-slate-950 p-4 text-xs font-mono text-slate-50">
+                           <div className="rounded-md border border-border bg-card p-4 text-xs font-mono text-foreground">
                              <pre className="whitespace-pre-wrap">
                                {JSON.stringify(log.ai_output, null, 2)}
                              </pre>
                              {log.error_message && (
-                               <div className="mt-4 border-t border-slate-800 pt-4 text-red-400">
+                               <div className="mt-4 border-t border-border pt-4 text-destructive">
                                  Error: {log.error_message}
                                </div>
                              )}

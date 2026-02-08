@@ -258,8 +258,9 @@ function LoginContent() {
 
                   <Button
                     type="submit"
+                    variant="brand"
                     disabled={loading || !email}
-                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 gap-2"
+                    className="w-full h-12 gap-2"
                   >
                     {loading ? (
                       <>
@@ -284,7 +285,7 @@ function LoginContent() {
                       Starte auf{' '}
                       <a
                         href={APP_LINKS.whatsappLink}
-                        className="text-emerald-600 hover:underline font-medium"
+                        className="text-primary hover:underline font-medium"
                       >
                         WhatsApp
                       </a>
@@ -292,7 +293,7 @@ function LoginContent() {
                     <span className="text-xs text-muted-foreground">- oder -</span>
                     <Link 
                       href={`/register${searchParams.get('returnUrl') ? `?returnUrl=${searchParams.get('returnUrl')}` : ''}`}
-                      className="text-emerald-600 hover:underline font-medium"
+                      className="text-primary hover:underline font-medium"
                     >
                       Mit Email registrieren
                     </Link>
@@ -304,11 +305,11 @@ function LoginContent() {
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Mit der Anmeldung akzeptierst du unsere{' '}
-            <Link href="/terms" className="text-emerald-600 hover:underline">
+            <Link href="/terms" className="text-primary hover:underline">
               AGB
             </Link>{' '}
             und{' '}
-            <Link href="/privacy" className="text-emerald-600 hover:underline">
+            <Link href="/privacy" className="text-primary hover:underline">
               Datenschutzerklärung
             </Link>
           </p>

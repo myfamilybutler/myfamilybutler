@@ -24,7 +24,7 @@ interface FamilyMemberSelectorProps {
 const MEMBER_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   default: { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700' },
   mom: { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
-  dad: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700' },
+  dad: { bg: 'bg-indigo-50', border: 'border-indigo-300', text: 'text-indigo-700' },
   kids: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700' },
 };
 
@@ -74,7 +74,7 @@ export function FamilyMemberSelector({
                   'px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all',
                   isSelected
                     ? `${styles.bg} ${styles.border} ${styles.text}`
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    : 'bg-muted/40 border-border text-muted-foreground hover:bg-muted'
                 )}
               >
                 {member}
@@ -115,9 +115,9 @@ export function FamilyMemberSelector({
       
       {/* Current selection indicator (for custom members not in list) */}
       {value && !availableMembers.includes(value) && (
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Selected:</span>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
+          <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-500/20 dark:border-emerald-500/40 dark:text-emerald-300">
             {value}
           </span>
         </div>

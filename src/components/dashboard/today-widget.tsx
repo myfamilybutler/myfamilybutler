@@ -162,7 +162,7 @@ function DaySectionView({ section, memberColors, onEventClick, t }: DaySectionVi
             "text-xs font-medium px-2 py-0.5 rounded-full",
             section.isToday 
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400" 
-              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+              : "bg-muted text-muted-foreground"
           )}>
             {section.label}
           </span>
@@ -170,7 +170,7 @@ function DaySectionView({ section, memberColors, onEventClick, t }: DaySectionVi
             {formatDate(section.date, 'EEE, P')}
           </span>
         </div>
-        <Badge variant="secondary" className="text-xs h-5">
+        <Badge variant="secondary" size="sm">
           {section.events.length}
         </Badge>
       </div>

@@ -102,7 +102,7 @@ export function EventDetailDialog({
           {event.family_member && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
-              <Badge variant="outline">{event.family_member}</Badge>
+              <Badge variant="outline" size="sm">{event.family_member}</Badge>
             </div>
           )}
 
@@ -118,7 +118,7 @@ export function EventDetailDialog({
             {t('common.cancel')}
           </Button>
           <Button
-            className="bg-emerald-600 hover:bg-emerald-700"
+            variant="brand"
             onClick={() => onEdit?.(event)}
           >
             <Pencil className="mr-2 h-4 w-4" />

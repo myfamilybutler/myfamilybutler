@@ -43,7 +43,8 @@ export function FamilyFilter() {
           {hasActiveFilters && (
             <Badge 
               variant="default" 
-              className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 flex items-center justify-center text-xs"
+              size="xs"
+              className="absolute -top-1 -right-1 min-w-5 justify-center"
             >
               {selectedMembers.length}
             </Badge>
@@ -53,7 +54,7 @@ export function FamilyFilter() {
       <PopoverContent className="w-56 p-2" align="end">
         <div className="space-y-1">
           <div className="flex items-center justify-between px-2 pb-2 border-b">
-            <span className="font-medium text-sm text-gray-900">
+            <span className="font-medium text-sm text-foreground">
               {t('calendar.filterByMember')}
             </span>
             {hasActiveFilters && (
@@ -81,8 +82,8 @@ export function FamilyFilter() {
                   className={cn(
                     'flex items-center gap-3 w-full px-2 py-1.5 rounded-md text-sm transition-colors',
                     isSelected
-                      ? 'bg-slate-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-slate-50'
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
                 >
                   {/* Color dot */}

@@ -157,7 +157,7 @@ export function EventReminderSection({
   };
 
   return (
-    <div className="border-t border-gray-200 pt-4 space-y-3">
+    <div className="border-t border-border pt-4 space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-sm">Reminders</Label>
         <Button
@@ -197,10 +197,9 @@ export function EventReminderSection({
                   <Button
                     type="button"
                     size="icon"
-                    variant="ghost"
+                    variant="destructiveGhost"
                     onClick={() => void handleDeleteReminder(reminder.id)}
                     disabled={deletingReminderId === reminder.id}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     aria-label="Delete reminder"
                   >
                     {deletingReminderId === reminder.id ? (
@@ -219,7 +218,7 @@ export function EventReminderSection({
       )}
 
       {showForm && (
-        <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+        <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
           <Label>Remind me</Label>
           <Select
             value={reminderType}

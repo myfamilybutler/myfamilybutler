@@ -13,10 +13,11 @@ export function QuickAddFab({ onClick, className }: QuickAddFabProps) {
   return (
     <Button
       onClick={onClick}
+      variant="brand"
       size="icon"
       className={cn(
         'fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full shadow-lg',
-        'bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-transform',
+        'active:scale-95 transition-transform',
         'md:bottom-8 md:right-8',
         className
       )}

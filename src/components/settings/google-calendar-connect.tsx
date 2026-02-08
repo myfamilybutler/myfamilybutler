@@ -266,9 +266,8 @@ export function GoogleCalendarConnectButton({
 
         {/* Disconnect Button */}
         <Button
-          variant="ghost"
+          variant="destructiveGhost"
           size="sm"
-          className="text-gray-500 hover:text-red-600"
           onClick={handleDisconnect}
           disabled={isConnecting}
         >

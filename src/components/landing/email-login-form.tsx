@@ -53,7 +53,7 @@ export function EmailLoginForm() {
         <>
             <form onSubmit={handleEmailLogin} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
                 <div className="relative flex-1">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
                         type="email"
                         placeholder="deine@email.com"
@@ -65,7 +65,7 @@ export function EmailLoginForm() {
                 </div>
                 <Button
                     type="submit"
-                    className="h-12 px-6 bg-gray-900 hover:bg-gray-800"
+                    className="h-12 px-6"
                     disabled={emailLoading || !email}
                 >
                     {emailLoading ? (

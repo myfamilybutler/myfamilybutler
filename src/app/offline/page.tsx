@@ -1,13 +1,15 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 export default function OfflinePage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/50 p-4">
       <div className="text-center max-w-md">
         <div className="mb-6">
-          <div className="w-20 h-20 mx-auto bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto bg-muted rounded-full flex items-center justify-center">
             <svg
-              className="w-10 h-10 text-slate-400"
+              className="w-10 h-10 text-muted-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -21,18 +23,18 @@ export default function OfflinePage() {
             </svg>
           </div>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+        <h1 className="text-2xl font-bold text-foreground mb-2">
           You&apos;re Offline
         </h1>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
+        <p className="text-muted-foreground mb-6">
           Please check your internet connection and try again.
         </p>
-        <button
+        <Button
           onClick={() => window.location.reload()}
-          className="inline-flex items-center px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-medium hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+          variant="outline"
         >
           Try Again
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -13,13 +13,13 @@ export default function Terms() {
 
         {/* Content */}
         <div className="bg-white rounded-2xl shadow-sm p-8 sm:p-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Allgemeine Geschäftsbedingungen (AGB)</h1>
-          <p className="text-gray-600 mb-8">Letzte Aktualisierung: {new Date().toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Allgemeine Geschäftsbedingungen (AGB)</h1>
+          <p className="text-muted-foreground mb-8">Letzte Aktualisierung: {new Date().toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
-          <div className="space-y-8 text-gray-700 leading-relaxed">
+          <div className="space-y-8 text-foreground leading-relaxed">
             {/* Section 1 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Geltungsbereich</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">1. Geltungsbereich</h2>
               <p>
                 Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für alle Leistungen von MyFamilyButler, 
                 bereitgestellt durch:
@@ -35,7 +35,7 @@ export default function Terms() {
 
             {/* Section 2 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Leistungsbeschreibung</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">2. Leistungsbeschreibung</h2>
               <p className="mb-4">
                 MyFamilyButler ist ein KI-gestützter Assistenten-Service, der über WhatsApp bereitgestellt wird. 
                 Unsere Dienstleistungen umfassen:
@@ -51,7 +51,7 @@ export default function Terms() {
 
             {/* Section 3 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. Vertragsschluss</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">3. Vertragsschluss</h2>
               <p>
                 Der Vertrag kommt zustande, wenn Sie eine Nachricht an unsere WhatsApp-Nummer senden und 
                 damit unseren Service nutzen. Durch die erste Nutzung akzeptieren Sie diese AGB.
@@ -60,7 +60,7 @@ export default function Terms() {
 
             {/* Section 4 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. Preise und Zahlungsbedingungen</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">4. Preise und Zahlungsbedingungen</h2>
               <div className="bg-emerald-50 p-6 rounded-lg mb-4">
                 <p className="font-semibold text-lg mb-2">Kostenloses Testangebot</p>
                 <p>Aktuell bieten wir unseren Service <strong>7 Tage kostenlos</strong> zur Testnutzung an.</p>
@@ -72,14 +72,14 @@ export default function Terms() {
                 <li><strong>Akzeptierte Zahlungsmethoden:</strong> Kreditkarte, PayPal, Banküberweisung</li>
                 <li><strong>Rechnungsstellung:</strong> Monatlich per E-Mail</li>
               </ul>
-              <p className="mt-4 text-sm text-gray-600">
+              <p className="mt-4 text-sm text-muted-foreground">
                 Alle Preise verstehen sich inklusive der gesetzlichen Mehrwertsteuer.
               </p>
             </section>
 
             {/* Section 5 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">5. Laufzeit und Kündigung</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">5. Laufzeit und Kündigung</h2>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Der Vertrag läuft auf unbestimmte Zeit</li>
                 <li>Sie können jederzeit mit einer Frist von 7 Tagen zum Monatsende kündigen</li>
@@ -91,7 +91,7 @@ export default function Terms() {
 
             {/* Section 6 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">6. Pflichten des Nutzers</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">6. Pflichten des Nutzers</h2>
               <p className="mb-4">Als Nutzer verpflichten Sie sich:</p>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Den Service nur für rechtmäßige Zwecke zu nutzen</li>
@@ -104,7 +104,7 @@ export default function Terms() {
 
             {/* Section 7 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">7. Verfügbarkeit und Gewährleistung</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">7. Verfügbarkeit und Gewährleistung</h2>
               <p className="mb-4">
                 Wir bemühen uns um eine möglichst hohe Verfügbarkeit unseres Services. Allerdings können wir 
                 eine ununterbrochene Verfügbarkeit nicht garantieren.
@@ -126,7 +126,7 @@ export default function Terms() {
 
             {/* Section 8 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Haftung</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">8. Haftung</h2>
               <p className="mb-4">
                 Wir haften für Schäden nur bei Vorsatz und grober Fahrlässigkeit. Die Haftung bei leichter 
                 Fahrlässigkeit ist ausgeschlossen, soweit nicht wesentliche Vertragspflichten verletzt werden.
@@ -140,14 +140,14 @@ export default function Terms() {
                 <li>Datenverlust bei Drittanbietern</li>
                 <li>Indirekte Schäden oder entgangenen Gewinn</li>
               </ul>
-              <p className="mt-4 text-sm text-gray-600">
+              <p className="mt-4 text-sm text-muted-foreground">
                 Die Haftung für Personenschäden bleibt hiervon unberührt.
               </p>
             </section>
 
             {/* Section 9 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Datenschutz</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">9. Datenschutz</h2>
               <p>
                 Für die Verarbeitung Ihrer personenbezogenen Daten gelten unsere{' '}
                 <Link href="/privacy" className="text-emerald-600 hover:underline font-medium">
@@ -159,7 +159,7 @@ export default function Terms() {
 
             {/* Section 10 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">10. Widerrufsrecht</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">10. Widerrufsrecht</h2>
               <p className="mb-4">
                 Als Verbraucher haben Sie ein 14-tägiges Widerrufsrecht. Sie können Ihre Vertragserklärung 
                 innerhalb von 14 Tagen ohne Angabe von Gründen widerrufen.
@@ -171,7 +171,7 @@ export default function Terms() {
                   Betreff: &quot;Widerruf MyFamilyButler&quot;
                 </p>
               </div>
-              <p className="mt-4 text-sm text-gray-600">
+              <p className="mt-4 text-sm text-muted-foreground">
                 Bei Nutzung während der Widerrufsfrist haben Sie ggf. Wertersatz für bereits genutzte 
                 Leistungen zu zahlen.
               </p>
@@ -179,7 +179,7 @@ export default function Terms() {
 
             {/* Section 11 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">11. Änderungen der AGB</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">11. Änderungen der AGB</h2>
               <p>
                 Wir behalten uns vor, diese AGB bei Bedarf zu ändern. Änderungen werden Ihnen mindestens 
                 4 Wochen vor Inkrafttreten per E-Mail mitgeteilt. Widersprechen Sie nicht innerhalb von 
@@ -189,7 +189,7 @@ export default function Terms() {
 
             {/* Section 12 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">12. Schlussbestimmungen</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">12. Schlussbestimmungen</h2>
               <ul className="list-disc pl-6 space-y-2">
                 <li>
                   <strong>Anwendbares Recht:</strong> Es gilt österreichisches Recht unter Ausschluss des 
@@ -208,7 +208,7 @@ export default function Terms() {
 
             {/* Section 13 */}
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">13. Streitbeilegung</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">13. Streitbeilegung</h2>
               <p>
                 Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit:{' '}
                 <a 
@@ -220,7 +220,7 @@ export default function Terms() {
                   ec.europa.eu/consumers/odr
                 </a>
               </p>
-              <p className="mt-4 text-sm text-gray-600">
+              <p className="mt-4 text-sm text-muted-foreground">
                 Wir sind nicht verpflichtet und nicht bereit, an Streitbeilegungsverfahren vor einer 
                 Verbraucherschlichtungsstelle teilzunehmen.
               </p>

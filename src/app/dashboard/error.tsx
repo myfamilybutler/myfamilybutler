@@ -19,15 +19,15 @@ export default function DashboardError({
 
   return (
     <div className="flex items-center justify-center h-full min-h-[400px] p-6">
-      <Card className="max-w-md w-full border-red-200">
+      <Card className="max-w-md w-full border-destructive/25">
         <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <AlertCircle className="w-6 h-6 text-red-600" />
+          <div className="mx-auto w-12 h-12 bg-destructive/15 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle className="w-6 h-6 text-destructive" />
           </div>
-          <CardTitle className="text-xl text-red-700">Something went wrong</CardTitle>
+          <CardTitle className="text-xl text-destructive">Something went wrong</CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             {error.message || "We encountered an unexpected error while loading your dashboard."}
           </p>
           <div className="flex justify-center gap-4">
@@ -38,8 +38,8 @@ export default function DashboardError({
               Reload Page
             </Button>
             <Button 
+              variant="destructive"
               onClick={() => reset()}
-              className="bg-red-600 hover:bg-red-700 text-white"
             >
               Try Again
             </Button>

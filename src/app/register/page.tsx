@@ -112,17 +112,17 @@ export default function RegisterPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/50">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/50 flex flex-col">
       {/* Header */}
       <header className="p-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+        <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to Home
         </Link>
@@ -136,7 +136,7 @@ export default function RegisterPage() {
           transition={{ duration: 0.4 }}
           className="w-full max-w-md"
         >
-          <Card className="border-slate-200 shadow-lg">
+          <Card className="border-border shadow-lg">
             <CardHeader className="text-center pb-2">
               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-colors ${
                 success ? 'bg-emerald-500' : 'bg-blue-100'
@@ -147,10 +147,10 @@ export default function RegisterPage() {
                   <UserPlus className="w-8 h-8 text-blue-600" />
                 )}
               </div>
-              <CardTitle className="text-2xl font-bold text-gray-900">
+              <CardTitle className="text-2xl font-bold text-foreground">
                 {success ? 'Account Created!' : 'Create Account'}
               </CardTitle>
-              <CardDescription className="text-gray-500">
+              <CardDescription className="text-muted-foreground">
                 {success 
                   ? 'Redirecting you to complete setup...' 
                   : 'Join MyFamilyButler to manage your family schedule'
@@ -161,11 +161,11 @@ export default function RegisterPage() {
               {!success ? (
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    <label htmlFor="email" className="text-sm font-medium text-foreground">
                       Email
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
@@ -180,11 +180,11 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                    <label htmlFor="password" className="text-sm font-medium text-foreground">
                       Password
                     </label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <Input
                         id="password"
                         type="password"
@@ -200,11 +200,11 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+                    <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
                       Confirm Password
                     </label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <Input
                         id="confirmPassword"
                         type="password"
@@ -230,8 +230,9 @@ export default function RegisterPage() {
 
                   <Button
                     type="submit"
+                    variant="brand"
                     disabled={loading || !email || !password || !confirmPassword}
-                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 gap-2"
+                    className="w-full h-12 gap-2"
                   >
                     {loading ? (
                       <>
@@ -254,9 +255,9 @@ export default function RegisterPage() {
 
               {!success && (
                 <div className="mt-6 text-center">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Already have an account?{' '}
-                    <Link href="/login" className="text-emerald-600 hover:underline font-medium">
+                    <Link href="/login" className="text-primary hover:underline font-medium">
                       Sign in
                     </Link>
                   </p>
@@ -265,13 +266,13 @@ export default function RegisterPage() {
             </CardContent>
           </Card>
 
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className="text-center text-sm text-muted-foreground mt-6">
             By continuing, you agree to our{' '}
-            <Link href="/terms" className="text-emerald-600 hover:underline">
+            <Link href="/terms" className="text-primary hover:underline">
               Terms of Service
             </Link>{' '}
             and{' '}
-            <Link href="/privacy" className="text-emerald-600 hover:underline">
+            <Link href="/privacy" className="text-primary hover:underline">
               Privacy Policy
             </Link>
           </p>

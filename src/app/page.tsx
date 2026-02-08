@@ -19,24 +19,24 @@ export default function LandingPage() {
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
               <MessageCircle className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900">My Family Butler</span>
+            <span className="text-xl font-bold text-foreground">My Family Butler</span>
           </div>
           <div className="flex items-center gap-4">
             <Link
               href="/privacy"
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Privacy
             </Link>
             <Link
               href="/terms"
-              className="hidden sm:block text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Terms
             </Link>
             <Link
               href="/login"
-              className="hidden sm:flex items-center gap-2 text-gray-600 hover:text-gray-900 px-4 py-2.5 font-medium transition-colors"
+              className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground px-4 py-2.5 font-medium transition-colors"
             >
               Dashboard Login
             </Link>
@@ -57,7 +57,7 @@ export default function LandingPage() {
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
             Your Family Butler.
             <br />
             <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
@@ -66,7 +66,7 @@ export default function LandingPage() {
           </h1>
 
           {/* Subheadline */}
-          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
             Der smarte AI-Assistent für Ihre Familie.
             <strong> Kein Download, kein Passwort, keine Registrierung.</strong>{' '}
             Einfach eine Nachricht schreiben und loslegen.
@@ -102,7 +102,7 @@ export default function LandingPage() {
             <div className="hidden sm:flex flex-col lg:flex-row items-center justify-center gap-8 mb-8">
               {/* QR Code Card */}
               <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100">
-                <p className="text-gray-600 font-medium mb-4">Scanne mit deinem Handy:</p>
+                <p className="text-muted-foreground font-medium mb-4">Scanne mit deinem Handy:</p>
                 <div className="bg-white p-4 rounded-2xl inline-block">
                   <QRCodeSVG
                     value={WHATSAPP_LINK}
@@ -112,12 +112,12 @@ export default function LandingPage() {
                     className="rounded-lg"
                   />
                 </div>
-                <p className="text-sm text-gray-500 mt-4">WhatsApp öffnet automatisch</p>
+                <p className="text-sm text-muted-foreground mt-4">WhatsApp öffnet automatisch</p>
               </div>
 
               {/* Or use buttons */}
               <div className="flex flex-col gap-4">
-                <p className="text-gray-500 text-sm mb-2">Oder klicke direkt:</p>
+                <p className="text-muted-foreground text-sm mb-2">Oder klicke direkt:</p>
                 <a
                   href={WHATSAPP_LINK}
                   target="_blank"
@@ -145,13 +145,13 @@ export default function LandingPage() {
 
             {/* Email Login for Returning Users (Desktop only) */}
             <div className="hidden sm:block mt-12 pt-8 border-t border-gray-200">
-              <p className="text-gray-500 text-sm mb-4">Schon ein Konto? Login per Email:</p>
+              <p className="text-muted-foreground text-sm mb-4">Schon ein Konto? Login per Email:</p>
               <EmailLoginForm />
             </div>
           </div>
 
           {/* Trust indicators */}
-          <div className="flex flex-wrap justify-center gap-6 mt-8 text-sm text-gray-500">
+          <div className="flex flex-wrap justify-center gap-6 mt-8 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-yellow-500" />
               Sofort einsatzbereit
@@ -171,10 +171,10 @@ export default function LandingPage() {
       {/* How It Works Section */}
       <section className="container mx-auto px-6 py-24 bg-white/50">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
             So einfach geht&apos;s
           </h2>
-          <p className="text-gray-600 max-w-xl mx-auto">
+          <p className="text-muted-foreground max-w-xl mx-auto">
             Kein Download, keine App, keine Registrierung – einfach chatten.
           </p>
         </div>
@@ -185,10 +185,10 @@ export default function LandingPage() {
             <div className="w-16 h-16 bg-emerald-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
               1
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               &ldquo;Start&rdquo; schreiben
             </h3>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Öffnen Sie WhatsApp oder Telegram und schreiben Sie einfach &ldquo;Start&rdquo;.
             </p>
           </div>
@@ -198,10 +198,10 @@ export default function LandingPage() {
             <div className="w-16 h-16 bg-emerald-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
               2
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               Einfach chatten
             </h3>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               &ldquo;Erinnere mich morgen an...&rdquo; oder &ldquo;Zahnarzt am Montag um 10 Uhr&rdquo;
             </p>
           </div>
@@ -211,10 +211,10 @@ export default function LandingPage() {
             <div className="w-16 h-16 bg-emerald-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
               3
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               Erledigt!
             </h3>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Ihr Butler kümmert sich um den Rest und erinnert Sie rechtzeitig.
             </p>
           </div>
@@ -224,10 +224,10 @@ export default function LandingPage() {
             <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
               ✨
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               Dashboard öffnen
             </h3>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Tippen Sie &ldquo;Dashboard&rdquo; für einen Login-Link zur Übersicht.
             </p>
           </div>
@@ -237,7 +237,7 @@ export default function LandingPage() {
       {/* Features Section */}
       <section className="container mx-auto px-6 py-24">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
             Alles, was Ihre Familie braucht
           </h2>
         </div>
@@ -248,10 +248,10 @@ export default function LandingPage() {
             <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mb-6">
               <Calendar className="w-7 h-7 text-emerald-600" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+            <h3 className="text-xl font-semibold text-foreground mb-3">
               Termine &amp; Erinnerungen
             </h3>
-            <p className="text-gray-600 leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed">
               &ldquo;Zahnarzt am Montag um 10 Uhr&rdquo; – Ihr Butler versteht natürliche Sprache
               und erinnert Sie rechtzeitig per WhatsApp.
             </p>
@@ -262,10 +262,10 @@ export default function LandingPage() {
             <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
               <FileText className="w-7 h-7 text-blue-600" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+            <h3 className="text-xl font-semibold text-foreground mb-3">
               Schulbriefe verstehen
             </h3>
-            <p className="text-gray-600 leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed">
               Schicken Sie ein Foto – Ihr Butler fasst die wichtigsten
               Infos zusammen und merkt sich alle Termine.
             </p>
@@ -276,10 +276,10 @@ export default function LandingPage() {
             <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center mb-6">
               <Users className="w-7 h-7 text-violet-600" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+            <h3 className="text-xl font-semibold text-foreground mb-3">
               Familienkalender
             </h3>
-            <p className="text-gray-600 leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed">
               Laden Sie Familienmitglieder ein. Jeder kann Termine hinzufügen,
               alle sehen die gemeinsame Übersicht im Dashboard.
             </p>
@@ -351,14 +351,14 @@ export default function LandingPage() {
             <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
               <MessageCircle className="w-4 h-4 text-white" />
             </div>
-            <span className="font-semibold text-gray-900">My Family Butler</span>
+            <span className="font-semibold text-foreground">My Family Butler</span>
           </div>
-          <div className="flex items-center gap-6 text-sm text-gray-600">
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link href="/privacy" className="hover:text-emerald-600 transition-colors">Datenschutz</Link>
             <Link href="/terms" className="hover:text-emerald-600 transition-colors">AGB</Link>
             <Link href="/login" className="hover:text-emerald-600 transition-colors">Dashboard Login</Link>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             © 2025 My Family Butler. Made in Austria 🇦🇹
           </p>
         </div>

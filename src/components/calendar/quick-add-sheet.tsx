@@ -127,9 +127,10 @@ export function QuickAddSheet({
             {t('common.cancel')}
           </Button>
           <Button
+            variant="brand"
             onClick={handleSave}
             disabled={isLoading || !isEventFormValid(formData)}
-            className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px]"
+            className="min-h-[44px]"
           >
             {isLoading ? (
               <>

@@ -64,9 +64,9 @@ export function FamilyMembersList({
           {/* Remove user button (for admins, except self) */}
           {showActions && isAdmin && !user.is_household_admin && (
             <Button
-              variant="ghost"
+              variant="destructiveGhost"
               size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+              className="h-8 w-8 p-0"
               onClick={() => onDeleteMember?.({ id: user.id, name: user.display_name || user.phone_number || user.linked_email || 'User' })}
             >
               <Trash2 className="w-4 h-4" />
@@ -111,9 +111,9 @@ export function FamilyMembersList({
                   <Pencil className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="destructiveGhost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                  className="h-8 w-8 p-0"
                   onClick={() => onDeleteMember?.(member)}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -125,7 +125,7 @@ export function FamilyMembersList({
       })}
 
       {users.length === 0 && familyMembers.length === 0 && (
-        <p className="text-sm text-gray-400 py-2">No family members yet</p>
+        <p className="text-sm text-muted-foreground/70 py-2">No family members yet</p>
       )}
     </div>
   );

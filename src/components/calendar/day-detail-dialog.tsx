@@ -69,7 +69,7 @@ export function DayDetailDialog({
                 <DialogDescription className="flex items-center gap-2 mt-0.5">
                   <span>{formatDate(date, 'PPP')}</span>
                   {isToday && (
-                    <Badge variant="success" className="h-5 px-1.5 text-[10px]">
+                    <Badge variant="success" size="xs">
                       {t('calendar.today')}
                     </Badge>
                   )}

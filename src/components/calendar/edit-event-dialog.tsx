@@ -242,8 +242,8 @@ export function EditEventDialog({
           <DialogFooter className="flex-shrink-0 flex-col sm:flex-row gap-2 border-t pt-4">
             {/* Delete Button - Opens confirmation dialog */}
             <Button
-              variant="outline"
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 min-h-[44px]"
+              variant="destructiveOutline"
+              className="min-h-[44px]"
               onClick={() => setShowDeleteDialog(true)}
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -254,9 +254,10 @@ export function EditEventDialog({
 
             {/* Save Button */}
             <Button
+              variant="brand"
               onClick={handleSave}
               disabled={isLoading || !isEventFormValid(formData)}
-              className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px]"
+              className="min-h-[44px]"
             >
               {isLoading ? (
                 <>

@@ -81,11 +81,11 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
                   <div className="font-medium">{user.display_name || 'Unknown'}</div>
                   <div className="text-xs text-muted-foreground">{user.phone_number}</div>
                   {user.is_admin && (
-                    <Badge variant="secondary" className="mt-1 text-[10px]">Admin</Badge>
+                    <Badge variant="secondary" size="xs" className="mt-1">Admin</Badge>
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={user.subscription_status === 'active' ? 'default' : 'outline'}>
+                  <Badge variant={user.subscription_status === 'active' ? 'default' : 'outline'} size="xs">
                     {user.subscription_status}
                   </Badge>
                 </TableCell>
