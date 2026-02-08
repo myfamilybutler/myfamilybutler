@@ -53,8 +53,8 @@ export function BroadcastClient() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Broadcast System</h1>
       </div>
 
@@ -103,9 +103,11 @@ export function BroadcastClient() {
             </Alert>
           )}
 
-          <div className="flex gap-4 pt-4 border-t">
+          <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:gap-4">
             <Button 
               variant="outline" 
+              size="touch"
+              className="w-full sm:w-auto"
               onClick={() => handleSend(true)}
               disabled={loading}
             >
@@ -114,6 +116,7 @@ export function BroadcastClient() {
             </Button>
             <Button 
               variant="destructive"
+              size="touch"
               className="flex-1" 
               onClick={() => handleSend(false)}
               disabled={loading}

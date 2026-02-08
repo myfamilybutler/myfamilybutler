@@ -131,8 +131,21 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
         onDragStart={() => setIsDragging(true)}
         onDragEnd={handleDragEnd}
         style={{ x }}
-        className="relative bg-muted/50 hover:bg-muted transition-colors cursor-grab active:cursor-grabbing"
+        className="relative cursor-grab bg-muted/50 transition-colors hover:bg-muted active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
         onClick={() => !isDragging && x.get() === 0 && onSelect(event)}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && x.get() === 0) {
+            e.preventDefault();
+            onSelect(event);
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            handleClose();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={`${event.title} ${event.dateLabel}`}
       >
         <div className="flex items-start gap-3 p-3 sm:p-3.5">
           <div className="w-16 flex-shrink-0 text-right sm:w-20">

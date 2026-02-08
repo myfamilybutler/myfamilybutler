@@ -43,15 +43,15 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">User Manager</h1>
-        <Button>Add User</Button>
+        <Button size="touch" className="w-full sm:w-auto">Add User</Button>
       </div>
 
       {/* Filters */}
       <div className="flex items-center gap-2">
-        <div className="relative w-64">
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search phones..." 
@@ -64,6 +64,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
 
       {/* Users Table */}
       <div className="rounded-md border bg-card">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -98,7 +99,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+                      <Button variant="ghost" className="h-9 w-9 p-0">
                         <span className="sr-only">Open menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -124,6 +125,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
     </div>
   );

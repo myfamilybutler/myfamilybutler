@@ -10,8 +10,8 @@ interface Stats {
 
 export function AdminOverviewClient({ stats }: { stats: Stats }) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard Overview</h1>
         <div className="text-sm text-muted-foreground">
           Last updated: Just now
@@ -64,18 +64,18 @@ export function AdminOverviewClient({ stats }: { stats: Stats }) {
       </div>
 
       {/* Recent Activity Section */}
-      <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-        <div className="flex flex-col space-y-1.5 p-6 md:p-8">
-          <h3 className="font-semibold leading-none tracking-tight">Recent System Activity</h3>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Recent System Activity</CardTitle>
           <p className="text-sm text-muted-foreground">
             Latest actions across the platform.
           </p>
-        </div>
-        <div className="p-6 md:p-8 pt-0">
+        </CardHeader>
+        <CardContent>
           <div className="space-y-4">
              {/* Placeholder List */}
              {[1, 2, 3].map((i) => (
-               <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+               <div key={i} className="flex items-center justify-between border-b border-border pb-4 last:border-0 last:pb-0">
                   <div className="space-y-1">
                     <p className="text-sm font-medium leading-none">New User Signup</p>
                     <p className="text-sm text-muted-foreground">via WhatsApp • {i * 15} min ago</p>
@@ -84,8 +84,8 @@ export function AdminOverviewClient({ stats }: { stats: Stats }) {
                </div>
              ))}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

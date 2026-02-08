@@ -497,7 +497,7 @@ export function DesktopCalendarGrid({
                     key={dayIndex}
                     className={cn(
                       "relative overflow-visible cursor-pointer transition-colors bg-background/70",
-                      "hover:bg-emerald-500/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/70",
+                      "hover:bg-emerald-500/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70",
                       isTodayDate && "bg-emerald-500/[0.08]",
                       !isCurrentMonth && "bg-muted/15 text-muted-foreground/50"
                     )}
@@ -556,7 +556,7 @@ export function DesktopCalendarGrid({
                                 className={cn(
                                   "relative z-20 w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs",
                                   "rounded-md border border-transparent hover:bg-muted/70 hover:border-border/70",
-                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
                                 )}
                                 onClick={(e) => handleEventClick(event, e)}
                               >
@@ -659,7 +659,7 @@ export function DesktopCalendarGrid({
                           className={cn(
                             "pointer-events-auto relative z-20 flex h-6 w-full items-center text-left px-1.5 sm:px-2 text-[11px] sm:text-xs font-semibold text-white",
                             "shadow-[0_8px_14px_-8px_rgba(15,23,42,0.7)] ring-1 ring-black/10 dark:ring-white/15",
-                            "hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50",
+                            "hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
                             getWeekBarLayoutClasses(segment, weekStart, weekEnd),
                             color.barBg
                           )}

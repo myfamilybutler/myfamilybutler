@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -53,8 +53,8 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">AI Observability</h1>
       </div>
 
@@ -96,6 +96,7 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
              <CardTitle>Recent Interactions</CardTitle>
            </CardHeader>
            <CardContent>
+             <div className="overflow-x-auto">
              <Table>
                <TableHeader>
                  <TableRow>
@@ -108,11 +109,18 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
                </TableHeader>
                <TableBody>
                  {initialLogs.map((log) => (
-                   <>
-                     <TableRow 
-                       key={log.id} 
+                   <Fragment key={log.id}>
+                     <TableRow
                        className="cursor-pointer hover:bg-muted/50"
                        onClick={() => setExpandedLog(expandedLog === log.id ? null : log.id)}
+                       onKeyDown={(e) => {
+                         if (e.key === 'Enter' || e.key === ' ') {
+                           e.preventDefault();
+                           setExpandedLog(expandedLog === log.id ? null : log.id);
+                         }
+                       }}
+                       tabIndex={0}
+                       aria-expanded={expandedLog === log.id}
                      >
                        <TableCell className="font-medium text-xs text-muted-foreground">
                          {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
@@ -150,10 +158,11 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
                          </TableCell>
                        </TableRow>
                      )}
-                   </>
+                   </Fragment>
                  ))}
                </TableBody>
              </Table>
+             </div>
            </CardContent>
         </Card>
 
@@ -162,7 +171,7 @@ export function AILogsClient({ initialLogs, stats }: { initialLogs: Log[], stats
           <CardHeader>
             <CardTitle>Health</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-64 sm:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />

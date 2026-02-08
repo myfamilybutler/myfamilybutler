@@ -66,7 +66,8 @@ export function FamilyMembersList({
             <Button
               variant="destructiveGhost"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-10 w-10 p-0"
+              aria-label={`Remove ${user.display_name || user.phone_number || user.linked_email || 'user'}`}
               onClick={() => onDeleteMember?.({ id: user.id, name: user.display_name || user.phone_number || user.linked_email || 'User' })}
             >
               <Trash2 className="w-4 h-4" />
@@ -105,7 +106,8 @@ export function FamilyMembersList({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                  className="h-10 w-10 p-0 text-muted-foreground hover:text-primary"
+                  aria-label={`Edit ${member.name}`}
                   onClick={() => onEditMember?.(member)}
                 >
                   <Pencil className="w-4 h-4" />
@@ -113,7 +115,8 @@ export function FamilyMembersList({
                 <Button
                   variant="destructiveGhost"
                   size="sm"
-                  className="h-8 w-8 p-0"
+                  className="h-10 w-10 p-0"
+                  aria-label={`Delete ${member.name}`}
                   onClick={() => onDeleteMember?.(member)}
                 >
                   <Trash2 className="w-4 h-4" />

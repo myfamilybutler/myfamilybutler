@@ -243,25 +243,25 @@ export default function SettingsPage() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="space-y-6 max-w-2xl mx-auto">
-          <div>
+        <div className="mx-auto max-w-3xl space-y-6">
+          <div className="space-y-1">
             <h1 className="text-2xl font-bold text-foreground">{t('settings.title')}</h1>
-            <p className="text-muted-foreground mt-1">{t('settings.description')}</p>
+            <p className="text-muted-foreground">{t('settings.description')}</p>
           </div>
           
           <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="profile" className="flex items-center gap-2">
+            <TabsList className="grid h-auto w-full grid-cols-3">
+              <TabsTrigger value="profile" className="flex min-h-10 items-center gap-2">
                 <User className="w-4 h-4" />
                 <span className="hidden sm:inline">{t('settings.profileTab')}</span>
                 <span className="sm:hidden">{t('settings.profileTabShort')}</span>
               </TabsTrigger>
-              <TabsTrigger value="family" className="flex items-center gap-2">
+              <TabsTrigger value="family" className="flex min-h-10 items-center gap-2">
                 <Users className="w-4 h-4" />
                 <span className="hidden sm:inline">{t('settings.familyTab')}</span>
                 <span className="sm:hidden">{t('settings.familyTabShort')}</span>
               </TabsTrigger>
-              <TabsTrigger value="privacy" className="flex items-center gap-2">
+              <TabsTrigger value="privacy" className="flex min-h-10 items-center gap-2">
                 <Shield className="w-4 h-4" />
                 <span className="hidden sm:inline">{t('settings.privacyTab')}</span>
                 <span className="sm:hidden">{t('settings.privacyTabShort')}</span>
@@ -296,6 +296,7 @@ export default function SettingsPage() {
               {/* Logout - in profile tab */}
               <Button
                 variant="outline"
+                size="touch"
                 className="w-full"
                 onClick={handleLogout}
               >
@@ -307,7 +308,7 @@ export default function SettingsPage() {
             {/* Family Tab */}
             <TabsContent value="family" className="space-y-6">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Users className="w-5 h-5" />
@@ -318,12 +319,12 @@ export default function SettingsPage() {
                     </CardDescription>
                   </div>
                   {hasHousehold ? (
-                    <Button size="sm" onClick={() => setAddMemberDialog(true)}>
+                    <Button size="touch" className="w-full sm:w-auto" onClick={() => setAddMemberDialog(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       {t('settings.addMember')}
                     </Button>
                   ) : (
-                    <Button size="sm" onClick={() => router.push('/onboarding')}>
+                    <Button size="touch" className="w-full sm:w-auto" onClick={() => router.push('/onboarding')}>
                       <Plus className="w-4 h-4 mr-2" />
                       Create Family
                     </Button>
@@ -349,6 +350,7 @@ export default function SettingsPage() {
                   {!isHouseholdAdmin && (
                     <Button
                       variant="warningOutline"
+                      size="touch"
                       className="w-full mt-4"
                       onClick={() => setLeaveFamilyDialog(true)}
                     >
@@ -375,6 +377,7 @@ export default function SettingsPage() {
                 <CardContent className="space-y-3">
                   <Button
                     variant="outline"
+                    size="touch"
                     className="w-full justify-start"
                     onClick={handleExportData}
                   >
@@ -399,6 +402,7 @@ export default function SettingsPage() {
                   {isHouseholdAdmin && (
                     <Button
                       variant="destructiveOutline"
+                      size="touch"
                       className="w-full justify-start"
                       onClick={() => setDeleteFamilyDialog(true)}
                     >
@@ -409,6 +413,7 @@ export default function SettingsPage() {
                   
                   <Button
                     variant="destructiveOutline"
+                    size="touch"
                     className="w-full justify-start"
                     onClick={() => setDeleteAccountDialog(true)}
                   >

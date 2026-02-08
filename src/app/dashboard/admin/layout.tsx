@@ -8,8 +8,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminGuard>
       <DashboardLayout>
-        <AdminNav />
-        {children}
+        <div className="space-y-6">
+          <AdminNav />
+          {children}
+        </div>
       </DashboardLayout>
     </AdminGuard>
   );

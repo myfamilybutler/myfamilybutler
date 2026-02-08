@@ -93,15 +93,28 @@ export function DayDetailDialog({
               <div className="space-y-3">
                 {events.map((event) => {
                   const pillColor = getMemberColor(event.family_member);
+                  const eventA11yLabel = event.is_all_day
+                    ? `${event.title} ${t('calendar.allDay')}`
+                    : `${event.title} ${formatTime(event.event_time)}${event.end_time ? ` - ${formatTime(event.end_time)}` : ''}`;
 
                   return (
                     <Card
                       key={event.id}
-                      className="group border-0 shadow-sm hover:shadow transition-all overflow-hidden bg-card cursor-pointer ring-1 ring-border/50"
+                      className="group cursor-pointer overflow-hidden border-0 bg-card shadow-sm ring-1 ring-border/50 transition-all hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
                       onClick={() => {
                         setSelectedEvent(event);
                         setDetailOpen(true);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedEvent(event);
+                          setDetailOpen(true);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={eventA11yLabel}
                     >
                       <CardContent className="flex items-start gap-3 p-3 sm:p-4">
                         <div className="w-14 shrink-0 flex flex-col items-end pt-0.5 gap-0.5 sm:w-16">

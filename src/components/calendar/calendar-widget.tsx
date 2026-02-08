@@ -199,7 +199,7 @@ export function CalendarWidget({
                 variant="ghost" 
                 size="icon" 
                 onClick={handlePrevMonth}
-                className="h-8 w-8 hover:bg-muted"
+                className="h-10 w-10 hover:bg-muted sm:h-8 sm:w-8"
                 aria-label={t('common.prevMonth')}
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -208,7 +208,7 @@ export function CalendarWidget({
                 variant="ghost" 
                 size="icon" 
                 onClick={handleNextMonth}
-                className="h-8 w-8 hover:bg-muted"
+                className="h-10 w-10 hover:bg-muted sm:h-8 sm:w-8"
                 aria-label={t('common.nextMonth')}
               >
                 <ChevronRight className="w-4 h-4" />
@@ -226,7 +226,7 @@ export function CalendarWidget({
               size="sm"
               onClick={handleToday}
               className={cn(
-                "h-8 text-xs font-medium",
+                "h-10 text-xs font-medium sm:h-8",
                 isTodayVisible && "opacity-50"
               )}
             >

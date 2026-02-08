@@ -122,7 +122,7 @@ export function CollapsibleCalendar({
               variant="ghost"
               size="sm"
               onClick={isExpanded ? handlePrevMonth : handlePrevWeek}
-              className="h-8 w-8 p-0 text-muted-foreground hover:bg-accent"
+              className="h-10 w-10 p-0 text-muted-foreground hover:bg-accent sm:h-8 sm:w-8"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -130,7 +130,7 @@ export function CollapsibleCalendar({
               variant="ghost"
               size="sm"
               onClick={isExpanded ? handleNextMonth : handleNextWeek}
-              className="h-8 w-8 p-0 text-muted-foreground hover:bg-accent"
+              className="h-10 w-10 p-0 text-muted-foreground hover:bg-accent sm:h-8 sm:w-8"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -146,7 +146,7 @@ export function CollapsibleCalendar({
             variant="ghost"
             size="sm"
             onClick={toggleExpanded}
-            className="h-8 w-8 p-0 text-muted-foreground hover:bg-accent"
+            className="h-10 w-10 p-0 text-muted-foreground hover:bg-accent sm:h-8 sm:w-8"
             aria-label={isExpanded ? 'Collapse calendar' : 'Expand calendar'}
           >
             {isExpanded ? (

@@ -32,16 +32,17 @@ export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex items-center space-x-4 lg:space-x-6 mb-8 overflow-x-auto pb-2">
+    <nav className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 sm:mb-8 sm:gap-3">
       {navItems.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           className={cn(
-            'text-sm font-medium transition-colors hover:text-primary flex items-center gap-2',
+            'inline-flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
             pathname === item.href
-              ? 'text-primary border-b-2 border-primary pb-1'
-              : 'text-muted-foreground pb-1'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
           )}
         >
           <item.icon className="h-4 w-4" />
