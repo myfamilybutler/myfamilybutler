@@ -322,9 +322,9 @@ export function DesktopCalendarGrid({
       const connectLeft = dayIndex > segment.startIndex;
       const connectRight = dayIndex < segment.endIndex;
 
-      if (connectLeft && connectRight) return '-ml-[2px] -mr-[2px] rounded-none';
-      if (!connectLeft && connectRight) return 'ml-1.5 sm:ml-2 -mr-[2px] rounded-l-md rounded-r-none';
-      if (connectLeft && !connectRight) return '-ml-[2px] mr-1.5 sm:mr-2 rounded-r-md rounded-l-none';
+      if (connectLeft && connectRight) return '-ml-px -mr-px rounded-none';
+      if (!connectLeft && connectRight) return 'ml-1.5 sm:ml-2 -mr-px rounded-l-md rounded-r-none';
+      if (connectLeft && !connectRight) return '-ml-px mr-1.5 sm:mr-2 rounded-r-md rounded-l-none';
       return 'mx-1.5 sm:mx-2 rounded-md';
     },
     []
@@ -397,7 +397,7 @@ export function DesktopCalendarGrid({
                 <div
                   key={dayIndex}
                   className={cn(
-                    "min-h-[60px] sm:min-h-[100px] border-r border-border last:border-r-0 cursor-pointer transition-colors",
+                    "relative overflow-visible min-h-[60px] sm:min-h-[100px] border-r border-border last:border-r-0 cursor-pointer transition-colors",
                     "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500",
                     !isCurrentMonth && "bg-muted/10 text-muted-foreground/50"
                   )}
@@ -429,13 +429,14 @@ export function DesktopCalendarGrid({
                   </div>
                   
                   {/* Events */}
-                  <div className="pb-1.5 space-y-1">
+                  <div className="relative z-10 pb-1.5 space-y-1">
                     {visibleBarSegments.map((segment) => (
                       <HoverCard key={`${segment.event.id}:${dayStr}`} openDelay={200}>
                         <HoverCardTrigger asChild>
                           <button
+                            aria-label={segment.event.title}
                             className={cn(
-                              "relative z-20 w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
+                              "relative z-20 flex h-6 items-center w-full text-left px-1.5 sm:px-2 text-[11px] sm:text-xs font-medium text-white",
                               "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
                               getEventPillLayoutClasses(segment, dayIndex),
                               getMemberAppearance(segment.event.family_member).barBg

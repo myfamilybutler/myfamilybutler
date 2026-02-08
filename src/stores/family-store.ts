@@ -16,7 +16,7 @@ import { immer } from 'zustand/middleware/immer';
 import { log } from '@/lib/utils/logger';
 import { useAuthStore } from './auth-store';
 import { useEffect, useMemo, useCallback, useRef } from 'react';
-import { getStableMemberColorHex } from '@/lib/utils/ui-helpers';
+import { DEFAULT_MEMBER_COLOR, getStableMemberColorHex } from '@/lib/utils/ui-helpers';
 
 export interface FamilyMember {
   id: string;
@@ -191,8 +191,19 @@ export const useMemberColors = () => {
   
   return useMemo(() => {
     const colorMap = new Map<string, string>();
+    const normalizedDefaultColor = DEFAULT_MEMBER_COLOR.toLowerCase();
+
     for (const member of members) {
-      colorMap.set(member.name, member.color || getStableMemberColorHex(member.name));
+      const normalizedStoredColor = member.color?.trim().toLowerCase();
+      const isUnassignedDefault =
+        !normalizedStoredColor || normalizedStoredColor === normalizedDefaultColor;
+
+      // Treat default/empty profile colors as "not explicitly assigned" so
+      // pre-load and post-load rendering use the same stable member color.
+      colorMap.set(
+        member.name,
+        isUnassignedDefault ? getStableMemberColorHex(member.name) : normalizedStoredColor
+      );
     }
     return colorMap;
   }, [members]);
