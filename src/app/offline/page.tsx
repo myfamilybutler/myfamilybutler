@@ -1,8 +1,11 @@
 "use client";
 
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 
 export default function OfflinePage() {
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/50 p-4">
       <div className="text-center max-w-md">
@@ -24,16 +27,16 @@ export default function OfflinePage() {
           </div>
         </div>
         <h1 className="text-2xl font-bold text-foreground mb-2">
-          You&apos;re Offline
+          {t('offline.title')}
         </h1>
         <p className="text-muted-foreground mb-6">
-          Please check your internet connection and try again.
+          {t('offline.description')}
         </p>
         <Button
           onClick={() => window.location.reload()}
           variant="outline"
         >
-          Try Again
+          {t('offline.tryAgain')}
         </Button>
       </div>
     </div>

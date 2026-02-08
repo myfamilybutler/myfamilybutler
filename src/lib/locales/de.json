@@ -352,6 +352,106 @@
     "createError": "Familie konnte nicht erstellt werden",
     "networkError": "Netzwerkfehler"
   },
+  "landing": {
+    "nav": {
+      "privacy": "Datenschutz",
+      "terms": "AGB",
+      "dashboardLogin": "Dashboard Login"
+    },
+    "hero": {
+      "badge": "Kein Account nötig • Einfach schreiben",
+      "titleLine1": "Your Family Butler.",
+      "titleLine2": "On WhatsApp.",
+      "subheadlinePre": "Der smarte AI-Assistent für Ihre Familie.",
+      "subheadlineStrong": "Kein Download, kein Passwort, keine Registrierung.",
+      "subheadlinePost": "Einfach eine Nachricht schreiben und loslegen."
+    },
+    "mobile": {
+      "startWhatsApp": "Jetzt auf WhatsApp starten",
+      "startTelegram": "Oder via Telegram"
+    },
+    "qr": {
+      "scan": "Scanne mit deinem Handy:",
+      "opensWhatsApp": "WhatsApp öffnet automatisch",
+      "clickDirect": "Oder klicke direkt:"
+    },
+    "returningUsers": "Schon ein Konto? Login per Email:",
+    "trust": {
+      "ready": "Sofort einsatzbereit",
+      "gdpr": "DSGVO-konform",
+      "noApp": "Keine App nötig"
+    },
+    "how": {
+      "title": "So einfach geht's",
+      "subtitle": "Kein Download, keine App, keine Registrierung - einfach chatten.",
+      "steps": {
+        "step1": {
+          "title": "\"Start\" schreiben",
+          "description": "Öffnen Sie WhatsApp oder Telegram und schreiben Sie einfach \"Start\"."
+        },
+        "step2": {
+          "title": "Einfach chatten",
+          "description": "\"Erinnere mich morgen an...\" oder \"Zahnarzt am Montag um 10 Uhr\"."
+        },
+        "step3": {
+          "title": "Erledigt!",
+          "description": "Ihr Butler kümmert sich um den Rest und erinnert Sie rechtzeitig."
+        },
+        "step4": {
+          "title": "Dashboard öffnen",
+          "description": "Tippen Sie \"Dashboard\" für einen Login-Link zur Übersicht."
+        }
+      }
+    },
+    "features": {
+      "title": "Alles, was Ihre Familie braucht",
+      "cards": {
+        "card1": {
+          "title": "Termine & Erinnerungen",
+          "description": "\"Zahnarzt am Montag um 10 Uhr\" - Ihr Butler versteht natürliche Sprache und erinnert Sie rechtzeitig per WhatsApp."
+        },
+        "card2": {
+          "title": "Schulbriefe verstehen",
+          "description": "Schicken Sie ein Foto - Ihr Butler fasst die wichtigsten Infos zusammen und merkt sich alle Termine."
+        },
+        "card3": {
+          "title": "Familienkalender",
+          "description": "Laden Sie Familienmitglieder ein. Jeder kann Termine hinzufügen, alle sehen die gemeinsame Übersicht im Dashboard."
+        }
+      }
+    },
+    "pricing": {
+      "badge": "Einführungspreis",
+      "amount": "€4,99",
+      "perMonth": "/Monat",
+      "list": {
+        "item1": "Unbegrenzte Nachrichten",
+        "item2": "WhatsApp + Telegram",
+        "item3": "Familienkalender & Dashboard",
+        "item4": "Bild- & Dokumentenanalyse",
+        "item5": "Jederzeit kündbar"
+      },
+      "cta": "Kostenlos testen",
+      "footnote": "7 Tage kostenlos • Keine Kreditkarte • Keine Registrierung"
+    },
+    "footer": {
+      "privacy": "Datenschutz",
+      "terms": "AGB",
+      "dashboardLogin": "Dashboard Login",
+      "copyright": "© {{year}} My Family Butler. Made in Austria 🇦🇹"
+    }
+  },
+  "offline": {
+    "title": "Du bist offline",
+    "description": "Bitte überprüfe deine Internetverbindung und versuche es erneut.",
+    "tryAgain": "Erneut versuchen"
+  },
+  "legal": {
+    "backToHome": "Zurück zur Startseite",
+    "lastUpdated": "Letzte Aktualisierung:",
+    "termsTitle": "Allgemeine Geschäftsbedingungen (AGB)",
+    "privacyTitle": "Datenschutzerklärung"
+  },
   "dashboard": {
     "upcoming": "Anstehend",
     "todayTomorrow": "Heute & Morgen",

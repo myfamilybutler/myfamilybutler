@@ -1,20 +1,29 @@
+'use client';
+
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 
 export default function Terms() {
+  const { t, i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage || i18n.language || 'en').startsWith('de') ? 'de-AT' : 'en-US';
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-emerald-50/80 via-background to-teal-50/80 dark:from-background dark:via-background dark:to-muted/30">
       <div className="max-w-4xl mx-auto p-8">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/" className="text-emerald-600 hover:text-emerald-700 font-medium">
-            ← Zurück zur Startseite
+          <Link href="/" className="text-primary hover:text-primary/80 font-medium">
+            ← {t('legal.backToHome')}
           </Link>
         </div>
 
         {/* Content */}
         <div className="bg-card rounded-2xl border border-border shadow-sm p-8 sm:p-12">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Allgemeine Geschäftsbedingungen (AGB)</h1>
-          <p className="text-muted-foreground mb-8">Letzte Aktualisierung: {new Date().toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">{t('legal.termsTitle')}</h1>
+          <p className="text-muted-foreground mb-8">
+            {t('legal.lastUpdated')}{' '}
+            {new Date().toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
 
           <div className="space-y-8 text-foreground leading-relaxed">
             {/* Section 1 */}
@@ -150,7 +159,7 @@ export default function Terms() {
               <h2 className="text-2xl font-semibold text-foreground mb-4">9. Datenschutz</h2>
               <p>
                 Für die Verarbeitung Ihrer personenbezogenen Daten gelten unsere{' '}
-                <Link href="/privacy" className="text-emerald-600 hover:underline font-medium">
+                <Link href="/privacy" className="text-primary hover:underline font-medium">
                   Datenschutzbestimmungen
                 </Link>.
                 Diese sind Bestandteil dieser AGB.
@@ -213,7 +222,7 @@ export default function Terms() {
                 Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit:{' '}
                 <a 
                   href="https://ec.europa.eu/consumers/odr" 
-                  className="text-emerald-600 hover:underline"
+                  className="text-primary hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -229,8 +238,8 @@ export default function Terms() {
 
           {/* Footer */}
           <div className="mt-12 pt-8 border-t border-border">
-            <Link href="/" className="inline-flex items-center text-emerald-600 hover:text-emerald-700 font-medium">
-              ← Zurück zur Startseite
+            <Link href="/" className="inline-flex items-center text-primary hover:text-primary/80 font-medium">
+              ← {t('legal.backToHome')}
             </Link>
           </div>
         </div>
