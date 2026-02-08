@@ -434,7 +434,7 @@ export function DesktopCalendarGrid({
                         <HoverCardTrigger asChild>
                           <button
                             className={cn(
-                              "w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
+                              "relative z-20 w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
                               "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
                               getEventPillLayoutClasses(segment, dayIndex),
                               getMemberAppearance(segment.event.family_member).barBg
@@ -515,7 +515,7 @@ export function DesktopCalendarGrid({
                           <HoverCardTrigger asChild>
                             <button
                               className={cn(
-                                "w-full text-left px-1.5 sm:px-2 py-0.5 text-[11px] sm:text-xs",
+                                "relative z-20 w-full text-left px-1.5 sm:px-2 py-0.5 text-[11px] sm:text-xs",
                                 "rounded-sm hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-white/50"
                               )}
                               onClick={(e) => handleEventClick(event, e)}
