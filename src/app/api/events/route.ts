@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
 
     // ============ CREATE EVENT ============
     if (action === 'create') {
-      const { title, event_date, event_time, end_time, is_all_day, family_member, location, description } = body;
+      const { title, event_date, end_date, event_time, end_time, is_all_day, family_member, location, description } = body;
 
       if (!title || !event_date) {
         return NextResponse.json({ 
@@ -219,6 +219,7 @@ export async function POST(request: NextRequest) {
       const event = await createEvent(user.household_id, userId, {
         title,
         event_date,
+        end_date: end_date || event_date,
         event_time: event_time || undefined,
         end_time: end_time || undefined,
         is_all_day: is_all_day ?? !event_time,
@@ -281,4 +282,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-

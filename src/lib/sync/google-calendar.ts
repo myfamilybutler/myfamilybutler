@@ -82,14 +82,21 @@ function convertToGoogleEvent(event: Event): GoogleCalendarEvent {
   if (event.is_all_day || !event.event_time) {
     // All-day event
     googleEvent.start.date = event.event_date;
-    googleEvent.end.date = event.event_date;
+    const inclusiveEnd = new Date(`${(event.end_date || event.event_date)}T00:00:00`);
+    if (!Number.isNaN(inclusiveEnd.getTime())) {
+      inclusiveEnd.setDate(inclusiveEnd.getDate() + 1); // Google expects exclusive end date
+      googleEvent.end.date = inclusiveEnd.toISOString().slice(0, 10);
+    } else {
+      googleEvent.end.date = event.event_date;
+    }
   } else {
     // Timed event
     const startDateTime = `${event.event_date}T${event.event_time}:00`;
     googleEvent.start.dateTime = startDateTime;
 
     if (event.end_time) {
-      const endDateTime = `${event.event_date}T${event.end_time}:00`;
+      const endDate = event.end_date || event.event_date;
+      const endDateTime = `${endDate}T${event.end_time}:00`;
       googleEvent.end.dateTime = endDateTime;
     } else {
       // Default 1 hour duration

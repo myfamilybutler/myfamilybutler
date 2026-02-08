@@ -87,6 +87,7 @@ CREATE INDEX idx_messages_whatsapp_id ON public.messages(whatsapp_message_id);
 CREATE TABLE public.reminders (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
   message TEXT NOT NULL,
   remind_at TIMESTAMPTZ NOT NULL,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed', 'cancelled')),
@@ -94,6 +95,7 @@ CREATE TABLE public.reminders (
 );
 
 CREATE INDEX idx_reminders_user_id ON public.reminders(user_id);
+CREATE INDEX idx_reminders_event_id ON public.reminders(event_id) WHERE event_id IS NOT NULL;
 CREATE INDEX idx_reminders_remind_at ON public.reminders(remind_at);
 CREATE INDEX idx_reminders_status ON public.reminders(status);
 
@@ -108,6 +110,7 @@ CREATE TABLE public.events (
   -- Core fields
   title TEXT NOT NULL,
   event_date DATE NOT NULL,
+  end_date DATE,
   event_time TIME,  -- NULL = all-day event
   is_all_day BOOLEAN DEFAULT false,
   

@@ -66,6 +66,7 @@ export interface Message {
 export interface Reminder {
   id: string;
   user_id: string;
+  event_id?: string | null;
   message: string;
   remind_at: string;
   status: 'pending' | 'sent' | 'failed' | 'cancelled';
@@ -81,6 +82,7 @@ export interface Event {
   created_by?: string;
   title: string;
   event_date: string;
+  end_date?: string;
   event_time?: string;
   end_time?: string;
   is_all_day: boolean;

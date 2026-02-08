@@ -117,6 +117,9 @@
   },
   "dashboard": {
     "upcoming": "Upcoming",
+    "todayTomorrow": "Today & Tomorrow",
+    "laterEvents": "Later Upcoming",
+    "noLaterEvents": "No later upcoming events",
     "noEventsToday": "No events today",
     "planYourDay": "Plan your day",
     "addFirstEvent": "Add first event",

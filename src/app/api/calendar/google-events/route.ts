@@ -55,6 +55,15 @@ export async function GET(request: NextRequest) {
       location: event.location || null,
       // Extract date from dateTime or date field
       event_date: event.start.date || (event.start.dateTime ? event.start.dateTime.split('T')[0] : null),
+      end_date: event.start.date
+        ? (() => {
+            if (!event.end.date) return event.start.date;
+            const exclusiveEnd = new Date(`${event.end.date}T00:00:00`);
+            if (Number.isNaN(exclusiveEnd.getTime())) return event.start.date;
+            exclusiveEnd.setDate(exclusiveEnd.getDate() - 1);
+            return exclusiveEnd.toISOString().slice(0, 10);
+          })()
+        : (event.end.dateTime ? event.end.dateTime.split('T')[0] : (event.start.dateTime ? event.start.dateTime.split('T')[0] : null)),
       // Extract time from dateTime
       event_time: event.start.dateTime ? event.start.dateTime.split('T')[1]?.slice(0, 5) : null,
       end_time: event.end.dateTime ? event.end.dateTime.split('T')[1]?.slice(0, 5) : null,

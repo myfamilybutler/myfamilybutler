@@ -1,6 +1,8 @@
+'use client';
+
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { MapPin, Calendar, Plus } from 'lucide-react';
+import { MapPin, Calendar } from 'lucide-react';
 import { formatTime, cn } from '@/lib/utils';
 import {
   Dialog,
@@ -9,15 +11,18 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Card, 
-  CardContent, 
+import {
+  Card,
+  CardContent,
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { EditEventDialog } from './edit-event-dialog';
+import { EventDetailDialog } from './event-detail-dialog';
 import type { CalendarEvent } from '@/types/calendar';
+import { useTranslation } from 'react-i18next';
+import { formatDate } from '@/lib/utils';
+import { getMemberColor, getInitials } from '@/lib/utils/ui-helpers';
 
 interface DayDetailDialogProps {
   date: Date | null;
@@ -27,35 +32,20 @@ interface DayDetailDialogProps {
   onEventsChanged?: () => void;
 }
 
-import { useTranslation } from 'react-i18next';
-import { formatDate } from '@/lib/utils';
-import { getMemberColor, getInitials } from '@/lib/utils/ui-helpers';
-
-export function DayDetailDialog({ 
-  date, 
-  events, 
-  open, 
+export function DayDetailDialog({
+  date,
+  events,
+  open,
   onOpenChange,
-  onEventsChanged 
+  onEventsChanged,
 }: DayDetailDialogProps) {
+  const { t } = useTranslation();
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const { t } = useTranslation();
 
   if (!date) return null;
-  
-  // This hook call is now safe (not conditional) because date check is separate or component logic restructuring
-  /* 
-   Wait, if(!date) return null is conditional return. Hooks must be before it.
-   I need to move 'const { t } = useTranslation()' to the top of the function.
-  */
-
-  const handleEditClick = (event: CalendarEvent) => {
-    setEditingEvent(event);
-    setEditDialogOpen(true);
-  };
-
-
 
   const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
@@ -64,28 +54,26 @@ export function DayDetailDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 py-4 border-b bg-card rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "flex h-12 w-12 flex-col items-center justify-center rounded-lg border shadow-sm font-semibold bg-card",
-                  isToday ? "border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-border text-foreground"
-                )}>
-                  <span className="text-[10px] uppercase tracking-wider">{formatDate(date, 'MMM')}</span>
-                  <span className="text-xl leading-none">{formatDate(date, 'd')}</span>
-                </div>
-                <div>
-                  <DialogTitle className="text-lg font-bold">
-                    {formatDate(date, 'EEEE')}
-                  </DialogTitle>
-                  <DialogDescription className="flex items-center gap-2 mt-0.5">
-                    <span>{formatDate(date, 'MMMM d, yyyy')}</span>
-                    {isToday && (
-                      <Badge variant="success" className="h-5 px-1.5 text-[10px]">
-                        {t('calendar.today')}
-                      </Badge>
-                    )}
-                  </DialogDescription>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "flex h-12 w-12 flex-col items-center justify-center rounded-lg border shadow-sm font-semibold bg-card",
+                isToday ? "border-emerald-500 text-emerald-700 dark:text-emerald-400" : "border-border text-foreground"
+              )}>
+                <span className="text-[10px] uppercase tracking-wider">{formatDate(date, 'MMM')}</span>
+                <span className="text-xl leading-none">{formatDate(date, 'd')}</span>
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">
+                  {formatDate(date, 'EEEE')}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-2 mt-0.5">
+                  <span>{formatDate(date, 'MMMM d, yyyy')}</span>
+                  {isToday && (
+                    <Badge variant="success" className="h-5 px-1.5 text-[10px]">
+                      {t('calendar.today')}
+                    </Badge>
+                  )}
+                </DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -97,27 +85,25 @@ export function DayDetailDialog({
                   <Calendar className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <h3 className="text-base font-medium text-foreground mb-1">{t('calendar.noEvents')}</h3>
-                <p className="text-xs text-muted-foreground mb-4 max-w-[200px]">
+                <p className="text-xs text-muted-foreground max-w-[220px]">
                   {t('calendar.noEventsDay')}
                 </p>
-                <Button size="sm" className="gap-2" onClick={() => {/* TODO: Add event handler */}}>
-                  <Plus className="h-3.5 w-3.5" />
-                  {t('calendar.addEvent')}
-                </Button>
               </div>
             ) : (
               <div className="space-y-3">
                 {events.map((event) => {
                   const pillColor = getMemberColor(event.family_member);
-                  
+
                   return (
-                    <Card 
+                    <Card
                       key={event.id}
                       className="group border-0 shadow-sm hover:shadow transition-all overflow-hidden bg-card cursor-pointer ring-1 ring-border/50"
-                      onClick={() => handleEditClick(event)}
+                      onClick={() => {
+                        setSelectedEvent(event);
+                        setDetailOpen(true);
+                      }}
                     >
                       <CardContent className="p-3 flex items-start gap-3">
-                        {/* Time or All Day */}
                         <div className="w-14 shrink-0 flex flex-col items-end pt-0.5 gap-0.5">
                           {event.is_all_day ? (
                             <span className="text-[10px] font-bold uppercase text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm">{t('calendar.allDay')}</span>
@@ -135,15 +121,13 @@ export function DayDetailDialog({
                           )}
                         </div>
 
-                        {/* Divider */}
                         <div className={cn("w-1 rounded-full self-stretch opacity-60", pillColor)} />
 
-                        {/* Content */}
                         <div className="flex-1 min-w-0 grid gap-1">
                           <h4 className="font-semibold text-sm text-foreground leading-snug truncate">
                             {event.title}
                           </h4>
-                          
+
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             {event.location && (
                               <div className="flex items-center gap-1 min-w-0">
@@ -151,7 +135,7 @@ export function DayDetailDialog({
                                 <span className="truncate">{event.location}</span>
                               </div>
                             )}
-                            
+
                             {event.family_member && (
                               <div className="flex items-center gap-1.5 ml-auto shrink-0 bg-muted px-1.5 py-0.5 rounded border border-border">
                                 <Avatar className="h-3.5 w-3.5">
@@ -175,6 +159,17 @@ export function DayDetailDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      <EventDetailDialog
+        event={selectedEvent}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onEdit={(event) => {
+          setDetailOpen(false);
+          setEditingEvent(event);
+          setEditDialogOpen(true);
+        }}
+      />
 
       <EditEventDialog
         event={editingEvent}

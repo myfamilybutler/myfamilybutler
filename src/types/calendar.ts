@@ -6,6 +6,7 @@ export interface CalendarEvent {
   id: string;
   title: string;
   event_date: string;
+  end_date?: string;
   event_time?: string;
   end_time?: string;
   is_all_day: boolean;

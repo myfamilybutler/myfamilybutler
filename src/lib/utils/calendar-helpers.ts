@@ -16,6 +16,7 @@ import {
   isBefore,
   isAfter,
   isSameDay,
+  isValid,
   addDays,
   getDay,
 } from 'date-fns';
@@ -44,10 +45,27 @@ export function getWeekNumber(date: Date): number {
  * Check if an event spans multiple days.
  */
 export function isMultiDayEvent(event: CalendarEvent): boolean {
-  if (!event.end_time && !event.is_all_day) return false;
-  // For now, we treat all-day events as single-day unless end_date is specified
-  // Note: CalendarEvent doesn't have end_date, so multi-day support would need schema update
-  return false;
+  const start = parseISO(event.event_date);
+  const end = parseISO(event.end_date || event.event_date);
+  if (!isValid(start) || !isValid(end)) return false;
+  return end > start;
+}
+
+/**
+ * Get normalized end date for an event (never before start date).
+ */
+export function getEventEndDate(event: CalendarEvent): string {
+  if (!event.end_date) return event.event_date;
+  return event.end_date >= event.event_date ? event.end_date : event.event_date;
+}
+
+/**
+ * Check whether event is active on a given day.
+ */
+export function isEventOnDate(event: CalendarEvent, date: Date): boolean {
+  const target = format(date, 'yyyy-MM-dd');
+  const endDate = getEventEndDate(event);
+  return target >= event.event_date && target <= endDate;
 }
 
 /**
@@ -114,9 +132,10 @@ export function calculateEventPositions(
   
   for (const event of events) {
     const eventDate = parseISO(event.event_date);
+    const eventEndDate = parseISO(getEventEndDate(event));
     
     // Skip events outside the visible range
-    if (isBefore(eventDate, calendarStart) || isAfter(eventDate, calendarEnd)) {
+    if (isBefore(eventEndDate, calendarStart) || isAfter(eventDate, calendarEnd)) {
       continue;
     }
     
@@ -134,7 +153,7 @@ export function calculateEventPositions(
       event,
       row: rowIndex,
       startCol: col,
-      span: 1, // Single day for now (multi-day requires end_date field)
+      span: Math.max(1, Math.min(7, Math.floor((eventEndDate.getTime() - eventDate.getTime()) / (24 * 60 * 60 * 1000)) + 1)),
       isStart: true,
       isEnd: true,
     });
@@ -165,16 +184,34 @@ export function groupEventsByDate(events: CalendarEvent[]): Map<string, Calendar
   const map = new Map<string, CalendarEvent[]>();
   
   for (const event of events) {
-    const dateKey = event.event_date;
-    if (!map.has(dateKey)) {
-      map.set(dateKey, []);
+    const startDate = parseISO(event.event_date);
+    const endDate = parseISO(getEventEndDate(event));
+
+    if (!isValid(startDate) || !isValid(endDate)) {
+      continue;
     }
-    map.get(dateKey)!.push(event);
+
+    const rangeEnd = endDate >= startDate ? endDate : startDate;
+    const days = eachDayOfInterval({ start: startDate, end: rangeEnd });
+
+    for (const day of days) {
+      const dateKey = format(day, 'yyyy-MM-dd');
+      if (!map.has(dateKey)) {
+        map.set(dateKey, []);
+      }
+      map.get(dateKey)!.push(event);
+    }
   }
   
   // Sort events within each day
   for (const [, dayEvents] of map) {
     dayEvents.sort((a, b) => {
+      const startCompare = a.event_date.localeCompare(b.event_date);
+      if (startCompare !== 0) return startCompare;
+
+      const endCompare = getEventEndDate(b).localeCompare(getEventEndDate(a));
+      if (endCompare !== 0) return endCompare;
+
       // All-day events first
       if (a.is_all_day && !b.is_all_day) return -1;
       if (!a.is_all_day && b.is_all_day) return 1;

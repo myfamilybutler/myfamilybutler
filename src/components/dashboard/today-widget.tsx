@@ -44,7 +44,10 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
     const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
 
     const todayEvents = events
-      .filter(e => e.event_date === todayStr)
+      .filter((e) => {
+        const endDate = e.end_date || e.event_date;
+        return e.event_date <= todayStr && endDate >= todayStr;
+      })
       .sort((a, b) => {
         if (a.is_all_day && !b.is_all_day) return -1;
         if (!a.is_all_day && b.is_all_day) return 1;
@@ -52,7 +55,10 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
       });
 
     const tomorrowEvents = events
-      .filter(e => e.event_date === tomorrowStr)
+      .filter((e) => {
+        const endDate = e.end_date || e.event_date;
+        return e.event_date <= tomorrowStr && endDate >= tomorrowStr;
+      })
       .sort((a, b) => {
         if (a.is_all_day && !b.is_all_day) return -1;
         if (!a.is_all_day && b.is_all_day) return 1;
@@ -76,8 +82,8 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
     };
   }, [events, t]);
 
-  // Only show widget if there are events today
-  if (todaySection.events.length === 0) {
+  // Show only if there are events today or tomorrow
+  if (todaySection.events.length === 0 && tomorrowSection.events.length === 0) {
     return null;
   }
 
@@ -87,7 +93,7 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-emerald-600" />
-            {t('dashboard.upcoming')}
+            {t('dashboard.todayTomorrow')}
           </CardTitle>
           <Button 
             variant="ghost" 

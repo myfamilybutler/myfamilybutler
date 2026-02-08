@@ -362,6 +362,7 @@ async function performPullFromGoogle(
 function convertGoogleToLocalEvent(googleEvent: GoogleCalendarEventWithStatus): Partial<Event> {
   // Extract date and time
   let eventDate: string;
+  let endDate: string | null = null;
   let eventTime: string | null = null;
   let endTime: string | null = null;
   let isAllDay = false;
@@ -373,14 +374,30 @@ function convertGoogleToLocalEvent(googleEvent: GoogleCalendarEventWithStatus): 
     eventTime = timePart?.slice(0, 5) || null;
     
     if (googleEvent.end.dateTime) {
-      endTime = googleEvent.end.dateTime.split('T')[1]?.slice(0, 5) || null;
+      const [endDatePart, endTimePart] = googleEvent.end.dateTime.split('T');
+      endDate = endDatePart || null;
+      endTime = endTimePart?.slice(0, 5) || null;
     }
   } else if (googleEvent.start.date) {
     // All-day event
     eventDate = googleEvent.start.date;
+    endDate = eventDate;
+    if (googleEvent.end.date) {
+      // Google all-day end is exclusive, so convert to inclusive end date.
+      const exclusiveEnd = new Date(`${googleEvent.end.date}T00:00:00`);
+      if (!Number.isNaN(exclusiveEnd.getTime())) {
+        exclusiveEnd.setDate(exclusiveEnd.getDate() - 1);
+        endDate = exclusiveEnd.toISOString().slice(0, 10);
+      }
+    }
     isAllDay = true;
   } else {
     eventDate = new Date().toISOString().split('T')[0];
+    endDate = eventDate;
+  }
+
+  if (!endDate) {
+    endDate = eventDate;
   }
 
   return {
@@ -388,6 +405,7 @@ function convertGoogleToLocalEvent(googleEvent: GoogleCalendarEventWithStatus): 
     description: googleEvent.description || undefined,
     location: googleEvent.location || undefined,
     event_date: eventDate,
+    end_date: endDate,
     event_time: eventTime || undefined,
     end_time: endTime || undefined,
     is_all_day: isAllDay,

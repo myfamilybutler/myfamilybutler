@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { format, parseISO, isAfter, startOfDay, addDays } from 'date-fns';
+import { format, parseISO, isBefore, startOfDay, addDays } from 'date-fns';
 import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Hand } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, PanInfo, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/lib/utils';
 import { useSelectedMembers } from '@/stores/filter-store';
 import { useFamilyData } from '@/stores/family-store';
+import { EventDetailDialog } from './event-detail-dialog';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
@@ -21,6 +22,7 @@ interface UpcomingEventsProps {
   maxEvents?: number;
   onEventsChanged?: () => void;
   hideHeader?: boolean;
+  excludeTodayAndTomorrow?: boolean;
 }
 
 interface ProcessedEvent extends CalendarEvent {
@@ -29,6 +31,7 @@ interface ProcessedEvent extends CalendarEvent {
 
 interface SwipeableEventCardProps {
   event: ProcessedEvent;
+  onSelect: (event: CalendarEvent) => void;
   onEdit: (event: CalendarEvent) => void;
   onDelete: (eventId: string) => void;
   isDeleting: boolean;
@@ -38,7 +41,7 @@ interface SwipeableEventCardProps {
 
 
 
-function SwipeableEventCard({ event, onEdit, onDelete, isDeleting, showSwipeHint, onHintDismiss }: SwipeableEventCardProps) {
+function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, showSwipeHint, onHintDismiss }: SwipeableEventCardProps) {
   const { memberColors } = useFamilyData();
   const { t } = useTranslation();
   const x = useMotionValue(0);
@@ -124,7 +127,7 @@ function SwipeableEventCard({ event, onEdit, onDelete, isDeleting, showSwipeHint
         onDragEnd={handleDragEnd}
         style={{ x }}
         className="relative bg-muted/50 hover:bg-muted transition-colors cursor-grab active:cursor-grabbing"
-        onClick={() => !isDragging && x.get() === 0 && onEdit(event)}
+        onClick={() => !isDragging && x.get() === 0 && onSelect(event)}
       >
         <div className="flex items-start gap-3 p-3">
           <div className="flex-shrink-0 w-20 text-right">
@@ -184,7 +187,10 @@ export function UpcomingEvents({
   maxEvents = 20, 
   onEventsChanged,
   hideHeader = false,
+  excludeTodayAndTomorrow = false,
 }: UpcomingEventsProps) {
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
@@ -210,6 +216,11 @@ export function UpcomingEvents({
   const handleEditClick = (event: CalendarEvent) => {
     setEditingEvent(event);
     setEditDialogOpen(true);
+  };
+
+  const handleSelectEvent = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setDetailOpen(true);
   };
 
   const handleDelete = async (eventId: string) => {
@@ -244,16 +255,32 @@ export function UpcomingEvents({
     
     return events
       .filter((event) => {
-        const eventDate = parseISO(event.event_date);
-        const isUpcoming = isAfter(eventDate, today) || event.event_date === todayStr;
+        const eventStart = parseISO(event.event_date);
+        const eventEnd = parseISO(event.end_date || event.event_date);
+        const normalizedEnd = eventEnd >= eventStart ? eventEnd : eventStart;
+        const isUpcoming = !isBefore(normalizedEnd, today);
+
+        if (!isUpcoming) {
+          return false;
+        }
+
+        if (excludeTodayAndTomorrow) {
+          const endDate = event.end_date || event.event_date;
+          const overlapsTodayOrTomorrow =
+            (event.event_date <= todayStr && endDate >= todayStr) ||
+            (event.event_date <= tomorrowStr && endDate >= tomorrowStr);
+          if (overlapsTodayOrTomorrow) {
+            return false;
+          }
+        }
         
         // Apply global family member filter
         if (selectedMembers.length > 0) {
           const matchesMember = !event.family_member || selectedMembers.includes(event.family_member);
-          return isUpcoming && matchesMember;
+          return matchesMember;
         }
         
-        return isUpcoming;
+        return true;
       })
       .sort((a, b) => {
         const dateCompare = a.event_date.localeCompare(b.event_date);
@@ -269,18 +296,23 @@ export function UpcomingEvents({
       .slice(0, maxEvents)
       .map((event): ProcessedEvent => {
         let dateLabel: string;
-        if (event.event_date === todayStr) {
+        const labelDate =
+          event.event_date < todayStr && (event.end_date || event.event_date) >= todayStr
+            ? todayStr
+            : event.event_date;
+
+        if (labelDate === todayStr) {
           dateLabel = t('calendar.today');
-        } else if (event.event_date === tomorrowStr) {
+        } else if (labelDate === tomorrowStr) {
           dateLabel = t('calendar.tomorrow');
         } else {
           // Format based on current language
           const formatStr = i18n.language === 'de' ? 'dd.MM.yyyy' : 'EEE, MMM d';
-          dateLabel = formatDate(parseISO(event.event_date), formatStr);
+          dateLabel = formatDate(parseISO(labelDate), formatStr);
         }
         return { ...event, dateLabel };
       });
-  }, [events, maxEvents, selectedMembers, i18n.language, t]);
+  }, [events, maxEvents, selectedMembers, i18n.language, t, excludeTodayAndTomorrow]);
 
   const visibleEvents = useMemo(() => {
     return allUpcomingEvents.slice(0, visibleCount);
@@ -319,13 +351,19 @@ export function UpcomingEvents({
   if (allUpcomingEvents.length === 0 && !hasActiveFilters) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">{t('calendar.upcomingEvents')}</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+          {excludeTodayAndTomorrow ? t('dashboard.laterEvents') : t('calendar.upcomingEvents')}
+        </h3>
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
             <Clock className="w-6 h-6 text-muted-foreground/50" />
           </div>
-          <p className="text-sm text-muted-foreground">{t('calendar.noEvents')}</p>
-          <p className="text-xs text-muted-foreground/80 mt-1">{t('calendar.scheduleClear')}</p>
+          <p className="text-sm text-muted-foreground">
+            {excludeTodayAndTomorrow ? t('dashboard.noLaterEvents') : t('calendar.noEvents')}
+          </p>
+          {!excludeTodayAndTomorrow && (
+            <p className="text-xs text-muted-foreground/80 mt-1">{t('calendar.scheduleClear')}</p>
+          )}
         </div>
       </div>
     );
@@ -337,7 +375,7 @@ export function UpcomingEvents({
         {!hideHeader && (
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">
-              {t('calendar.upcomingEvents')}
+              {excludeTodayAndTomorrow ? t('dashboard.laterEvents') : t('calendar.upcomingEvents')}
               <span className="ml-2 text-xs font-normal text-muted-foreground">
                 ({totalEvents})
               </span>
@@ -377,6 +415,7 @@ export function UpcomingEvents({
                       <SwipeableEventCard
                         key={event.id}
                         event={event}
+                        onSelect={handleSelectEvent}
                         onEdit={handleEditClick}
                         onDelete={handleDelete}
                         isDeleting={deletingEventId === event.id}
@@ -429,6 +468,16 @@ export function UpcomingEvents({
           </div>
         )}
       </div>
+
+      <EventDetailDialog
+        event={selectedEvent}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onEdit={(event) => {
+          setDetailOpen(false);
+          handleEditClick(event);
+        }}
+      />
 
       <EditEventDialog
         event={editingEvent}

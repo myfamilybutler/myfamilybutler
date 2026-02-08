@@ -10,6 +10,7 @@ import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
 import { QuickAddFab } from '@/components/calendar/quick-add-fab';
 import { QuickAddSheet } from '@/components/calendar/quick-add-sheet';
 import { EditEventDialog } from '@/components/calendar/edit-event-dialog';
+import { EventDetailDialog } from '@/components/calendar/event-detail-dialog';
 import { TodayWidget } from '@/components/dashboard/today-widget';
 import { Card, CardContent } from '@/components/ui/card';
 import { useDashboardData } from '@/hooks';
@@ -24,6 +25,8 @@ export default function DashboardPage() {
   
   const [modalDismissed, setModalDismissed] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [eventDetailOpen, setEventDetailOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -33,8 +36,8 @@ export default function DashboardPage() {
   const showOnboardingModal = dbUser?.onboarding_modal_shown === false && !modalDismissed && hasEnoughEvents;
 
   const handleEventClick = (event: CalendarEvent) => {
-    setEditingEvent(event);
-    setEditDialogOpen(true);
+    setSelectedEvent(event);
+    setEventDetailOpen(true);
   };
 
   return (
@@ -70,6 +73,7 @@ export default function DashboardPage() {
               <UpcomingEvents
                 events={allEvents}
                 pageSize={10}
+                excludeTodayAndTomorrow
                 onEventsChanged={refresh}
               />
             </CardContent>
@@ -96,7 +100,18 @@ export default function DashboardPage() {
           onEventCreated={refresh}
         />
 
-        {/* Edit Event Dialog (opened from TodayWidget) */}
+        <EventDetailDialog
+          event={selectedEvent}
+          open={eventDetailOpen}
+          onOpenChange={setEventDetailOpen}
+          onEdit={(event) => {
+            setEventDetailOpen(false);
+            setEditingEvent(event);
+            setEditDialogOpen(true);
+          }}
+        />
+
+        {/* Edit Event Dialog */}
         <EditEventDialog
           event={editingEvent}
           open={editDialogOpen}
@@ -108,4 +123,3 @@ export default function DashboardPage() {
     </ProtectedRoute>
   );
 }
-

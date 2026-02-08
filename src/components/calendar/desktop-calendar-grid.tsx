@@ -40,6 +40,8 @@ import { useSelectedMembers } from '@/stores/filter-store';
 import { useFamilyData } from '@/stores/family-store';
 import { QuickAddSheet } from './quick-add-sheet';
 import { EditEventDialog } from './edit-event-dialog';
+import { DayDetailDialog } from './day-detail-dialog';
+import { EventDetailDialog } from './event-detail-dialog';
 import type { CalendarEvent } from '@/types/calendar';
 
 const MAX_VISIBLE_EVENTS = 3;
@@ -81,6 +83,9 @@ export function DesktopCalendarGrid({
   
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddDate, setQuickAddDate] = useState<Date | undefined>();
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [eventDetailOpen, setEventDetailOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   
@@ -168,8 +173,21 @@ export function DesktopCalendarGrid({
   const handleEventClick = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     e.stopPropagation();
     if (isDragging.current) return;
-    setEditingEvent(event);
-    setEditDialogOpen(true);
+    setSelectedEvent(event);
+    setEventDetailOpen(true);
+  }, []);
+
+  const handleMoreEventsClick = useCallback((day: Date, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDragging.current) return;
+    setSelectedDay(day);
+  }, []);
+
+  const getEventEndDate = useCallback((event: CalendarEvent) => {
+    if (!event.end_date || event.end_date < event.event_date) {
+      return event.event_date;
+    }
+    return event.end_date;
   }, []);
   
   // Locale-aware week day names
@@ -198,7 +216,7 @@ export function DesktopCalendarGrid({
       onDragEnd={handleDragEnd}
       className="touch-pan-y"
     >
-      <div className="overflow-hidden">
+      <div className="overflow-hidden border-t border-border">
         {/* Header Row: Week number + Day names */}
         <div className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border bg-muted/50">
           {/* Week number header */}
@@ -209,7 +227,7 @@ export function DesktopCalendarGrid({
           {weekDays.map((day, i) => (
             <div
               key={i}
-              className="p-2 text-xs font-medium text-foreground/70 text-center uppercase tracking-wider"
+              className="p-2 text-xs font-medium text-foreground/70 text-center uppercase tracking-wider border-r border-border last:border-r-0"
             >
               {day}
             </div>
@@ -232,6 +250,7 @@ export function DesktopCalendarGrid({
               const dayEvents = getEventsForDay(day);
               const isCurrentMonth = isSameMonth(day, currentMonth);
               const isTodayDate = isToday(day);
+              const dayStr = format(day, 'yyyy-MM-dd');
               const visibleEvents = dayEvents.slice(0, MAX_VISIBLE_EVENTS);
               const overflowCount = dayEvents.length - MAX_VISIBLE_EVENTS;
               
@@ -277,8 +296,17 @@ export function DesktopCalendarGrid({
                         <HoverCardTrigger asChild>
                           <button
                             className={cn(
-                              "w-full text-left rounded px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
+                              "w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
                               "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
+                              event.end_date && event.end_date > event.event_date && dayStr !== event.event_date && "-ml-px",
+                              event.end_date && event.end_date > event.event_date && dayStr !== getEventEndDate(event) && "-mr-px",
+                              event.end_date && event.end_date > event.event_date
+                                ? dayStr === event.event_date
+                                  ? "rounded-l-md rounded-r-none"
+                                  : dayStr === getEventEndDate(event)
+                                    ? "rounded-r-md rounded-l-none"
+                                    : "rounded-none"
+                                : "rounded-md",
                               getMemberColor(event.family_member)
                             )}
                             onClick={(e) => handleEventClick(event, e)}
@@ -288,7 +316,7 @@ export function DesktopCalendarGrid({
                               {isUrgent(event) && (
                                 <AlertCircle className="w-3 h-3 flex-shrink-0 animate-pulse" />
                               )}
-                              {!event.is_all_day && event.event_time && (
+                              {!event.is_all_day && event.event_time && dayStr === event.event_date && (
                                 <span className="font-bold mr-1">
                                   {formatTime(event.event_time)}
                                 </span>
@@ -353,9 +381,13 @@ export function DesktopCalendarGrid({
                     
                     {/* Overflow indicator */}
                     {overflowCount > 0 && (
-                      <div className="text-xs text-muted-foreground font-medium px-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => handleMoreEventsClick(day, e)}
+                        className="text-xs text-muted-foreground font-medium px-1.5 hover:text-foreground transition-colors"
+                      >
                         +{overflowCount} {t('calendar.more')}
-                      </div>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -434,6 +466,29 @@ export function DesktopCalendarGrid({
       />
 
       {/* Edit Event Dialog */}
+      <EventDetailDialog
+        event={selectedEvent}
+        open={eventDetailOpen}
+        onOpenChange={setEventDetailOpen}
+        onEdit={(event) => {
+          setEventDetailOpen(false);
+          setEditingEvent(event);
+          setEditDialogOpen(true);
+        }}
+      />
+
+      <DayDetailDialog
+        date={selectedDay}
+        events={selectedDay ? getEventsForDay(selectedDay) : []}
+        open={selectedDay !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedDay(null);
+          }
+        }}
+        onEventsChanged={onEventsChanged}
+      />
+
       <EditEventDialog
         event={editingEvent}
         open={editDialogOpen}

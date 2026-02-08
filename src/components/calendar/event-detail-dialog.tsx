@@ -1,0 +1,114 @@
+'use client';
+
+import { MapPin, User, CalendarDays, Clock, Pencil } from 'lucide-react';
+import { parseISO, format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { formatDate, formatTime } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import type { CalendarEvent } from '@/types/calendar';
+
+interface EventDetailDialogProps {
+  event: CalendarEvent | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onEdit?: (event: CalendarEvent) => void;
+}
+
+function getEventEndDate(event: CalendarEvent): string {
+  return event.end_date || event.event_date;
+}
+
+export function EventDetailDialog({
+  event,
+  open,
+  onOpenChange,
+  onEdit,
+}: EventDetailDialogProps) {
+  const { t } = useTranslation();
+
+  if (!event) return null;
+
+  const endDate = getEventEndDate(event);
+  const isMultiDay = endDate > event.event_date;
+  const startDateLabel = formatDate(parseISO(event.event_date), 'EEEE, MMM d, yyyy');
+  const endDateLabel = formatDate(parseISO(endDate), 'EEEE, MMM d, yyyy');
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold leading-tight">
+            {event.title}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {isMultiDay ? `${startDateLabel} - ${endDateLabel}` : startDateLabel}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            {event.is_all_day ? (
+              <span>{t('calendar.allDay')}</span>
+            ) : (
+              <span>
+                {formatTime(event.event_time)}
+                {event.end_time &&
+                  ` - ${formatTime(event.end_time)}${event.end_date ? ` (${format(parseISO(endDate), 'MMM d')})` : ''}`}
+              </span>
+            )}
+          </div>
+
+          {isMultiDay && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CalendarDays className="h-4 w-4" />
+              <span>{t('calendar.date')}: {startDateLabel} - {endDateLabel}</span>
+            </div>
+          )}
+
+          {event.location && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>{event.location}</span>
+            </div>
+          )}
+
+          {event.family_member && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="h-4 w-4" />
+              <Badge variant="outline">{event.family_member}</Badge>
+            </div>
+          )}
+
+          {event.description && (
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-foreground whitespace-pre-wrap break-words">
+              {event.description}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            className="bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => onEdit?.(event)}
+          >
+            <Pencil className="mr-2 h-4 w-4" />
+            {t('common.edit')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

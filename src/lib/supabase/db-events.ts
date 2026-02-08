@@ -23,6 +23,7 @@ export async function createEvent(
   eventData: {
     title: string;
     event_date: string;
+    end_date?: string;
     event_time?: string;
     end_time?: string;
     is_all_day: boolean;
@@ -49,6 +50,7 @@ export async function createEvent(
       created_by: createdBy,
       title: eventData.title,
       event_date: eventData.event_date,
+      end_date: eventData.end_date || eventData.event_date,
       event_time: eventData.event_time || null,
       end_time: eventData.end_time || null,
       is_all_day: eventData.is_all_day,
@@ -103,6 +105,7 @@ export async function createEventsBulk(
   events: Array<{
     title: string;
     event_date: string;
+    end_date?: string;
     event_time?: string;
     end_time?: string;
     is_all_day: boolean;
@@ -130,6 +133,7 @@ export async function createEventsBulk(
       created_by: createdBy,
       title: eventData.title,
       event_date: eventData.event_date,
+      end_date: eventData.end_date || eventData.event_date,
       event_time: eventData.event_time || null,
       end_time: eventData.end_time || null,
       is_all_day: eventData.is_all_day,
@@ -226,6 +230,7 @@ export async function updateEvent(
   updates: {
     title?: string;
     event_date?: string;
+    end_date?: string | null;
     event_time?: string | null;
     end_time?: string | null;
     is_all_day?: boolean;
@@ -268,12 +273,23 @@ export async function updateEvent(
   
   if (updates.title !== undefined) updateData.title = updates.title;
   if (updates.event_date !== undefined) updateData.event_date = updates.event_date;
+  if (updates.end_date !== undefined) updateData.end_date = updates.end_date;
   if (updates.event_time !== undefined) updateData.event_time = updates.event_time;
   if (updates.end_time !== undefined) updateData.end_time = updates.end_time;
   if (updates.is_all_day !== undefined) updateData.is_all_day = updates.is_all_day;
   if (updates.family_member !== undefined) updateData.family_member = updates.family_member;
   if (updates.location !== undefined) updateData.location = updates.location;
   if (updates.description !== undefined) updateData.description = updates.description;
+
+  // Keep date ranges valid when only start date changes.
+  if (
+    updates.event_date !== undefined &&
+    updates.end_date === undefined &&
+    current.end_date &&
+    current.end_date < updates.event_date
+  ) {
+    updateData.end_date = updates.event_date;
+  }
 
   // If title, date, or time changed, regenerate fingerprint
   if (updates.title !== undefined || updates.event_date !== undefined || updates.event_time !== undefined) {
@@ -393,7 +409,7 @@ export async function createEventReminder(
         .from('reminders')
         .insert({
           user_id: userId,
-          message: `${message} (Event: ${eventId})`,
+          message,
           remind_at: remindAt.toISOString(),
           status: 'pending',
         })

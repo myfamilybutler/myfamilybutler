@@ -117,6 +117,9 @@
   },
   "dashboard": {
     "upcoming": "Anstehend",
+    "todayTomorrow": "Heute & Morgen",
+    "laterEvents": "Spätere Termine",
+    "noLaterEvents": "Keine späteren anstehenden Termine",
     "noEventsToday": "Keine Termine heute",
     "planYourDay": "Planen Sie Ihren Tag",
     "addFirstEvent": "Ersten Termin hinzufügen",
