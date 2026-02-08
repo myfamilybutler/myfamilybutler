@@ -366,6 +366,22 @@ function convertGoogleToLocalEvent(googleEvent: GoogleCalendarEventWithStatus): 
   let eventTime: string | null = null;
   let endTime: string | null = null;
   let isAllDay = false;
+  let recurrenceRule: string | undefined;
+  let recurrenceEnd: string | undefined;
+
+  const rawRecurrence = googleEvent.recurrence?.find((entry) => entry.startsWith('RRULE:'))
+    || googleEvent.recurrence?.[0];
+  if (rawRecurrence) {
+    recurrenceRule = rawRecurrence.startsWith('RRULE:')
+      ? rawRecurrence.slice('RRULE:'.length)
+      : rawRecurrence;
+
+    const untilMatch = recurrenceRule.match(/(?:^|;)UNTIL=(\d{8})/);
+    if (untilMatch?.[1]) {
+      const value = untilMatch[1];
+      recurrenceEnd = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
+    }
+  }
 
   if (googleEvent.start.dateTime) {
     // Timed event
@@ -409,6 +425,8 @@ function convertGoogleToLocalEvent(googleEvent: GoogleCalendarEventWithStatus): 
     event_time: eventTime || undefined,
     end_time: endTime || undefined,
     is_all_day: isAllDay,
+    recurrence_rule: recurrenceRule,
+    recurrence_end: recurrenceEnd,
   };
 }
 

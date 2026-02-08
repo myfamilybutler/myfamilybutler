@@ -41,6 +41,10 @@ export async function createEvent(
     event_time?: string;
     end_time?: string;
     is_all_day: boolean;
+    recurrence_rule?: string | null;
+    recurrence_end?: string | null;
+    parent_event_id?: string | null;
+    is_exception?: boolean;
     family_member?: string;
     location?: string;
     description?: string;
@@ -72,6 +76,10 @@ export async function createEvent(
     event_time: eventData.event_time || null,
     end_time: eventData.end_time || null,
     is_all_day: eventData.is_all_day,
+    recurrence_rule: eventData.recurrence_rule || null,
+    recurrence_end: eventData.recurrence_end || null,
+    parent_event_id: eventData.parent_event_id || null,
+    is_exception: eventData.is_exception || false,
     family_member: normalizedFamilyMember || null,
     family_member_id: resolvedFamilyMemberId,
     location: eventData.location || null,
@@ -160,6 +168,10 @@ export async function createEventsBulk(
     event_time?: string;
     end_time?: string;
     is_all_day: boolean;
+    recurrence_rule?: string | null;
+    recurrence_end?: string | null;
+    parent_event_id?: string | null;
+    is_exception?: boolean;
     family_member?: string;
     location?: string;
     description?: string;
@@ -198,6 +210,10 @@ export async function createEventsBulk(
       event_time: eventData.event_time || null,
       end_time: eventData.end_time || null,
       is_all_day: eventData.is_all_day,
+      recurrence_rule: eventData.recurrence_rule || null,
+      recurrence_end: eventData.recurrence_end || null,
+      parent_event_id: eventData.parent_event_id || null,
+      is_exception: eventData.is_exception || false,
       family_member: eventData.family_member || null,
       family_member_id: eventData.family_member
         ? memberIdsByKey.get(familyMemberNameKey(eventData.family_member)) ?? null
@@ -318,6 +334,10 @@ export async function updateEvent(
     event_time?: string | null;
     end_time?: string | null;
     is_all_day?: boolean;
+    recurrence_rule?: string | null;
+    recurrence_end?: string | null;
+    parent_event_id?: string | null;
+    is_exception?: boolean;
     family_member?: string | null;
     location?: string | null;
     description?: string | null;
@@ -374,6 +394,10 @@ export async function updateEvent(
   if (updates.event_time !== undefined) updateData.event_time = updates.event_time;
   if (updates.end_time !== undefined) updateData.end_time = updates.end_time;
   if (updates.is_all_day !== undefined) updateData.is_all_day = updates.is_all_day;
+  if (updates.recurrence_rule !== undefined) updateData.recurrence_rule = updates.recurrence_rule;
+  if (updates.recurrence_end !== undefined) updateData.recurrence_end = updates.recurrence_end;
+  if (updates.parent_event_id !== undefined) updateData.parent_event_id = updates.parent_event_id;
+  if (updates.is_exception !== undefined) updateData.is_exception = updates.is_exception;
   if (updates.family_member !== undefined) {
     updateData.family_member = normalizedFamilyMember ?? null;
     updateData.family_member_id = resolvedFamilyMemberId ?? null;

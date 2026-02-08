@@ -17,14 +17,22 @@ interface DatePickerProps {
   onSelect: (date: Date | undefined) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
-export function DatePicker({ date, onSelect, placeholder = "Pick a date", className }: DatePickerProps) {
+export function DatePicker({
+  date,
+  onSelect,
+  placeholder = "Pick a date",
+  className,
+  disabled = false,
+}: DatePickerProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
+          disabled={disabled}
           className={cn(
             "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground",

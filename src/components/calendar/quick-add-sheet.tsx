@@ -19,7 +19,13 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { EventForm, createEventFormData, isEventFormValid, type EventFormData } from './event-form';
+import {
+  EventForm,
+  buildRecurrenceFromForm,
+  createEventFormData,
+  isEventFormValid,
+  type EventFormData,
+} from './event-form';
 import { log } from '@/lib/utils/logger';
 
 interface QuickAddSheetProps {
@@ -57,15 +63,19 @@ export function QuickAddSheet({
     
     setIsLoading(true);
     try {
+      const recurrence = buildRecurrenceFromForm(formData);
       const response = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: formData.title.trim(),
           event_date: formData.eventDate,
+          end_date: formData.endDate || formData.eventDate,
           event_time: formData.eventTime || null,
           end_time: formData.endTime || null,
           is_all_day: formData.isAllDay || !formData.eventTime,
+          recurrence_rule: recurrence.recurrenceRule,
+          recurrence_end: recurrence.recurrenceEnd,
           family_member: formData.familyMember || null,
           location: formData.location.trim() || null,
           description: formData.description.trim() || null,

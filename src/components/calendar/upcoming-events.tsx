@@ -33,7 +33,7 @@ interface SwipeableEventCardProps {
   event: ProcessedEvent;
   onSelect: (event: CalendarEvent) => void;
   onEdit: (event: CalendarEvent) => void;
-  onDelete: (eventId: string) => void;
+  onDelete: (event: CalendarEvent) => void;
   isDeleting: boolean;
   showSwipeHint?: boolean;
   onHintDismiss?: () => void;
@@ -82,7 +82,7 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
   };
 
   const handleDeleteClick = () => {
-    onDelete(event.id);
+    onDelete(event);
   };
 
   return (
@@ -223,10 +223,22 @@ export function UpcomingEvents({
     setDetailOpen(true);
   };
 
-  const handleDelete = async (eventId: string) => {
-    setDeletingEventId(eventId);
+  const handleDelete = async (event: CalendarEvent) => {
+    setDeletingEventId(event.id);
     try {
-      const response = await fetch(`/api/events?id=${eventId}`, {
+      const params = new URLSearchParams({
+        id:
+          event.is_recurring_instance && event.recurrence_parent_id
+            ? event.recurrence_parent_id
+            : event.id,
+      });
+
+      if (event.is_recurring_instance && event.recurrence_instance_date) {
+        params.set('scope', 'single');
+        params.set('occurrenceDate', event.recurrence_instance_date);
+      }
+
+      const response = await fetch(`/api/events?${params.toString()}`, {
         method: 'DELETE',
       });
 

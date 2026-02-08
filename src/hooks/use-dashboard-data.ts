@@ -3,6 +3,7 @@ import { useAuthStore, type DbUser } from '@/stores/auth-store';
 import type { CalendarEvent } from '@/types/calendar';
 import { log } from '@/lib/utils/logger';
 import { useFamilyData } from '@/stores/family-store';
+import { expandRecurringCalendarEvents } from '@/lib/utils/recurring-events';
 
 interface DashboardApiResponse {
   success: boolean;
@@ -85,6 +86,14 @@ export function useDashboardData() {
     }
   }, []);
 
+  const normalizeEvents = useCallback((items: CalendarEvent[]) => {
+    const withSource = items.map((e) => ({
+      ...e,
+      source: e.source || 'app',
+    }));
+    return expandRecurringCalendarEvents(withSource);
+  }, []);
+
   const loadAllData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     
@@ -98,10 +107,7 @@ export function useDashboardData() {
     }
     
     if (dashboardResponse?.events) {
-      setEvents(dashboardResponse.events.map((e: CalendarEvent) => ({ 
-        ...e, 
-        source: e.source || 'app'
-      })));
+      setEvents(normalizeEvents(dashboardResponse.events));
     }
 
     setLoading(false); // Show data immediately
@@ -115,13 +121,10 @@ export function useDashboardData() {
       const updatedResponse = await fetchEventsData(signal);
       
       if (updatedResponse?.events && isMounted.current) {
-        setEvents(updatedResponse.events.map((e: CalendarEvent) => ({ 
-          ...e, 
-          source: e.source || 'app'
-        })));
+        setEvents(normalizeEvents(updatedResponse.events));
       }
     }
-  }, [fetchEventsData, triggerGoogleSync]);
+  }, [fetchEventsData, normalizeEvents, triggerGoogleSync]);
 
   useEffect(() => {
     const abortController = new AbortController();

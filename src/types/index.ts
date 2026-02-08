@@ -86,6 +86,10 @@ export interface Event {
   event_time?: string;
   end_time?: string;
   is_all_day: boolean;
+  recurrence_rule?: string | null;
+  recurrence_end?: string | null;
+  parent_event_id?: string | null;
+  is_exception?: boolean;
   family_member?: string;
   family_member_id?: string;
   location?: string;

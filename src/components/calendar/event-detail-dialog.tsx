@@ -1,9 +1,10 @@
 'use client';
 
-import { MapPin, User, CalendarDays, Clock, Pencil } from 'lucide-react';
+import { MapPin, User, CalendarDays, Clock, Pencil, Repeat } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { formatDate, formatTime } from '@/lib/utils';
+import { rruleToHuman } from '@/lib/recurrence';
 import {
   Dialog,
   DialogContent,
@@ -27,13 +28,18 @@ function getEventEndDate(event: CalendarEvent): string {
   return event.end_date || event.event_date;
 }
 
+function normalizeRule(rule: string | null | undefined): string | null {
+  if (!rule) return null;
+  return rule.startsWith('RRULE:') ? rule.slice('RRULE:'.length) : rule;
+}
+
 export function EventDetailDialog({
   event,
   open,
   onOpenChange,
   onEdit,
 }: EventDetailDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (!event) return null;
 
@@ -41,6 +47,10 @@ export function EventDetailDialog({
   const isMultiDay = endDate > event.event_date;
   const startDateLabel = formatDate(parseISO(event.event_date), 'EEEE, MMM d, yyyy');
   const endDateLabel = formatDate(parseISO(endDate), 'EEEE, MMM d, yyyy');
+  const recurrenceRule = normalizeRule(event.recurrence_rule);
+  const recurrenceLabel = recurrenceRule
+    ? rruleToHuman(recurrenceRule, i18n.language.startsWith('de') ? 'de' : 'en')
+    : '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -60,18 +70,25 @@ export function EventDetailDialog({
             {event.is_all_day ? (
               <span>{t('calendar.allDay')}</span>
             ) : (
-              <span>
-                {formatTime(event.event_time)}
-                {event.end_time &&
-                  ` - ${formatTime(event.end_time)}${event.end_date ? ` (${format(parseISO(endDate), 'MMM d')})` : ''}`}
-              </span>
-            )}
-          </div>
+                <span>
+                  {formatTime(event.event_time)}
+                  {event.end_time &&
+                    ` - ${formatTime(event.end_time)}${isMultiDay ? ` (${format(parseISO(endDate), 'MMM d')})` : ''}`}
+                </span>
+              )}
+            </div>
 
           {isMultiDay && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CalendarDays className="h-4 w-4" />
               <span>{t('calendar.date')}: {startDateLabel} - {endDateLabel}</span>
+            </div>
+          )}
+
+          {recurrenceRule && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Repeat className="h-4 w-4" />
+              <span>{recurrenceLabel}</span>
             </div>
           )}
 

@@ -7,13 +7,14 @@
 import { getValidGoogleToken, getSelectedCalendar } from '../auth/vault';
 import { getAdminClient } from '../supabase/client';
 import type { Event } from '@/types';
+import { APP_CONFIG } from '@/lib/config';
 
 // ===========================================
 // Constants
 // ===========================================
 
 const GOOGLE_CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
-const TIMEZONE = 'Europe/Vienna';
+const TIMEZONE = APP_CONFIG.localization.timezone;
 const AUTH_CONTEXT_CACHE_TTL_MS = 30_000;
 
 type GoogleAuthContext = {
@@ -32,6 +33,7 @@ export interface GoogleCalendarEvent {
   summary: string;
   description?: string;
   location?: string;
+  recurrence?: string[];
   start: {
     dateTime?: string;
     date?: string;
@@ -78,6 +80,13 @@ function convertToGoogleEvent(event: Event): GoogleCalendarEvent {
     start: { timeZone: TIMEZONE },
     end: { timeZone: TIMEZONE },
   };
+
+  if (event.recurrence_rule) {
+    const normalizedRule = event.recurrence_rule.startsWith('RRULE:')
+      ? event.recurrence_rule
+      : `RRULE:${event.recurrence_rule}`;
+    googleEvent.recurrence = [normalizedRule];
+  }
 
   if (event.is_all_day || !event.event_time) {
     // All-day event
@@ -334,6 +343,7 @@ export async function fetchGoogleEvents(
           summary?: string;
           description?: string;
           location?: string;
+          recurrence?: string[];
           start?: { dateTime?: string; date?: string; timeZone?: string };
           end?: { dateTime?: string; date?: string; timeZone?: string };
         }>;
@@ -345,6 +355,7 @@ export async function fetchGoogleEvents(
         summary: item.summary || 'Untitled Event',
         description: item.description,
         location: item.location,
+        recurrence: item.recurrence,
         start: {
           dateTime: item.start?.dateTime,
           date: item.start?.date,
@@ -433,6 +444,7 @@ export async function fetchGoogleEventsIncremental(
         summary?: string;
         description?: string;
         location?: string;
+        recurrence?: string[];
         start?: { dateTime?: string; date?: string; timeZone?: string };
         end?: { dateTime?: string; date?: string; timeZone?: string };
       }>;
@@ -445,6 +457,7 @@ export async function fetchGoogleEventsIncremental(
       summary: item.summary || 'Untitled Event',
       description: item.description,
       location: item.location,
+      recurrence: item.recurrence,
       start: {
         dateTime: item.start?.dateTime,
         date: item.start?.date,

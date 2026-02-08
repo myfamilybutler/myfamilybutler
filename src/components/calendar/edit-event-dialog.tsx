@@ -18,12 +18,27 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { CalendarEvent } from '@/types/calendar';
-import { EventForm, createEventFormData, isEventFormValid, type EventFormData } from './event-form';
+import {
+  EventForm,
+  buildRecurrenceFromForm,
+  createEventFormData,
+  isEventFormValid,
+  type EventFormData,
+} from './event-form';
 import { EventReminderSection } from './event-reminder-section';
 import { DeleteEventDialog } from './delete-event-dialog';
 import { useTranslation } from 'react-i18next';
 import { log } from '@/lib/utils/logger';
+
+type RecurrenceEditScope = 'single' | 'series';
 
 interface EditEventDialogProps {
   event: CalendarEvent | null;
@@ -46,38 +61,53 @@ export function EditEventDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [editScope, setEditScope] = useState<RecurrenceEditScope>('series');
   const [formData, setFormData] = useState<EventFormData>(() => 
     createEventFormData(event)
   );
+  const isRecurringInstance = Boolean(
+    event?.is_recurring_instance && event.recurrence_parent_id && event.recurrence_instance_date
+  );
+  const targetEventId = isRecurringInstance ? event?.recurrence_parent_id : event?.id;
+  const occurrenceDate = isRecurringInstance ? event?.recurrence_instance_date : undefined;
 
   // Reset form when dialog opens with a different event
   useEffect(() => {
     if (open && event) {
       setFormData(createEventFormData(event));
       setShowDeleteDialog(false);
+      setEditScope(isRecurringInstance ? 'single' : 'series');
     }
-  }, [open, event]);
+  }, [open, event, isRecurringInstance]);
 
   const handleFormChange = useCallback((data: EventFormData) => {
     setFormData(data);
   }, []);
 
   const handleSave = async () => {
-    if (!event || !isEventFormValid(formData)) return;
+    if (!event || !targetEventId || !isEventFormValid(formData)) return;
     
     setIsLoading(true);
     try {
+      const recurrence = buildRecurrenceFromForm(formData);
+      const shouldApplySingleOccurrence = isRecurringInstance && editScope === 'single';
+
       const response = await fetch('/api/events', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          eventId: event.id,
+          eventId: targetEventId,
+          editScope: shouldApplySingleOccurrence ? 'single' : 'series',
+          occurrenceDate: shouldApplySingleOccurrence ? occurrenceDate : undefined,
           updates: {
             title: formData.title,
             event_date: formData.eventDate,
+            end_date: formData.endDate || formData.eventDate,
             event_time: formData.eventTime || null,
             end_time: formData.endTime || null,
             is_all_day: formData.isAllDay,
+            recurrence_rule: shouldApplySingleOccurrence ? null : recurrence.recurrenceRule,
+            recurrence_end: shouldApplySingleOccurrence ? null : recurrence.recurrenceEnd,
             family_member: formData.familyMember || null,
             location: formData.location || null,
             description: formData.description || null,
@@ -113,11 +143,19 @@ export function EditEventDialog({
   };
 
   const handleDelete = async () => {
-    if (!event) return;
+    if (!event || !targetEventId) return;
     
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/events?id=${event.id}`, {
+      const params = new URLSearchParams({ id: targetEventId });
+      if (isRecurringInstance) {
+        params.set('scope', editScope);
+        if (editScope === 'single' && occurrenceDate) {
+          params.set('occurrenceDate', occurrenceDate);
+        }
+      }
+
+      const response = await fetch(`/api/events?${params.toString()}`, {
         method: 'DELETE',
       });
 
@@ -154,21 +192,51 @@ export function EditEventDialog({
 
           {/* Scrollable form content */}
           <div className="flex-1 overflow-y-auto py-4 px-1">
+            {isRecurringInstance && (
+              <div className="mb-4 space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  {t('calendar.editScope')}
+                </label>
+                <Select
+                  value={editScope}
+                  onValueChange={(value) => setEditScope(value as RecurrenceEditScope)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">{t('calendar.scopeThisEvent')}</SelectItem>
+                    <SelectItem value="series">{t('calendar.scopeEntireSeries')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <EventForm
               data={formData}
               onChange={handleFormChange}
               availableFamilyMembers={availableFamilyMembers}
+              disableRecurrence={isRecurringInstance && editScope === 'single'}
+              disableDateEditing={isRecurringInstance && editScope === 'series'}
             />
+
+            {isRecurringInstance && editScope === 'series' && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Date changes are disabled here to avoid moving the whole series unexpectedly.
+              </p>
+            )}
             
             {/* Reminder Section - only in edit mode */}
-            <div className="mt-4">
-              <EventReminderSection
-                eventId={event.id}
-                eventTitle={formData.title || event.title}
-                eventDate={formData.eventDate || event.event_date}
-                eventTime={formData.eventTime || event.event_time || ''}
-              />
-            </div>
+            {!isRecurringInstance && (
+              <div className="mt-4">
+                <EventReminderSection
+                  eventId={event.id}
+                  eventTitle={formData.title || event.title}
+                  eventDate={formData.eventDate || event.event_date}
+                  eventTime={formData.eventTime || event.event_time || ''}
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex-shrink-0 flex-col sm:flex-row gap-2 border-t pt-4">

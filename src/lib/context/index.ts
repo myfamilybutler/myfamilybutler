@@ -8,6 +8,7 @@
 import { getAdminClient } from '@/lib/supabase/client';
 import { getFamilyMembers } from '@/lib/supabase';
 import type { Event, User } from '@/types';
+import { APP_CONFIG } from '@/lib/config';
 
 // ===========================================
 // Types
@@ -62,6 +63,7 @@ interface CacheEntry {
 
 const contextCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_TIMEZONE = APP_CONFIG.localization.timezone;
 
 // Cleanup interval
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
@@ -141,7 +143,7 @@ export async function getFamilyContext(householdId: string): Promise<FamilyConte
       recentEvents: (eventsResult.data || []) as Event[],
       preferences: {
         language: 'de',
-        timezone: 'Europe/Vienna',
+        timezone: DEFAULT_TIMEZONE,
       },
       cachedAt: Date.now(),
     };
@@ -163,7 +165,7 @@ export async function getFamilyContext(householdId: string): Promise<FamilyConte
 /**
  * Get temporal context (current date/time info)
  */
-export function getTemporalContext(timezone: string = 'Europe/Vienna'): TemporalContext {
+export function getTemporalContext(timezone: string = DEFAULT_TIMEZONE): TemporalContext {
   const now = new Date();
   
   const dateFormatter = new Intl.DateTimeFormat('de-AT', {
@@ -190,14 +192,32 @@ export function getTemporalContext(timezone: string = 'Europe/Vienna'): Temporal
   const month = parts.find(p => p.type === 'month')?.value || '';
   const day = parts.find(p => p.type === 'day')?.value || '';
   
-  const hour = now.getHours();
+  const hourText = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    hour: '2-digit',
+    hour12: false,
+  }).format(now);
+  const hour = Number.parseInt(hourText, 10);
+
+  const weekdayEn = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short',
+  }).format(now);
+  const dayOfWeek = ({
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  } as const)[weekdayEn] ?? now.getDay();
+
   let timeOfDay: TemporalContext['timeOfDay'];
   if (hour >= 5 && hour < 12) timeOfDay = 'morning';
   else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
   else if (hour >= 17 && hour < 21) timeOfDay = 'evening';
   else timeOfDay = 'night';
-  
-  const dayOfWeek = now.getDay();
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
   
   return {
@@ -219,7 +239,7 @@ export async function buildPromptContext(
   historyCount: number = 0
 ): Promise<PromptContext> {
   const family = householdId ? await getFamilyContext(householdId) : undefined;
-  const timezone = family?.preferences.timezone || 'Europe/Vienna';
+  const timezone = family?.preferences.timezone || DEFAULT_TIMEZONE;
   
   return {
     family: family || undefined,

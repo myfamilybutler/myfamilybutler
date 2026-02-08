@@ -2,6 +2,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient, updateEvent, deleteEvent, createEventReminder, createEvent } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
+import { addDays, differenceInCalendarDays, format, isValid, parseISO } from 'date-fns';
+import { RECURRENCE_CANCELLED_MARKER } from '@/lib/recurrence/constants';
+
+interface EventUpdatesPayload {
+  title?: string;
+  event_date?: string;
+  end_date?: string | null;
+  event_time?: string | null;
+  end_time?: string | null;
+  is_all_day?: boolean;
+  recurrence_rule?: string | null;
+  recurrence_end?: string | null;
+  family_member?: string | null;
+  location?: string | null;
+  description?: string | null;
+}
 
 export async function GET() {
   try {
@@ -104,7 +120,17 @@ export async function PUT(request: NextRequest) {
 
     const { userId } = session;
     const body = await request.json();
-    const { eventId, updates } = body;
+    const {
+      eventId,
+      updates,
+      editScope,
+      occurrenceDate,
+    }: {
+      eventId?: string;
+      updates?: EventUpdatesPayload;
+      editScope?: 'single' | 'series';
+      occurrenceDate?: string;
+    } = body;
 
     if (!eventId || !updates) {
       return NextResponse.json({ error: 'Missing eventId or updates' }, { status: 400 });
@@ -123,9 +149,111 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User not found or no household' }, { status: 404 });
     }
 
-    // Update event (security check via household_id)
+    // Update a single occurrence of a recurring event by creating/updating an exception row.
+    if (editScope === 'single' && occurrenceDate) {
+      const { data: parentEvent, error: parentError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .eq('household_id', user.household_id)
+        .single();
+
+      if (parentError || !parentEvent) {
+        return NextResponse.json({ error: 'Parent event not found' }, { status: 404 });
+      }
+
+      const parentStart = parseISO(parentEvent.event_date);
+      const parentEnd = parseISO(parentEvent.end_date || parentEvent.event_date);
+      const parentDurationDays =
+        isValid(parentStart) && isValid(parentEnd) && parentEnd >= parentStart
+          ? differenceInCalendarDays(parentEnd, parentStart)
+          : 0;
+
+      const exceptionStart = updates.event_date || occurrenceDate;
+      const defaultExceptionEnd = (() => {
+        const parsedStart = parseISO(exceptionStart);
+        if (!isValid(parsedStart) || parentDurationDays <= 0) return exceptionStart;
+        return format(addDays(parsedStart, parentDurationDays), 'yyyy-MM-dd');
+      })();
+      const exceptionEnd = updates.end_date || defaultExceptionEnd;
+      const nextFamilyMember =
+        updates.family_member !== undefined ? updates.family_member : parentEvent.family_member;
+      const nextFamilyMemberId =
+        updates.family_member !== undefined ? null : (parentEvent.family_member_id || null);
+
+      const exceptionPayload = {
+        title: updates.title ?? parentEvent.title,
+        event_date: exceptionStart,
+        end_date: exceptionEnd,
+        event_time: updates.event_time !== undefined ? updates.event_time : parentEvent.event_time,
+        end_time: updates.end_time !== undefined ? updates.end_time : parentEvent.end_time,
+        is_all_day: updates.is_all_day ?? parentEvent.is_all_day,
+        recurrence_rule: null,
+        recurrence_end: null,
+        parent_event_id: eventId,
+        is_exception: true,
+        family_member: nextFamilyMember,
+        family_member_id: nextFamilyMemberId,
+        location: updates.location !== undefined ? updates.location : parentEvent.location,
+        description: updates.description !== undefined ? updates.description : parentEvent.description,
+        sync_source: 'local',
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: existingException } = await supabase
+        .from('events')
+        .select('id')
+        .eq('household_id', user.household_id)
+        .eq('parent_event_id', eventId)
+        .eq('event_date', occurrenceDate)
+        .eq('is_exception', true)
+        .maybeSingle();
+
+      if (existingException?.id) {
+        const { data: updatedException, error: updateError } = await supabase
+          .from('events')
+          .update(exceptionPayload)
+          .eq('id', existingException.id)
+          .eq('household_id', user.household_id)
+          .select('*')
+          .single();
+
+        if (updateError || !updatedException) {
+          return NextResponse.json({ error: 'Failed to update occurrence' }, { status: 500 });
+        }
+
+        console.log(`[API/events] Recurring exception ${existingException.id} updated by user ${userId}`);
+        return NextResponse.json({ success: true, data: updatedException });
+      }
+
+      const { data: insertedException, error: insertError } = await supabase
+        .from('events')
+        .insert({
+          ...exceptionPayload,
+          household_id: user.household_id,
+          created_by: userId,
+        })
+        .select('*')
+        .single();
+
+      if (insertError || !insertedException) {
+        return NextResponse.json({ error: 'Failed to create occurrence exception' }, { status: 500 });
+      }
+
+      console.log(`[API/events] Recurring exception created for parent ${eventId} by user ${userId}`);
+      return NextResponse.json({ success: true, data: insertedException });
+    }
+
+    // Update event or whole recurring series (security check via household_id)
     try {
-      const updatedEvent = await updateEvent(eventId, user.household_id, updates, userId);
+      let updatesForSeries = updates;
+      if (editScope === 'series' && occurrenceDate) {
+        updatesForSeries = { ...updates };
+        delete updatesForSeries.event_date;
+        delete updatesForSeries.end_date;
+      }
+
+      const updatedEvent = await updateEvent(eventId, user.household_id, updatesForSeries, userId);
 
       if (!updatedEvent) {
         return NextResponse.json({ error: 'Failed to update event' }, { status: 500 });
@@ -135,8 +263,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: true, data: updatedEvent });
     } catch (error) {
       if (error instanceof Error && error.message === 'EVENT_VERSION_CONFLICT') {
-        return NextResponse.json({ 
-          error: 'Event was modified by another user. Please refresh and try again.' 
+        return NextResponse.json({
+          error: 'Event was modified by another user. Please refresh and try again.'
         }, { status: 409 });
       }
       throw error;
@@ -164,6 +292,8 @@ export async function DELETE(request: NextRequest) {
     const { userId } = session;
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get('id');
+    const scope = searchParams.get('scope');
+    const occurrenceDate = searchParams.get('occurrenceDate');
 
     if (!eventId) {
       return NextResponse.json({ error: 'Missing event id' }, { status: 400 });
@@ -182,7 +312,76 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User not found or no household' }, { status: 404 });
     }
 
-    // Delete event (security check via household_id)
+    // Delete a single occurrence of a recurring series by adding/updating a cancellation exception.
+    if (scope === 'single' && occurrenceDate) {
+      const { data: parentEvent, error: parentError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .eq('household_id', user.household_id)
+        .single();
+
+      if (parentError || !parentEvent) {
+        return NextResponse.json({ error: 'Parent event not found' }, { status: 404 });
+      }
+
+      const cancellationPayload = {
+        title: parentEvent.title,
+        event_date: occurrenceDate,
+        end_date: occurrenceDate,
+        event_time: null,
+        end_time: null,
+        is_all_day: true,
+        recurrence_rule: null,
+        recurrence_end: null,
+        parent_event_id: eventId,
+        is_exception: true,
+        family_member: parentEvent.family_member,
+        family_member_id: parentEvent.family_member_id || null,
+        location: parentEvent.location,
+        description: RECURRENCE_CANCELLED_MARKER,
+        sync_source: 'local',
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: existingException } = await supabase
+        .from('events')
+        .select('id')
+        .eq('household_id', user.household_id)
+        .eq('parent_event_id', eventId)
+        .eq('event_date', occurrenceDate)
+        .eq('is_exception', true)
+        .maybeSingle();
+
+      if (existingException?.id) {
+        const { error: updateError } = await supabase
+          .from('events')
+          .update(cancellationPayload)
+          .eq('id', existingException.id)
+          .eq('household_id', user.household_id);
+
+        if (updateError) {
+          return NextResponse.json({ error: 'Failed to cancel occurrence' }, { status: 500 });
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('events')
+          .insert({
+            ...cancellationPayload,
+            household_id: user.household_id,
+            created_by: userId,
+          });
+
+        if (insertError) {
+          return NextResponse.json({ error: 'Failed to cancel occurrence' }, { status: 500 });
+        }
+      }
+
+      console.log(`[API/events] Recurring occurrence ${occurrenceDate} cancelled for parent ${eventId}`);
+      return NextResponse.json({ success: true });
+    }
+
+    // Delete event or entire recurring series (security check via household_id)
     const success = await deleteEvent(eventId, user.household_id, userId);
 
     if (!success) {
@@ -237,7 +436,19 @@ export async function POST(request: NextRequest) {
 
     // ============ CREATE EVENT ============
     if (action === 'create') {
-      const { title, event_date, end_date, event_time, end_time, is_all_day, family_member, location, description } = body;
+      const {
+        title,
+        event_date,
+        end_date,
+        event_time,
+        end_time,
+        is_all_day,
+        recurrence_rule,
+        recurrence_end,
+        family_member,
+        location,
+        description,
+      } = body;
 
       if (!title || !event_date) {
         return NextResponse.json({ 
@@ -255,6 +466,8 @@ export async function POST(request: NextRequest) {
         event_time: event_time || undefined,
         end_time: end_time || undefined,
         is_all_day: is_all_day ?? !event_time,
+        recurrence_rule: recurrence_rule || undefined,
+        recurrence_end: recurrence_end || undefined,
         family_member: family_member || undefined,
         location: location || undefined,
         description: description || undefined,
