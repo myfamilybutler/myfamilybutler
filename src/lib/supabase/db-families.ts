@@ -6,6 +6,28 @@ import { getAdminClient } from './client';
 import { randomUUID } from 'crypto';
 import { normalizeFamilyMemberName } from '@/lib/utils/family-members';
 import { ensureFamilyMembersForNames } from './family-member-sync';
+import { normalizePhone } from './identity';
+
+type InviteStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
+
+export interface ResolvedInvite {
+  inviteId: string;
+  householdId: string;
+  householdName?: string;
+  invitedBy?: string;
+  inviterDisplayName?: string;
+  email?: string;
+  phoneNumber?: string;
+  status: InviteStatus;
+  expiresAt?: string;
+}
+
+function isInviteExpired(expiresAt?: string | null): boolean {
+  if (!expiresAt) {
+    return false;
+  }
+  return new Date(expiresAt) < new Date();
+}
 
 /**
  * Create a new family and set user as admin
@@ -55,13 +77,18 @@ export async function checkPendingInvite(
   phoneNumber: string
 ): Promise<{ householdId: string; inviteId: string } | null> {
   const admin = getAdminClient();
+  const normalizedPhone = normalizePhone(phoneNumber);
+
+  if (!normalizedPhone) {
+    return null;
+  }
   
   const { data, error } = await admin
     .from('household_invites')
     .select('id, household_id')
-    .eq('phone_number', phoneNumber)
+    .eq('phone_number', normalizedPhone)
     .eq('status', 'pending')
-    .single();
+    .maybeSingle();
   
   if (error || !data) {
     return null;
@@ -83,19 +110,74 @@ export async function acceptInvite(
 ): Promise<boolean> {
   const admin = getAdminClient();
   
-  // Use atomic RPC transaction instead of fragile client-side logic
+  // Preferred path: DB-side atomic transaction
   const { data, error } = await admin.rpc('accept_household_invite', {
     p_user_id: userId,
     p_invite_id: inviteId,
     p_household_id: familyId
   });
   
-  if (error) {
-    console.error('Error accepting invite (RPC):', error);
-    return false;
+  if (!error) {
+    return data === true;
   }
   
-  return data === true;
+  // Fallback path for environments where the RPC is missing/outdated.
+  console.error('Error accepting invite (RPC), falling back:', error);
+
+  const { data: pendingInvite, error: pendingInviteError } = await admin
+    .from('household_invites')
+    .select('id, expires_at')
+    .eq('id', inviteId)
+    .eq('household_id', familyId)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (pendingInviteError || !pendingInvite) {
+    console.error('Fallback accept: pending invite not found:', pendingInviteError);
+    return false;
+  }
+
+  if (isInviteExpired(pendingInvite.expires_at)) {
+    await admin
+      .from('household_invites')
+      .update({ status: 'expired' })
+      .eq('id', inviteId)
+      .eq('status', 'pending');
+    return false;
+  }
+
+  const { data: acceptedInvite, error: inviteUpdateError } = await admin
+    .from('household_invites')
+    .update({ status: 'accepted' })
+    .eq('id', inviteId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+
+  if (inviteUpdateError || !acceptedInvite) {
+    console.error('Fallback accept: invite update failed:', inviteUpdateError);
+    return false;
+  }
+
+  const { error: userUpdateError } = await admin
+    .from('users')
+    .update({
+      household_id: familyId,
+      is_household_admin: false,
+    })
+    .eq('id', userId);
+
+  if (userUpdateError) {
+    console.error('Fallback accept: user update failed, rolling back invite:', userUpdateError);
+    await admin
+      .from('household_invites')
+      .update({ status: 'pending' })
+      .eq('id', inviteId)
+      .eq('status', 'accepted');
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -143,13 +225,18 @@ export async function createFamilyInvite(
   invitedBy: string
 ): Promise<string | null> {
   const admin = getAdminClient();
+  const normalizedPhone = normalizePhone(phoneNumber);
+
+  if (!normalizedPhone) {
+    return null;
+  }
   
   // Check if user already exists and is in another household
   const { data: existingUser } = await admin
     .from('users')
     .select('household_id')
-    .eq('phone_number', phoneNumber)
-    .single();
+    .eq('phone_number', normalizedPhone)
+    .maybeSingle();
   
   if (existingUser?.household_id) {
     console.error('User already belongs to a family');
@@ -165,7 +252,7 @@ export async function createFamilyInvite(
     .from('household_invites')
     .insert({
       household_id: familyId,
-      phone_number: phoneNumber,
+      phone_number: normalizedPhone,
       invited_by: invitedBy,
       status: 'pending',
       token: token,
@@ -179,7 +266,7 @@ export async function createFamilyInvite(
       .from('household_invites')
       .select('token')
       .eq('household_id', familyId)
-      .eq('phone_number', phoneNumber)
+      .eq('phone_number', normalizedPhone)
       .eq('status', 'pending')
       .single();
 
@@ -306,7 +393,7 @@ export async function deleteFamilyMember(
  */
 export async function getFamilyMembers(
   familyId: string
-): Promise<{ users: Array<{ id: string; display_name?: string; phone_number: string; linked_email?: string; is_household_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
+): Promise<{ users: Array<{ id: string; display_name?: string; phone_number?: string | null; linked_email?: string; is_household_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
   const admin = getAdminClient();
   
   // Fetch users and event-level member labels in parallel.
@@ -356,12 +443,12 @@ export async function getFamilyMembers(
  */
 export async function getPendingInvites(
   familyId: string
-): Promise<Array<{ id: string; phone_number: string; created_at: string }>> {
+): Promise<Array<{ id: string; phone_number?: string | null; email?: string | null; token: string; status: InviteStatus; created_at: string; expires_at?: string | null }>> {
   const admin = getAdminClient();
   
   const { data, error } = await admin
     .from('household_invites')
-    .select('id, phone_number, created_at')
+    .select('id, phone_number, email, token, status, created_at, expires_at')
     .eq('household_id', familyId)
     .eq('status', 'pending');
   
@@ -374,41 +461,81 @@ export async function getPendingInvites(
 }
 
 /**
+ * Resolve invite by token with household/inviter display metadata.
+ */
+export async function resolveInviteByToken(
+  token: string
+): Promise<ResolvedInvite | null> {
+  const admin = getAdminClient();
+  
+  const { data: invite, error } = await admin
+    .from('household_invites')
+    .select('id, household_id, invited_by, status, expires_at, email, phone_number')
+    .eq('token', token)
+    .maybeSingle();
+
+  if (error || !invite) {
+    return null;
+  }
+
+  let status = invite.status as InviteStatus;
+  if (status === 'pending' && isInviteExpired(invite.expires_at)) {
+    await admin
+      .from('household_invites')
+      .update({ status: 'expired' })
+      .eq('id', invite.id)
+      .eq('status', 'pending');
+    status = 'expired';
+  }
+
+  const [householdRes, inviterRes] = await Promise.all([
+    admin.from('households').select('name').eq('id', invite.household_id).maybeSingle(),
+    invite.invited_by
+      ? admin
+          .from('users')
+          .select('display_name, linked_email, phone_number')
+          .eq('id', invite.invited_by)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  const inviterDisplayName =
+    inviterRes.data?.display_name ||
+    inviterRes.data?.linked_email ||
+    inviterRes.data?.phone_number ||
+    undefined;
+
+  return {
+    inviteId: invite.id,
+    householdId: invite.household_id,
+    householdName: householdRes.data?.name ?? undefined,
+    invitedBy: invite.invited_by ?? undefined,
+    inviterDisplayName,
+    email: invite.email ?? undefined,
+    phoneNumber: invite.phone_number ?? undefined,
+    status,
+    expiresAt: invite.expires_at ?? undefined,
+  };
+}
+
+/**
  * Get invite by Token (supports both QR code and Email token)
  */
 export async function getInviteByToken(
   token: string
-): Promise<{ householdId: string; inviteId: string; invitedBy: string; email?: string; phoneNumber?: string } | null> {
-  const admin = getAdminClient();
-  
-  // 1. Find by token (Universal for Email, Phone, and Open Invites)
-  const { data: invite } = await admin
-    .from('household_invites')
-    .select('id, household_id, invited_by, expires_at, email, phone_number')
-    .eq('token', token)
-    .eq('status', 'pending')
-    .single();
-
-  if (invite) {
-     // Check expiration
-     if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-         return null; 
-     }
-
-     return { 
-        householdId: invite.household_id, 
-        inviteId: invite.id,
-        invitedBy: invite.invited_by,
-        email: invite.email ?? undefined,
-        phoneNumber: invite.phone_number ?? undefined
-      };
+): Promise<{ householdId: string; inviteId: string; invitedBy?: string; email?: string; phoneNumber?: string } | null> {
+  const invite = await resolveInviteByToken(token);
+  if (!invite || invite.status !== 'pending') {
+    return null;
   }
 
-  // Legacy fallback removed as we are standardizing on tokens now.
-  // The migration adds tokens to all future invites.
-  // Old invites without tokens will just expire naturally or need re-issue.
-  
-  return null;
+  return {
+    householdId: invite.householdId,
+    inviteId: invite.inviteId,
+    invitedBy: invite.invitedBy,
+    email: invite.email,
+    phoneNumber: invite.phoneNumber,
+  };
 }
 
 /**
@@ -499,4 +626,47 @@ export async function getInviteById(
     inviteId: data.id,
     invitedBy: data.invited_by
   };
+}
+
+/**
+ * Decline an invite.
+ */
+export async function declineInvite(inviteId: string): Promise<boolean> {
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('household_invites')
+    .update({ status: 'declined' })
+    .eq('id', inviteId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error('Error declining invite:', error);
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Revoke a pending invite from the inviter side.
+ */
+export async function revokeInvite(inviteId: string, familyId: string): Promise<boolean> {
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('household_invites')
+    .update({ status: 'revoked' })
+    .eq('id', inviteId)
+    .eq('household_id', familyId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error('Error revoking invite:', error);
+    return false;
+  }
+
+  return true;
 }

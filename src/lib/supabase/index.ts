@@ -93,9 +93,12 @@ export {
   getFamilyMembers,
   getPendingInvites,
   getInviteByToken,
+  resolveInviteByToken,
   createEmailInvite,
   getInviteById,
-  createOpenInvite
+  createOpenInvite,
+  declineInvite,
+  revokeInvite
 } from './db-families';
 
 // Magic Tokens (Auth)

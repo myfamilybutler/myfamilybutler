@@ -82,6 +82,7 @@ Each major PR must include:
 - command results (`lint`, `build`, `test`, migration checks)
 - filled multi-role report artifact
 - docs updated list
+- if introducing cross-cutting implementation rules, update `docs/AI_TOOLING_RULEBOOK.md` in the same PR
 
 ## Non-Negotiable Policies
 

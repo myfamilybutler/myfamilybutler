@@ -80,6 +80,19 @@ Required report artifact:
 - Explicitly bound grace windows.
 - Fail closed for security-critical checks.
 
+## Localization And Calendar Rules
+
+These are canonical implementation rules for language-sensitive UI behavior.
+
+- UI date rendering must derive from active i18n language (`i18n.resolvedLanguage` / `i18n.language`), not from static regional config.
+- Static config locale/timezone values are defaults/fallbacks, not the runtime source of truth for user-facing language formatting.
+- Use shared date helpers in `src/lib/utils/date.ts` for locale resolution, formatting, Intl locale mapping, and week-start calculation.
+- Date/calendar UI components must receive explicit locale from shared helpers (for example `date-fns` formatters and `react-day-picker`).
+- Week layout (`weekStartsOn`) must be language-aware and sourced from shared helper logic.
+- Avoid strict language equality checks like `language === 'de'`; use prefix-safe checks to support regional variants (`de-AT`, `en-US`).
+- Prefer locale-aware date-fns tokens (`P`, `PP`, `PPP`, `PPPP`) for user-visible full dates unless product requires a fixed pattern.
+- Any change to language/date/calendar logic must include validation (tests and/or lint/type checks) and doc impact review.
+
 ## Quality Gates
 
 Minimum required:

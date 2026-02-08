@@ -322,9 +322,25 @@ export function DesktopCalendarGrid({
       const connectLeft = dayIndex > segment.startIndex;
       const connectRight = dayIndex < segment.endIndex;
 
-      if (connectLeft && connectRight) return '-ml-px -mr-px rounded-none';
-      if (!connectLeft && connectRight) return 'ml-1.5 sm:ml-2 -mr-px rounded-l-md rounded-r-none';
-      if (connectLeft && !connectRight) return '-ml-px mr-1.5 sm:mr-2 rounded-r-md rounded-l-none';
+      if (connectLeft && connectRight) {
+        return [
+          'rounded-none',
+          "before:content-[''] before:absolute before:inset-y-0 before:-left-[2px] before:w-[2px] before:bg-inherit before:pointer-events-none",
+          "after:content-[''] after:absolute after:inset-y-0 after:-right-[2px] after:w-[2px] after:bg-inherit after:pointer-events-none",
+        ].join(' ');
+      }
+      if (!connectLeft && connectRight) {
+        return [
+          'ml-1.5 sm:ml-2 rounded-l-md rounded-r-none',
+          "after:content-[''] after:absolute after:inset-y-0 after:-right-[2px] after:w-[2px] after:bg-inherit after:pointer-events-none",
+        ].join(' ');
+      }
+      if (connectLeft && !connectRight) {
+        return [
+          'mr-1.5 sm:mr-2 rounded-r-md rounded-l-none',
+          "before:content-[''] before:absolute before:inset-y-0 before:-left-[2px] before:w-[2px] before:bg-inherit before:pointer-events-none",
+        ].join(' ');
+      }
       return 'mx-1.5 sm:mx-2 rounded-md';
     },
     []
@@ -397,7 +413,7 @@ export function DesktopCalendarGrid({
                 <div
                   key={dayIndex}
                   className={cn(
-                    "relative overflow-visible min-h-[60px] sm:min-h-[100px] border-r border-border last:border-r-0 cursor-pointer transition-colors",
+                    "relative overflow-visible min-h-[60px] sm:min-h-[100px] cursor-pointer transition-colors",
                     "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500",
                     !isCurrentMonth && "bg-muted/10 text-muted-foreground/50"
                   )}
@@ -412,6 +428,13 @@ export function DesktopCalendarGrid({
                     }
                   }}
                 >
+                  {dayIndex < week.length - 1 && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-y-0 right-0 w-px bg-border z-0"
+                    />
+                  )}
+
                   {/* Day number */}
                   <div className="p-1.5 flex justify-end">
                     <span

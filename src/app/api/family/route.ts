@@ -6,12 +6,15 @@ import {
   editFamilyMember,
   deleteFamilyMember,
   getFamilyMembers,
-  getPendingInvites 
+  getPendingInvites,
+  revokeInvite,
+  normalizePhone,
 } from '@/lib/supabase';
 import { sendInviteEmail } from '@/lib/email/send-email';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 import { log } from '@/lib/utils/logger';
+import { sendPhoneInviteMessages } from '@/lib/invites/delivery';
 
 /**
  * GET - Get family members and pending invites
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
     
     const { userId } = session;
-    const { action, phoneNumber, email, name, memberId, color } = await request.json();
+    const { action, phoneNumber, email, name, memberId, color, inviteId } = await request.json();
     
     if (!action) {
       return NextResponse.json({ error: 'Missing action' }, { status: 400 });
@@ -177,7 +180,12 @@ export async function POST(request: NextRequest) {
     }
     
     if (action === 'invite' && phoneNumber) {
-      const token = await createFamilyInvite(user.household_id, phoneNumber, user.id);
+      const normalizedPhone = normalizePhone(phoneNumber);
+      if (!normalizedPhone) {
+        return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
+      }
+
+      const token = await createFamilyInvite(user.household_id, normalizedPhone, user.id);
       
       if (!token) {
         return NextResponse.json({ 
@@ -187,11 +195,33 @@ export async function POST(request: NextRequest) {
       
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const joinLink = `${baseUrl}/invite/join?token=${token}`;
+      const { data: household } = await admin
+        .from('households')
+        .select('name')
+        .eq('id', user.household_id)
+        .maybeSingle();
+
+      const delivery = await sendPhoneInviteMessages({
+        phoneNumber: normalizedPhone,
+        joinLink,
+        inviterName: user.display_name ?? undefined,
+        householdName: household?.name ?? undefined,
+      });
+
+      const deliveredVia: string[] = [];
+      if (delivery.whatsapp.success) deliveredVia.push('WhatsApp');
+      if (delivery.telegram.success) deliveredVia.push('Telegram');
+
+      const message =
+        deliveredVia.length > 0
+          ? `Invite sent via ${deliveredVia.join(' and ')}.`
+          : 'Invite created, but automatic delivery failed. Share the link manually.';
 
       return NextResponse.json({ 
         success: true, 
-        message: 'Invite created. You can share this link:',
-        link: joinLink
+        message,
+        link: joinLink,
+        delivery,
       });
     }
 
@@ -260,6 +290,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to delete family member' }, { status: 500 });
       }
       
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'revokeInvite') {
+      if (!inviteId) {
+        return NextResponse.json({ error: 'Missing inviteId' }, { status: 400 });
+      }
+
+      const success = await revokeInvite(inviteId, user.household_id);
+
+      if (!success) {
+        return NextResponse.json({ error: 'Failed to revoke invite' }, { status: 500 });
+      }
+
       return NextResponse.json({ success: true });
     }
     

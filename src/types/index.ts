@@ -47,7 +47,7 @@ export interface FamilyInvite {
   email?: string;       // Optional for open invites
   token: string;        // Required for all invites now
   invited_by?: string;
-  status: 'pending' | 'accepted' | 'expired';
+  status: 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
   expires_at?: string;
   created_at: string;
 }
