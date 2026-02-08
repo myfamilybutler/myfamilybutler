@@ -203,7 +203,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                     )}
 
                     {error && (
-                        <p className="text-sm text-red-500">{error}</p>
+                        <p className="text-sm text-destructive">{error}</p>
                     )}
 
                     {resolveData?.invite && resolveData.invite.status !== 'pending' && (
@@ -225,7 +225,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                     )}
 
                     {resolveData?.invite?.status === 'pending' && isLoggedIn && !resolveData.eligibility.canRespond && (
-                        <p className="text-sm text-red-500">
+                        <p className="text-sm text-destructive">
                             This invite is linked to a different account.
                         </p>
                     )}
@@ -251,8 +251,8 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                             </div>
 
                             {showSwitchConfirm && (
-                                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-                                    <p className="mb-2 text-amber-900">
+                                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+                                    <p className="mb-2 text-amber-900 dark:text-amber-200">
                                         You are already in another family. Joining this one will switch your membership.
                                     </p>
                                     <Button

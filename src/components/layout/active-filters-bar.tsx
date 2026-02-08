@@ -9,6 +9,7 @@
 
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useFilterStore } from '@/stores/filter-store';
 import { useFamilyData } from '@/stores/family-store';
 import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
@@ -43,16 +44,23 @@ export function ActiveFiltersBar({ className }: ActiveFiltersBarProps) {
             const color = memberColors.get(memberName) || DEFAULT_MEMBER_COLOR;
             
             return (
-              <button
+              <Badge
+                asChild
                 key={memberName}
-                onClick={() => toggleMember(memberName)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-white transition-all hover:opacity-90 hover:shadow-sm active:scale-95 flex-shrink-0"
-                style={{ backgroundColor: color }}
-                title={t('calendar.removeFilter')}
+                variant="outline"
+                size="sm"
+                className="shrink-0 border-border/80 bg-background/70 hover:bg-accent hover:text-foreground"
               >
-                <span>{memberName}</span>
-                <X className="w-3 h-3 opacity-80" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => toggleMember(memberName)}
+                  title={t('calendar.removeFilter')}
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                  <span className="max-w-24 truncate">{memberName}</span>
+                  <X className="w-3 h-3 opacity-70" />
+                </button>
+              </Badge>
             );
           })}
           

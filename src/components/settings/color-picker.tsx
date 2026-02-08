@@ -31,8 +31,8 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
             type="button"
             className={cn(
               "w-8 h-8 rounded-full transition-all flex items-center justify-center",
-              "hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400",
-              isSelected && "ring-2 ring-offset-2 ring-slate-900 scale-110"
+              "hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring",
+              isSelected && "ring-2 ring-offset-2 ring-foreground scale-110"
             )}
             style={{ backgroundColor: color.hex }}
             onClick={() => onChange(color.hex)}

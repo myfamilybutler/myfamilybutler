@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function Terms() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
+    <main className="min-h-screen bg-gradient-to-br from-emerald-50/80 via-background to-teal-50/80 dark:from-background dark:via-background dark:to-muted/30">
       <div className="max-w-4xl mx-auto p-8">
         {/* Header */}
         <div className="mb-8">
@@ -12,7 +12,7 @@ export default function Terms() {
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-2xl shadow-sm p-8 sm:p-12">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 sm:p-12">
           <h1 className="text-4xl font-bold text-foreground mb-2">Allgemeine Geschäftsbedingungen (AGB)</h1>
           <p className="text-muted-foreground mb-8">Letzte Aktualisierung: {new Date().toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
@@ -24,7 +24,7 @@ export default function Terms() {
                 Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für alle Leistungen von MyFamilyButler, 
                 bereitgestellt durch:
               </p>
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <div className="mt-4 p-4 bg-muted rounded-lg">
                 <p className="font-medium">MyFamilyButler</p>
                 <p>Khongorzul Gantulga</p>
                 <p>Madleinweg 3</p>
@@ -61,7 +61,7 @@ export default function Terms() {
             {/* Section 4 */}
             <section>
               <h2 className="text-2xl font-semibold text-foreground mb-4">4. Preise und Zahlungsbedingungen</h2>
-              <div className="bg-emerald-50 p-6 rounded-lg mb-4">
+              <div className="bg-emerald-50 dark:bg-emerald-500/10 p-6 rounded-lg mb-4">
                 <p className="font-semibold text-lg mb-2">Kostenloses Testangebot</p>
                 <p>Aktuell bieten wir unseren Service <strong>7 Tage kostenlos</strong> zur Testnutzung an.</p>
               </div>
@@ -164,7 +164,7 @@ export default function Terms() {
                 Als Verbraucher haben Sie ein 14-tägiges Widerrufsrecht. Sie können Ihre Vertragserklärung 
                 innerhalb von 14 Tagen ohne Angabe von Gründen widerrufen.
               </p>
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-muted rounded-lg">
                 <p className="font-medium mb-2">Widerruf per E-Mail an:</p>
                 <p>info@myfamilybutler.com</p>
                 <p className="mt-2 text-sm">
@@ -228,7 +228,7 @@ export default function Terms() {
           </div>
 
           {/* Footer */}
-          <div className="mt-12 pt-8 border-t border-gray-200">
+          <div className="mt-12 pt-8 border-t border-border">
             <Link href="/" className="inline-flex items-center text-emerald-600 hover:text-emerald-700 font-medium">
               ← Zurück zur Startseite
             </Link>

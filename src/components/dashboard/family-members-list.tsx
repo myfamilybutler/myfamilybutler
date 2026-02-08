@@ -54,7 +54,7 @@ export function FamilyMembersList({
                 {user.display_name || user.phone_number || user.linked_email}
               </span>
               {user.is_household_admin && (
-                <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <span className="text-xs text-primary flex items-center gap-1">
                   <Crown className="w-3 h-3" /> Admin
                 </span>
               )}
@@ -105,7 +105,7 @@ export function FamilyMembersList({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
                   onClick={() => onEditMember?.(member)}
                 >
                   <Pencil className="w-4 h-4" />

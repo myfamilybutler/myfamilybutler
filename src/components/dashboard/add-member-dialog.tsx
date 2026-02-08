@@ -140,7 +140,7 @@ export function AddMemberDialog({
                <div className="h-48 flex items-center justify-center">Loading QR...</div>
              ) : qrToken ? (
                <>
-                 <div className="p-4 bg-white rounded-lg border shadow-sm">
+                 <div className="p-4 bg-card rounded-lg border shadow-sm">
                    <QRCodeSVG value={getJoinLink()} size={180} />
                  </div>
                  <p className="text-center text-sm text-muted-foreground mt-2">
@@ -165,7 +165,7 @@ export function AddMemberDialog({
                  </div>
                </>
              ) : (
-               <div className="text-red-500">Failed to load QR code</div>
+               <div className="text-destructive">Failed to load QR code</div>
              )}
           </TabsContent>
 

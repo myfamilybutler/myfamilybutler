@@ -243,7 +243,7 @@ export function EditEventDialog({
             {/* Delete Button - Opens confirmation dialog */}
             <Button
               variant="destructiveOutline"
-              className="min-h-[44px]"
+              size="touch"
               onClick={() => setShowDeleteDialog(true)}
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -255,9 +255,9 @@ export function EditEventDialog({
             {/* Save Button */}
             <Button
               variant="brand"
+              size="touch"
               onClick={handleSave}
               disabled={isLoading || !isEventFormValid(formData)}
-              className="min-h-[44px]"
             >
               {isLoading ? (
                 <>

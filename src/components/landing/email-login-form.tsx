@@ -41,8 +41,8 @@ export function EmailLoginForm() {
 
     if (emailSent) {
         return (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 max-w-md mx-auto">
-                <p className="text-emerald-700 font-medium">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 max-w-md mx-auto dark:bg-emerald-500/10 dark:border-emerald-500/30">
+                <p className="text-emerald-700 dark:text-emerald-300 font-medium">
                     ✓ Login-Link gesendet! Prüfe dein Email-Postfach.
                 </p>
             </div>
@@ -79,7 +79,7 @@ export function EmailLoginForm() {
                 </Button>
             </form>
             {emailError && (
-                <p className="text-red-500 text-sm mt-2 text-center">{emailError}</p>
+                <p className="text-destructive text-sm mt-2 text-center">{emailError}</p>
             )}
         </>
     );

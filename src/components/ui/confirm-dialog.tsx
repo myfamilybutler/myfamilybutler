@@ -56,7 +56,7 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className={`flex items-center gap-2 ${variant === 'destructive' ? 'text-red-600' : ''}`}>
+          <DialogTitle className={`flex items-center gap-2 ${variant === 'destructive' ? 'text-destructive' : ''}`}>
             {variant === 'destructive' && <AlertTriangle className="w-5 h-5" />}
             {title}
           </DialogTitle>

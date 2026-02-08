@@ -33,33 +33,31 @@ export function ScheduleWidget({ events }: ScheduleWidgetProps) {
             key={event.id}
             className="p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
           >
-            {/* Title and time */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-muted-foreground shrink-0">
+            <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-1">
+              <span className="text-sm font-medium text-muted-foreground">
                 {event.is_all_day ? t('calendar.allDay') : (event.end_time ? `${event.event_time} - ${event.end_time}` : event.event_time)}
               </span>
               <span className="text-sm font-medium text-foreground truncate">
                 {event.title}
               </span>
+
+              {(event.family_member || event.location) && (
+                <div className="col-start-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  {event.family_member && (
+                    <div className="flex items-center gap-1 text-xs text-primary">
+                      <User className="w-3 h-3" />
+                      <span>{event.family_member}</span>
+                    </div>
+                  )}
+                  {event.location && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{event.location}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            
-            {/* Meta info: family member and location */}
-            {(event.family_member || event.location) && (
-              <div className="flex items-center gap-4 mt-1.5 ml-[68px]">
-                {event.family_member && (
-                  <div className="flex items-center gap-1 text-xs text-emerald-600">
-                    <User className="w-3 h-3" />
-                    <span>{event.family_member}</span>
-                  </div>
-                )}
-                {event.location && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <MapPin className="w-3 h-3" />
-                    <span className="truncate">{event.location}</span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         ))}
 

@@ -385,9 +385,9 @@ export default function SettingsPage() {
               </Card>
 
               {/* Danger Zone */}
-              <Card className="border-red-200 dark:border-red-900">
+              <Card className="border-destructive/25">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-red-600">
+                  <CardTitle className="flex items-center gap-2 text-destructive">
                     <Bell className="w-5 h-5" />
                     {t('settings.dangerZone')}
                   </CardTitle>

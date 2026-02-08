@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function Privacy() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
+    <main className="min-h-screen bg-gradient-to-br from-emerald-50/80 via-background to-teal-50/80 dark:from-background dark:via-background dark:to-muted/30">
       <div className="max-w-4xl mx-auto p-8">
         {/* Header */}
         <div className="mb-8">
@@ -12,7 +12,7 @@ export default function Privacy() {
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-2xl shadow-sm p-8 sm:p-12">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 sm:p-12">
           <h1 className="text-4xl font-bold text-foreground mb-2">Datenschutzerklärung</h1>
           <p className="text-muted-foreground mb-8">Letzte Aktualisierung: {new Date().toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
@@ -23,7 +23,7 @@ export default function Privacy() {
               <p>
                 Verantwortlich für die Datenverarbeitung auf dieser Website ist:
               </p>
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <div className="mt-4 p-4 bg-muted rounded-lg">
                 <p className="font-medium">MyFamilyButler</p>
                 <p>Khongorzul Gantulga</p>
                 <p>Madleinweg 3</p>
@@ -85,21 +85,21 @@ export default function Privacy() {
               <p className="mb-4">Wir nutzen folgende Drittanbieter zur Bereitstellung unseres Services:</p>
               
               <div className="space-y-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-4 bg-muted rounded-lg">
                   <h3 className="font-semibold mb-2">Supabase (Datenspeicherung)</h3>
                   <p className="text-sm mb-1">Anbieter: Supabase Inc., USA</p>
                   <p className="text-sm mb-1">Zweck: Speicherung Ihrer Nachrichten, Erinnerungen und Daten</p>
                   <p className="text-sm">Standort: Server in Europa (EU)</p>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-4 bg-muted rounded-lg">
                   <h3 className="font-semibold mb-2">OpenAI (KI-Verarbeitung)</h3>
                   <p className="text-sm mb-1">Anbieter: OpenAI, L.L.C., USA</p>
                   <p className="text-sm mb-1">Zweck: KI-gestützte Antworten, Dokumentenanalyse</p>
                   <p className="text-sm">Datenschutz: <a href="https://openai.com/privacy" className="text-emerald-600 hover:underline" target="_blank" rel="noopener">openai.com/privacy</a></p>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-4 bg-muted rounded-lg">
                   <h3 className="font-semibold mb-2">Meta WhatsApp Business API</h3>
                   <p className="text-sm mb-1">Anbieter: Meta Platforms Ireland Limited</p>
                   <p className="text-sm mb-1">Zweck: Nachrichtenübermittlung</p>
@@ -152,7 +152,7 @@ export default function Privacy() {
               <p>
                 Sie haben das Recht, sich bei der zuständigen Aufsichtsbehörde zu beschweren:
               </p>
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <div className="mt-4 p-4 bg-muted rounded-lg">
                 <p className="font-medium">Österreichische Datenschutzbehörde</p>
                 <p>Barichgasse 40-42</p>
                 <p>1030 Wien</p>
@@ -171,7 +171,7 @@ export default function Privacy() {
           </div>
 
           {/* Footer */}
-          <div className="mt-12 pt-8 border-t border-gray-200">
+          <div className="mt-12 pt-8 border-t border-border">
             <Link href="/" className="inline-flex items-center text-emerald-600 hover:text-emerald-700 font-medium">
               ← Zurück zur Startseite
             </Link>

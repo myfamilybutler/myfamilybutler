@@ -91,13 +91,13 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <CalendarDays className="w-4 h-4 text-emerald-600" />
+            <CalendarDays className="w-4 h-4 text-primary" />
             {t('dashboard.todayTomorrow')}
           </CardTitle>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            className="h-7 text-xs text-primary hover:text-primary hover:bg-primary/10"
             onClick={onAddEvent}
           >
             + {t('calendar.newEvent')}
@@ -158,14 +158,12 @@ function DaySectionView({ section, memberColors, onEventClick, t }: DaySectionVi
       {/* Section Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className={cn(
-            "text-xs font-medium px-2 py-0.5 rounded-full",
-            section.isToday 
-              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400" 
-              : "bg-muted text-muted-foreground"
-          )}>
+          <Badge
+            variant={section.isToday ? 'success' : 'secondary'}
+            size="sm"
+          >
             {section.label}
-          </span>
+          </Badge>
           <span className="text-xs text-muted-foreground">
             {formatDate(section.date, 'EEE, P')}
           </span>
@@ -233,13 +231,14 @@ function DaySectionView({ section, memberColors, onEventClick, t }: DaySectionVi
                     <div className="flex items-center gap-2 mt-0.5">
                       {/* Family Member Badge */}
                       {event.family_member && (
-                        <span 
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-white"
+                        <Badge
+                          size="xs"
+                          className="text-white border-transparent"
                           style={{ backgroundColor: memberColor }}
                         >
                           <User className="w-2.5 h-2.5" />
                           {event.family_member}
-                        </span>
+                        </Badge>
                       )}
                       
                       {/* Location */}

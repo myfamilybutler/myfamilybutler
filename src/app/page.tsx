@@ -11,7 +11,7 @@ const TELEGRAM_LINK = APP_LINKS.telegramLink;
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50/80 via-background to-teal-50/80 dark:from-background dark:via-background dark:to-muted/30">
       {/* Navigation */}
       <nav className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
@@ -48,7 +48,7 @@ export default function LandingPage() {
       <section className="container mx-auto px-6 pt-16 pb-24 text-center">
         <div className="max-w-4xl mx-auto">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full text-sm font-medium mb-8">
+          <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300 px-4 py-2 rounded-full text-sm font-medium mb-8">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
@@ -89,7 +89,7 @@ export default function LandingPage() {
               </a>
               <a
                 href={TELEGRAM_LINK}
-                className="group flex items-center justify-center gap-3 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 px-8 py-4 rounded-2xl font-semibold text-lg transition-all"
+                className="group flex items-center justify-center gap-3 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/15 px-8 py-4 rounded-2xl font-semibold text-lg transition-all"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
@@ -101,9 +101,9 @@ export default function LandingPage() {
             {/* Desktop: Show QR Code + Buttons */}
             <div className="hidden sm:flex flex-col lg:flex-row items-center justify-center gap-8 mb-8">
               {/* QR Code Card */}
-              <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100">
+              <div className="bg-card/90 rounded-3xl p-8 shadow-lg border border-border backdrop-blur-sm">
                 <p className="text-muted-foreground font-medium mb-4">Scanne mit deinem Handy:</p>
-                <div className="bg-white p-4 rounded-2xl inline-block">
+                <div className="bg-background p-4 rounded-2xl inline-block">
                   <QRCodeSVG
                     value={WHATSAPP_LINK}
                     size={160}
@@ -133,7 +133,7 @@ export default function LandingPage() {
                   href={TELEGRAM_LINK}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center gap-3 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-semibold transition-all"
+                  className="group flex items-center gap-3 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/15 px-6 py-3 rounded-xl font-semibold transition-all"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
@@ -144,7 +144,7 @@ export default function LandingPage() {
             </div>
 
             {/* Email Login for Returning Users (Desktop only) */}
-            <div className="hidden sm:block mt-12 pt-8 border-t border-gray-200">
+            <div className="hidden sm:block mt-12 pt-8 border-t border-border">
               <p className="text-muted-foreground text-sm mb-4">Schon ein Konto? Login per Email:</p>
               <EmailLoginForm />
             </div>
@@ -169,7 +169,7 @@ export default function LandingPage() {
       </section>
 
       {/* How It Works Section */}
-      <section className="container mx-auto px-6 py-24 bg-white/50">
+      <section className="container mx-auto px-6 py-24 bg-background/40 backdrop-blur-sm">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
             So einfach geht&apos;s
@@ -244,9 +244,9 @@ export default function LandingPage() {
 
         <div className="grid md:grid-cols-3 gap-8">
           {/* Feature 1 */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-lg transition-shadow border border-gray-100">
-            <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mb-6">
-              <Calendar className="w-7 h-7 text-emerald-600" />
+          <div className="bg-card rounded-3xl p-8 shadow-sm hover:shadow-lg transition-shadow border border-border">
+            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-500/15 rounded-2xl flex items-center justify-center mb-6">
+              <Calendar className="w-7 h-7 text-emerald-600 dark:text-emerald-300" />
             </div>
             <h3 className="text-xl font-semibold text-foreground mb-3">
               Termine &amp; Erinnerungen
@@ -258,9 +258,9 @@ export default function LandingPage() {
           </div>
 
           {/* Feature 2 */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-lg transition-shadow border border-gray-100">
-            <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
-              <FileText className="w-7 h-7 text-blue-600" />
+          <div className="bg-card rounded-3xl p-8 shadow-sm hover:shadow-lg transition-shadow border border-border">
+            <div className="w-14 h-14 bg-blue-100 dark:bg-blue-500/15 rounded-2xl flex items-center justify-center mb-6">
+              <FileText className="w-7 h-7 text-blue-600 dark:text-blue-300" />
             </div>
             <h3 className="text-xl font-semibold text-foreground mb-3">
               Schulbriefe verstehen
@@ -272,9 +272,9 @@ export default function LandingPage() {
           </div>
 
           {/* Feature 3 */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-lg transition-shadow border border-gray-100">
-            <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center mb-6">
-              <Users className="w-7 h-7 text-violet-600" />
+          <div className="bg-card rounded-3xl p-8 shadow-sm hover:shadow-lg transition-shadow border border-border">
+            <div className="w-14 h-14 bg-violet-100 dark:bg-violet-500/15 rounded-2xl flex items-center justify-center mb-6">
+              <Users className="w-7 h-7 text-violet-600 dark:text-violet-300" />
             </div>
             <h3 className="text-xl font-semibold text-foreground mb-3">
               Familienkalender
@@ -333,7 +333,7 @@ export default function LandingPage() {
             href={WHATSAPP_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-white text-emerald-600 px-8 py-4 rounded-2xl font-semibold text-lg hover:bg-emerald-50 transition-colors"
+            className="inline-flex items-center gap-2 bg-white text-emerald-600 px-8 py-4 rounded-2xl font-semibold text-lg hover:bg-emerald-50 dark:bg-background dark:text-emerald-400 dark:hover:bg-muted transition-colors"
           >
             Kostenlos testen
             <ArrowRight className="w-5 h-5" />
@@ -345,7 +345,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="container mx-auto px-6 py-12 border-t border-gray-200">
+      <footer className="container mx-auto px-6 py-12 border-t border-border">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">

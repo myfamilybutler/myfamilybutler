@@ -113,7 +113,8 @@ export function BroadcastClient() {
               Send Preview
             </Button>
             <Button 
-              className="flex-1 bg-red-600 hover:bg-red-700" 
+              variant="destructive"
+              className="flex-1" 
               onClick={() => handleSend(false)}
               disabled={loading}
             >

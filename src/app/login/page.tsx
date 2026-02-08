@@ -48,15 +48,15 @@ function DevLoginForm() {
   };
 
   return (
-    <Card className="mt-6 border-red-200 bg-red-50/50">
+    <Card className="mt-6 border-destructive/25 bg-destructive/10">
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          <Lock className="w-4 h-4 text-red-600" />
-          <CardTitle className="text-sm font-bold text-red-600">
+          <Lock className="w-4 h-4 text-destructive" />
+          <CardTitle className="text-sm font-bold text-destructive">
             DEV ONLY - Password Login
           </CardTitle>
         </div>
-        <CardDescription className="text-xs text-red-500">
+        <CardDescription className="text-xs text-destructive/90">
           This form only works in development mode
         </CardDescription>
       </CardHeader>
@@ -79,12 +79,13 @@ function DevLoginForm() {
             disabled={loading}
           />
           {error && (
-            <p className="text-xs text-red-600">{error}</p>
+            <p className="text-xs text-destructive">{error}</p>
           )}
           <Button
             type="submit"
+            variant="destructive"
             disabled={loading || !email || !password}
-            className="w-full h-9 bg-red-600 hover:bg-red-700 text-sm"
+            className="w-full h-9 text-sm"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -190,7 +191,7 @@ function LoginContent() {
             <CardContent className="pt-4">
               {/* URL Error (from failed magic link) */}
               {urlError && !emailSent && (
-                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-400 text-sm">
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/25 rounded-lg flex items-center gap-2 text-destructive text-sm">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   {urlError === 'invalid_or_expired'
                     ? 'Link ungültig oder abgelaufen. Bitte neuen Link anfordern.'
@@ -250,7 +251,7 @@ function LoginContent() {
                     <motion.p
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="text-sm text-red-500 text-center"
+                      className="text-sm text-destructive text-center"
                     >
                       {error}
                     </motion.p>

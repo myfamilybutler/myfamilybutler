@@ -41,8 +41,8 @@ export function DeleteEventDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
-          <div className="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-2">
-            <AlertTriangle className="w-6 h-6 text-red-600" />
+          <div className="mx-auto w-12 h-12 rounded-full bg-destructive/15 flex items-center justify-center mb-2">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
           </div>
           <AlertDialogTitle className="text-center">
             {t('calendar.deleteEvent')}
@@ -55,18 +55,21 @@ export function DeleteEventDialog({
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-4">
           <AlertDialogCancel 
-            className="w-full sm:w-auto min-h-[44px]"
+            size="touch"
+            className="w-full sm:w-auto"
             disabled={isDeleting}
           >
             {t('common.cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
+            variant="destructive"
+            size="touch"
             onClick={(e) => {
               e.preventDefault();
               onConfirm();
             }}
             disabled={isDeleting}
-            className="w-full sm:w-auto min-h-[44px] bg-red-600 hover:bg-red-700 text-white"
+            className="w-full sm:w-auto"
           >
             {isDeleting ? (
               <>

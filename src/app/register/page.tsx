@@ -139,12 +139,12 @@ export default function RegisterPage() {
           <Card className="border-border shadow-lg">
             <CardHeader className="text-center pb-2">
               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-colors ${
-                success ? 'bg-emerald-500' : 'bg-blue-100'
+                success ? 'bg-emerald-500' : 'bg-blue-100 dark:bg-blue-500/20'
               }`}>
                 {success ? (
                   <UserPlus className="w-8 h-8 text-white" />
                 ) : (
-                  <UserPlus className="w-8 h-8 text-blue-600" />
+                  <UserPlus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                 )}
               </div>
               <CardTitle className="text-2xl font-bold text-foreground">
@@ -222,7 +222,7 @@ export default function RegisterPage() {
                     <motion.p
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="text-sm text-red-500 text-center"
+                      className="text-sm text-destructive text-center"
                     >
                       {error}
                     </motion.p>

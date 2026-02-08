@@ -121,16 +121,16 @@ export function QuickAddSheet({
         <DialogFooter className="flex-shrink-0 border-t pt-4">
           <Button
             variant="outline"
+            size="touch"
             onClick={() => onOpenChange(false)}
-            className="min-h-[44px]"
           >
             {t('common.cancel')}
           </Button>
           <Button
             variant="brand"
+            size="touch"
             onClick={handleSave}
             disabled={isLoading || !isEventFormValid(formData)}
-            className="min-h-[44px]"
           >
             {isLoading ? (
               <>

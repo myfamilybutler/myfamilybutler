@@ -116,7 +116,7 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
                       >
                         Impersonate
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">Ban User</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive">Ban User</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

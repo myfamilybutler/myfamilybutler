@@ -195,7 +195,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-emerald-600" />
+            <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             Account & Security
           </CardTitle>
           <CardDescription>Manage your profile and login methods</CardDescription>
@@ -217,7 +217,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-emerald-600" />
+            <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             Account & Security
           </CardTitle>
           <CardDescription>
@@ -380,7 +380,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Phone className="w-5 h-5 text-emerald-600" />
+              <Phone className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               {dbUser?.phone_number ? 'Change Phone Number' : 'Add Phone Number'}
             </DialogTitle>
             <DialogDescription>
@@ -421,7 +421,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Mail className="w-5 h-5 text-blue-600" />
+              <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               {email ? 'Change Email Address' : 'Add Email Address'}
             </DialogTitle>
             <DialogDescription>
