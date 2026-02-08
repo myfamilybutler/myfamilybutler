@@ -3,6 +3,7 @@
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface QuickAddFabProps {
   onClick: () => void;
@@ -10,6 +11,8 @@ interface QuickAddFabProps {
 }
 
 export function QuickAddFab({ onClick, className }: QuickAddFabProps) {
+  const { t } = useTranslation();
+
   return (
     <Button
       onClick={onClick}
@@ -21,7 +24,7 @@ export function QuickAddFab({ onClick, className }: QuickAddFabProps) {
         'md:bottom-8 md:right-8',
         className
       )}
-      aria-label="Add event"
+      aria-label={t('calendar.addEvent')}
     >
       <Plus className="h-6 w-6" />
     </Button>

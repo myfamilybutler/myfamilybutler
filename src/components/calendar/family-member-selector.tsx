@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useFamilyData } from '@/stores/family-store';
+import { useTranslation } from 'react-i18next';
 
 interface FamilyMemberSelectorProps {
   value: string;
@@ -27,6 +28,7 @@ export function FamilyMemberSelector({
   onChange,
   availableMembers,
 }: FamilyMemberSelectorProps) {
+  const { t } = useTranslation();
   const [customMember, setCustomMember] = useState('');
   const { memberColors } = useFamilyData();
 
@@ -44,7 +46,7 @@ export function FamilyMemberSelector({
   return (
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        <User className="w-3 h-3" /> Family Member
+        <User className="w-3 h-3" /> {t('calendar.familyMember')}
       </Label>
       
       {/* Member badges */}
@@ -81,7 +83,7 @@ export function FamilyMemberSelector({
       {/* Custom member input */}
       <div className="flex gap-2">
         <Input
-          placeholder="Or type a name..."
+          placeholder={t('calendar.familyMemberPlaceholder')}
           value={customMember}
           onChange={(e) => setCustomMember(e.target.value)}
           onKeyDown={(e) => {
@@ -99,7 +101,7 @@ export function FamilyMemberSelector({
             size="sm"
             onClick={handleAddCustomMember}
           >
-            Add
+            {t('common.add')}
           </Button>
         )}
       </div>
@@ -107,7 +109,7 @@ export function FamilyMemberSelector({
       {/* Current selection indicator (for custom members not in list) */}
       {value && !availableMembers.includes(value) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Selected:</span>
+          <span>{t('common.selected')}:</span>
           <FamilyMemberBadge
             name={value}
             colorHex={memberColors.get(value)}

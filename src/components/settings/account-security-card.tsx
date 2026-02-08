@@ -24,6 +24,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore, type DbUser } from '@/stores/auth-store';
 
 interface AccountSecurityCardProps {
@@ -33,6 +34,7 @@ interface AccountSecurityCardProps {
 }
 
 export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: AccountSecurityCardProps) {
+  const { t } = useTranslation();
   // Get email from dbUser (linked_email) as primary source, fallback to auth user
   const { user } = useAuthStore();
   const email = dbUser?.linked_email || user?.email || null;
@@ -67,17 +69,17 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       });
 
       if (res.ok) {
-        toast.success('Name updated successfully');
+        toast.success(t('settings.accountSecurity.toast.nameUpdated'));
         setNameDialogOpen(false);
         setDisplayName(newName);
         onUpdate?.();
       } else {
         const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Failed to update name');
+        toast.error(data.error || t('settings.accountSecurity.toast.nameUpdateFailed'));
       }
     } catch (error) {
       console.error('Update error:', error);
-      toast.error('Failed to update name');
+      toast.error(t('settings.accountSecurity.toast.nameUpdateFailed'));
     } finally {
       setSaving(false);
     }
@@ -99,13 +101,13 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
 
       if (!res.ok) {
         console.error('Resend verification failed:', res.status, data);
-        throw new Error(data.error || 'Failed to send');
+        throw new Error(data.error || t('settings.accountSecurity.toast.verificationSendFailed'));
       }
 
-      toast.success('Verification email sent. Please check your inbox.');
+      toast.success(t('settings.accountSecurity.toast.verificationSent'));
     } catch (error) {
       console.error('Resend verification error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to send verification email');
+      toast.error(error instanceof Error ? error.message : t('settings.accountSecurity.toast.verificationSendFailed'));
     } finally {
       setResendingVerification(false);
     }
@@ -114,14 +116,14 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
   // Handle email update
   const handleSaveEmail = async () => {
     if (!newEmail.trim()) {
-      toast.error('Please enter an email address');
+      toast.error(t('settings.accountSecurity.toast.emailRequired'));
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(newEmail)) {
-      toast.error('Please enter a valid email address');
+      toast.error(t('settings.accountSecurity.toast.emailInvalid'));
       return;
     }
 
@@ -134,18 +136,18 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       });
 
       if (res.ok) {
-        toast.success('Verification email sent. Please check your inbox.');
+        toast.success(t('settings.accountSecurity.toast.verificationSent'));
         setEmailDialogOpen(false);
         setNewEmail('');
         onUpdate?.();
       } else {
         const data = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
         console.error('Update email failed:', res.status, data);
-        toast.error(data.error || `Failed to update email (${res.status})`);
+        toast.error(data.error || t('settings.accountSecurity.toast.emailUpdateFailed'));
       }
     } catch (error) {
       console.error('Update email error:', error);
-      toast.error(error instanceof Error ? error.message : 'Network error - please try again');
+      toast.error(error instanceof Error ? error.message : t('settings.accountSecurity.toast.networkRetry'));
     } finally {
       setSaving(false);
     }
@@ -154,7 +156,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
   // Handle phone number update
   const handleSavePhone = async () => {
     if (!newPhone.trim()) {
-      toast.error('Please enter a phone number');
+      toast.error(t('settings.accountSecurity.toast.phoneRequired'));
       return;
     }
 
@@ -167,17 +169,17 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       });
 
       if (res.ok) {
-        toast.success('Phone number updated');
+        toast.success(t('settings.accountSecurity.toast.phoneUpdated'));
         setPhoneDialogOpen(false);
         setNewPhone('');
         onUpdate?.();
       } else {
         const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Failed to update phone number');
+        toast.error(data.error || t('settings.accountSecurity.toast.phoneUpdateFailed'));
       }
     } catch (error) {
       console.error('Update error:', error);
-      toast.error('Failed to update phone number');
+      toast.error(t('settings.accountSecurity.toast.phoneUpdateFailed'));
     } finally {
       setSaving(false);
     }
@@ -196,9 +198,9 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            Account & Security
+            {t('settings.accountSecurity.title')}
           </CardTitle>
-          <CardDescription>Manage your profile and login methods</CardDescription>
+          <CardDescription>{t('settings.accountSecurity.description')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="animate-pulse space-y-4">
@@ -218,10 +220,10 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            Account & Security
+            {t('settings.accountSecurity.title')}
           </CardTitle>
           <CardDescription>
-            Manage your profile and login methods
+            {t('settings.accountSecurity.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -238,9 +240,9 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 <User className="w-5 h-5 text-muted-foreground" />
               </div>
               <div className="min-w-0 overflow-hidden">
-                <p className="font-medium text-foreground leading-tight">Display Name</p>
+                <p className="font-medium text-foreground leading-tight">{t('settings.accountSecurity.fields.displayName')}</p>
                 <div className="flex items-center h-5 mt-0.5">
-                  <span className="text-sm text-muted-foreground truncate">{displayName || 'No name set'}</span>
+                  <span className="text-sm text-muted-foreground truncate">{displayName || t('settings.accountSecurity.noName')}</span>
                 </div>
               </div>
             </div>
@@ -262,23 +264,23 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="min-w-0 overflow-hidden">
-                <p className="font-medium text-foreground leading-tight">Email</p>
+                <p className="font-medium text-foreground leading-tight">{t('settings.accountSecurity.fields.email')}</p>
                 {email ? (
                   <div className="flex items-center gap-2 h-5 mt-0.5">
                     <span className="text-sm text-muted-foreground truncate">{email}</span>
                     {isEmailVerified ? (
                       <Badge variant="success" size="xs" className="shrink-0">
-                        <Check className="w-3 h-3 mr-1" /> Verified
+                        <Check className="w-3 h-3 mr-1" /> {t('settings.accountSecurity.verified')}
                       </Badge>
                     ) : (
                       <Badge variant="warning" size="xs" className="shrink-0">
-                        Not Verified
+                        {t('settings.accountSecurity.notVerified')}
                       </Badge>
                     )}
                   </div>
                 ) : (
                   <div className="flex items-center h-5 mt-0.5">
-                    <span className="text-sm text-muted-foreground/70">Not set</span>
+                    <span className="text-sm text-muted-foreground/70">{t('settings.accountSecurity.notSet')}</span>
                   </div>
                 )}
               </div>
@@ -299,7 +301,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 ) : (
                   <Mail className="w-4 h-4 mr-2" />
                 )}
-                Resend
+                {t('settings.accountSecurity.resend')}
               </Button>
             ) : (
               <div className="hidden sm:block w-px h-8" />
@@ -319,28 +321,28 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 <Phone className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="min-w-0 overflow-hidden">
-                <p className="font-medium text-foreground leading-tight">Phone Number</p>
+                <p className="font-medium text-foreground leading-tight">{t('settings.accountSecurity.fields.phone')}</p>
                 {dbUser?.phone_number ? (
                   <div className="flex items-center gap-2 h-5 mt-0.5">
                     <span className="text-sm text-muted-foreground truncate">{maskPhone(dbUser.phone_number)}</span>
                     {/* Phone is verified if whatsapp_verified, phone_verified, or has telegram */}
                     {dbUser?.whatsapp_verified ? (
                       <Badge variant="success" size="xs" className="shrink-0">
-                        <Check className="w-3 h-3 mr-1" /> WhatsApp
+                        <Check className="w-3 h-3 mr-1" /> {t('settings.accountSecurity.whatsApp')}
                       </Badge>
                     ) : dbUser?.phone_verified || dbUser?.telegram_chat_id ? (
                       <Badge variant="success" size="xs" className="shrink-0">
-                        <Check className="w-3 h-3 mr-1" /> Verified
+                        <Check className="w-3 h-3 mr-1" /> {t('settings.accountSecurity.verified')}
                       </Badge>
                     ) : (
                       <Badge variant="warning" size="xs" className="shrink-0">
-                        Pending
+                        {t('settings.accountSecurity.pending')}
                       </Badge>
                     )}
                   </div>
                 ) : (
                   <div className="flex items-center h-5 mt-0.5">
-                    <span className="text-sm text-muted-foreground/70">Not set – Add for WhatsApp access</span>
+                    <span className="text-sm text-muted-foreground/70">{t('settings.accountSecurity.phoneNotSet')}</span>
                   </div>
                 )}
               </div>
@@ -355,17 +357,17 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
                 <MessageCircle className="w-5 h-5 text-blue-500 dark:text-blue-400" />
               </div>
               <div className="min-w-0 overflow-hidden">
-                <p className="font-medium text-foreground leading-tight">Telegram</p>
+                <p className="font-medium text-foreground leading-tight">{t('settings.accountSecurity.fields.telegram')}</p>
                 {dbUser?.telegram_chat_id ? (
                   <div className="flex items-center gap-2 h-5 mt-0.5">
-                    <span className="text-sm text-muted-foreground">Connected</span>
+                    <span className="text-sm text-muted-foreground">{t('settings.accountSecurity.connected')}</span>
                     <Badge variant="success" size="xs" className="shrink-0">
-                      <Check className="w-3 h-3 mr-1" /> Telegram
+                      <Check className="w-3 h-3 mr-1" /> {t('settings.accountSecurity.fields.telegram')}
                     </Badge>
                   </div>
                 ) : (
                   <div className="flex items-center h-5 mt-0.5">
-                    <span className="text-sm text-muted-foreground/60 truncate">Not connected – Message @FamilyButlerBot</span>
+                    <span className="text-sm text-muted-foreground/60 truncate">{t('settings.accountSecurity.telegramHint')}</span>
                   </div>
                 )}
               </div>
@@ -381,36 +383,36 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Phone className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              {dbUser?.phone_number ? 'Change Phone Number' : 'Add Phone Number'}
+              {dbUser?.phone_number ? t('settings.accountSecurity.dialog.changePhone') : t('settings.accountSecurity.dialog.addPhone')}
             </DialogTitle>
             <DialogDescription>
-              Enter your phone number with country code (e.g., +43 660 1234567).
+              {t('settings.accountSecurity.dialog.phoneDescription')}
               {!dbUser?.phone_verified && (
                 <span className="block mt-1 text-amber-600 dark:text-amber-500">
-                  Your phone will be verified when you send a WhatsApp or Telegram message from this number.
+                  {t('settings.accountSecurity.dialog.phoneVerifyHint')}
                 </span>
               )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">{t('settings.accountSecurity.fields.phone')}</Label>
               <Input
                 id="phone"
                 type="tel"
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
-                placeholder="+43 660 1234567"
+                placeholder={t('settings.accountSecurity.dialog.phonePlaceholder')}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPhoneDialogOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSavePhone} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Save
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -422,33 +424,33 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              {email ? 'Change Email Address' : 'Add Email Address'}
+              {email ? t('settings.accountSecurity.dialog.changeEmail') : t('settings.accountSecurity.dialog.addEmail')}
             </DialogTitle>
             <DialogDescription>
               {email 
-                ? 'Enter your new email address. A verification link will be sent to confirm the change.'
-                : 'Enter your email address. A verification link will be sent to confirm.'}
+                ? t('settings.accountSecurity.dialog.emailChangeDescription')
+                : t('settings.accountSecurity.dialog.emailAddDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">{t('settings.accountSecurity.dialog.emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="your@email.com"
+                placeholder={t('settings.accountSecurity.dialog.emailPlaceholder')}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveEmail} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Send Verification
+              {t('settings.accountSecurity.dialog.sendVerification')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -460,30 +462,30 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5 text-muted-foreground" />
-              Change Display Name
+              {t('settings.accountSecurity.dialog.changeDisplayName')}
             </DialogTitle>
             <DialogDescription>
-              How should we call you? This name will be visible to your family members.
+              {t('settings.accountSecurity.dialog.displayNameDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Display Name</Label>
+              <Label htmlFor="name">{t('settings.accountSecurity.fields.displayName')}</Label>
               <Input
                 id="name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Enter your name"
+                placeholder={t('settings.accountSecurity.dialog.displayNamePlaceholder')}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNameDialogOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveDisplayName} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Save
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -147,7 +147,7 @@ export function CollapsibleCalendar({
             size="sm"
             onClick={toggleExpanded}
             className="h-10 w-10 p-0 text-muted-foreground hover:bg-accent sm:h-8 sm:w-8"
-            aria-label={isExpanded ? 'Collapse calendar' : 'Expand calendar'}
+            aria-label={isExpanded ? t('calendar.collapseCalendar') : t('calendar.expandCalendar')}
           >
             {isExpanded ? (
               <ChevronUp className="w-4 h-4" />
@@ -240,7 +240,7 @@ export function CollapsibleCalendar({
                                 const dateStr = format(d, 'yyyy-MM-dd');
                                 return e.event_date === dateStr && 
                                   (e.family_member ? memberColors.get(e.family_member) === dayColors[0] : true);
-                              })?.family_member || 'Event'}
+                              })?.family_member || t('calendar.eventFallback')}
                             />
                           ) : (
                             // Multiple events: show dots (increased size from 1.5px to 5px)

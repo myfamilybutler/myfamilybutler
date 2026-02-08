@@ -93,6 +93,20 @@ These are canonical implementation rules for language-sensitive UI behavior.
 - Prefer locale-aware date-fns tokens (`P`, `PP`, `PPP`, `PPPP`) for user-visible full dates unless product requires a fixed pattern.
 - Any change to language/date/calendar logic must include validation (tests and/or lint/type checks) and doc impact review.
 
+## UI Consistency And DRY Rules
+
+These are canonical implementation rules for UI consistency and style reuse.
+
+- User-visible strings in React UI must come from i18n dictionaries (`src/lib/locales/*.json`) via `t(...)`.
+- Avoid hardcoded UI copy in components, including labels, placeholders, tooltips, aria-labels, and toast fallback messages.
+- Prefer shared UI primitives/components over per-screen variants (for example member identity chips should reuse `src/components/ui/family-member-badge.tsx`).
+- Do not duplicate semantic styles across components when a shared token/helper already exists (`src/lib/utils/ui-helpers.ts`).
+- Avoid inline styles for static visual design (spacing, borders, colors). Inline style is allowed only for:
+  - runtime animation transforms/motion values
+  - measured layout values (dynamic heights/positions)
+  - user-defined dynamic colors that cannot be represented by fixed Tailwind classes
+- Light/dark behavior must use semantic tokens (`bg-*`, `text-*`, `border-*` mapped to theme variables) rather than hardcoded mode-specific hex values in feature components.
+
 ## Quality Gates
 
 Minimum required:

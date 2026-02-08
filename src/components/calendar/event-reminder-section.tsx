@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { addHours, addDays, setHours, setMinutes } from 'date-fns';
 import { Bell, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -48,6 +49,7 @@ export function EventReminderSection({
   eventDate,
   eventTime,
 }: EventReminderSectionProps) {
+  const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [reminderType, setReminderType] = useState<ReminderType>('1h');
@@ -64,17 +66,17 @@ export function EventReminderSection({
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to load reminders');
+        throw new Error(result.error || t('calendar.reminders.toast.loadFailed'));
       }
 
       setReminders((result.data || []) as ReminderItem[]);
     } catch (error) {
       console.error('Error loading reminders:', error);
-      toast.error('Failed to load reminders');
+      toast.error(t('calendar.reminders.toast.loadFailed'));
     } finally {
       setIsLoadingReminders(false);
     }
-  }, [eventId]);
+  }, [eventId, t]);
 
   useEffect(() => {
     void loadReminders();
@@ -93,7 +95,7 @@ export function EventReminderSection({
         break;
       case 'custom':
         if (!customDate || !customTime) {
-          toast.error('Please select a date and time for the reminder');
+          toast.error(t('calendar.reminders.toast.selectDateTime'));
           return;
         }
         const [hours, minutes] = customTime.split(':').map(Number);
@@ -118,17 +120,17 @@ export function EventReminderSection({
       const result = await response.json();
       
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to create reminder');
+        throw new Error(result.error || t('calendar.reminders.toast.createFailed'));
       }
 
-      toast.success(`Reminder set for ${formatDate(remindAt, 'PPp')}`);
+      toast.success(t('calendar.reminders.toast.setFor', { date: formatDate(remindAt, 'PPp') }));
       setShowForm(false);
       setCustomDate(undefined);
       setCustomTime('');
       await loadReminders();
     } catch (error) {
       console.error('Error creating reminder:', error);
-      toast.error('Failed to create reminder');
+      toast.error(t('calendar.reminders.toast.createFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -143,14 +145,14 @@ export function EventReminderSection({
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to delete reminder');
+        throw new Error(result.error || t('calendar.reminders.toast.deleteFailed'));
       }
 
-      toast.success('Reminder removed');
+      toast.success(t('calendar.reminders.toast.removed'));
       await loadReminders();
     } catch (error) {
       console.error('Error deleting reminder:', error);
-      toast.error('Failed to remove reminder');
+      toast.error(t('calendar.reminders.toast.deleteFailed'));
     } finally {
       setDeletingReminderId(null);
     }
@@ -159,21 +161,21 @@ export function EventReminderSection({
   return (
     <div className="border-t border-border pt-4 space-y-3">
       <div className="flex items-center justify-between">
-        <Label className="text-sm">Reminders</Label>
+        <Label className="text-sm">{t('calendar.reminders.title')}</Label>
         <Button
           variant="outline"
           size="sm"
           onClick={() => setShowForm((prev) => !prev)}
         >
           <Bell className="w-4 h-4 mr-2" />
-          {showForm ? 'Hide Form' : 'Add Reminder'}
+          {showForm ? t('calendar.reminders.hideForm') : t('calendar.reminders.addReminder')}
         </Button>
       </div>
 
       {isLoadingReminders ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Loading reminders...
+          {t('calendar.reminders.loading')}
         </div>
       ) : reminders.length > 0 ? (
         <div className="space-y-2">
@@ -200,7 +202,7 @@ export function EventReminderSection({
                     variant="destructiveGhost"
                     onClick={() => void handleDeleteReminder(reminder.id)}
                     disabled={deletingReminderId === reminder.id}
-                    aria-label="Delete reminder"
+                    aria-label={t('calendar.reminders.deleteA11y')}
                   >
                     {deletingReminderId === reminder.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -214,12 +216,12 @@ export function EventReminderSection({
           })}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">No reminders set for this event.</p>
+        <p className="text-sm text-muted-foreground">{t('calendar.reminders.noneForEvent')}</p>
       )}
 
       {showForm && (
         <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
-          <Label>Remind me</Label>
+          <Label>{t('calendar.reminders.remindMe')}</Label>
           <Select
             value={reminderType}
             onValueChange={(v) => setReminderType(v as ReminderType)}
@@ -228,9 +230,9 @@ export function EventReminderSection({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1h">1 hour before</SelectItem>
-              <SelectItem value="1d">1 day before</SelectItem>
-              <SelectItem value="custom">Custom time</SelectItem>
+              <SelectItem value="1h">{t('calendar.reminders.oneHourBefore')}</SelectItem>
+              <SelectItem value="1d">{t('calendar.reminders.oneDayBefore')}</SelectItem>
+              <SelectItem value="custom">{t('calendar.reminders.customTime')}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -239,7 +241,7 @@ export function EventReminderSection({
               <DatePicker
                 date={customDate}
                 onSelect={setCustomDate}
-                placeholder="Pick date"
+                placeholder={t('calendar.reminders.pickDate')}
               />
               <TimePicker
                 value={customTime}
@@ -254,14 +256,14 @@ export function EventReminderSection({
               onClick={handleAddReminder}
               disabled={isLoading}
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Set Reminder'}
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('calendar.reminders.setReminder')}
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setShowForm(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
           </div>
         </div>

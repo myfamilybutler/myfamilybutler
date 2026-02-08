@@ -40,21 +40,21 @@ export function Navbar() {
   };
 
   // Use dbUser (raw DB) for display, fallback to user (Supabase) for email
-  const displayIdentifier = dbUser?.display_name || dbUser?.linked_email || dbUser?.phone_number || user?.email || 'Account';
+  const displayIdentifier = dbUser?.display_name || dbUser?.linked_email || dbUser?.phone_number || user?.email || t('common.account');
   const isEnglish = (i18n.resolvedLanguage || i18n.language || 'en').startsWith('en');
 
   return (
     <div className="flex flex-col">
       {isImpersonating && (
         <div className="flex w-full items-center justify-center gap-4 bg-amber-500 p-2 text-sm font-bold text-white">
-          <span>⚠️ You are impersonating a user</span>
+          <span>{t('common.impersonationWarning')}</span>
           <Button 
             variant="secondary" 
             size="sm" 
             onClick={() => stopImpersonating()}
             className="h-6 text-xs"
           >
-            Exit Impersonation
+            {t('common.exitImpersonation')}
           </Button>
         </div>
       )}
@@ -97,7 +97,7 @@ export function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/admin" className="flex items-center gap-2 cursor-pointer font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30">
                       <LayoutDashboard className="w-4 h-4" />
-                      {t('common.admin')} (Admin)
+                      {t('common.admin')}
                     </Link>
                   </DropdownMenuItem>
                   </>
@@ -119,7 +119,7 @@ export function Navbar() {
                   <span className="text-lg leading-none pt-1">
                     {isEnglish ? '🇺🇸' : '🇩🇪'}
                   </span>
-                  {isEnglish ? 'English' : 'Deutsch'}
+                  {isEnglish ? t('common.english') : t('common.german')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

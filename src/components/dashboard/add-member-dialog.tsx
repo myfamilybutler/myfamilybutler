@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { UserPlus } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +31,7 @@ export function AddMemberDialog({
   onOpenChange, 
   onSuccess
 }: AddMemberDialogProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [invitePhone, setInvitePhone] = useState('');
   const [memberName, setMemberName] = useState('');
@@ -46,15 +48,15 @@ export function AddMemberDialog({
       if (res.ok && data.token) {
         setQrToken(data.token);
       } else {
-        toast.error('Failed to generate QR code');
+        toast.error(t('settings.addMemberDialog.toast.qrFailed'));
       }
     } catch (error) {
       console.error('QR Fetch error:', error);
-      toast.error('Network error');
+      toast.error(t('common.networkError'));
     } finally {
       setLoading(false);
     }
-  }, [qrToken]);
+  }, [qrToken, t]);
 
   useEffect(() => {
     if (!open) {
@@ -89,9 +91,9 @@ export function AddMemberDialog({
       const data = await res.json();
       
       if (res.ok) {
-        if (type === 'invite') toast.success(data.message || 'Invite created.');
-        else if (type === 'inviteEmail') toast.success(data.message || 'Email invite sent!');
-        else toast.success('Member added!');
+        if (type === 'invite') toast.success(data.message || t('settings.addMemberDialog.toast.inviteCreated'));
+        else if (type === 'inviteEmail') toast.success(data.message || t('settings.addMemberDialog.toast.emailInviteSent'));
+        else toast.success(t('settings.addMemberDialog.toast.memberAdded'));
 
         setInvitePhone('');
         setMemberName('');
@@ -99,11 +101,11 @@ export function AddMemberDialog({
         onOpenChange(false);
         if (onSuccess) onSuccess();
       } else {
-        toast.error(data.error || 'Failed to add member');
+        toast.error(data.error || t('settings.addMemberDialog.toast.addFailed'));
       }
     } catch (error) {
       console.error('Add member error:', error);
-      toast.error('Failed to add member. Please try again.');
+      toast.error(t('settings.addMemberDialog.toast.addRetry'));
     } finally {
       setLoading(false);
     }
@@ -119,9 +121,9 @@ export function AddMemberDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Family Member</DialogTitle>
+          <DialogTitle>{t('settings.addMemberDialog.title')}</DialogTitle>
           <DialogDescription>
-            Invite via phone (WhatsApp/Telegram), email, scan QR code, or add a member manually.
+            {t('settings.addMemberDialog.description')}
           </DialogDescription>
         </DialogHeader>
         
@@ -129,25 +131,25 @@ export function AddMemberDialog({
           if (val === 'scan') fetchQrToken();
         }}>
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="scan">QR</TabsTrigger>
-            <TabsTrigger value="add">Name</TabsTrigger>
-            <TabsTrigger value="invite">Phone</TabsTrigger>
-            <TabsTrigger value="email">Email</TabsTrigger>
+            <TabsTrigger value="scan">{t('settings.addMemberDialog.tabs.qr')}</TabsTrigger>
+            <TabsTrigger value="add">{t('settings.addMemberDialog.tabs.name')}</TabsTrigger>
+            <TabsTrigger value="invite">{t('settings.addMemberDialog.tabs.phone')}</TabsTrigger>
+            <TabsTrigger value="email">{t('settings.addMemberDialog.tabs.email')}</TabsTrigger>
           </TabsList>
           
           <TabsContent value="scan" className="space-y-4 pt-4 flex flex-col items-center">
              {loading && !qrToken ? (
-               <div className="h-48 flex items-center justify-center">Loading QR...</div>
+               <div className="h-48 flex items-center justify-center">{t('settings.addMemberDialog.loadingQr')}</div>
              ) : qrToken ? (
                <>
                  <div className="p-4 bg-card rounded-lg border shadow-sm">
                    <QRCodeSVG value={getJoinLink()} size={180} />
                  </div>
                  <p className="text-center text-sm text-muted-foreground mt-2">
-                   Ask family member to scan this code with their camera to join instantly.
+                   {t('settings.addMemberDialog.scanHelp')}
                  </p>
                  <div className="w-full pt-2">
-                   <Label className="text-xs">Or share this link:</Label>
+                   <Label className="text-xs">{t('settings.addMemberDialog.shareLink')}</Label>
                    <div className="flex gap-2 mt-1">
                      <Input readOnly value={getJoinLink()} className="h-8 text-xs font-mono" />
                      <Button 
@@ -156,29 +158,29 @@ export function AddMemberDialog({
                        className="h-8"
                        onClick={() => {
                          navigator.clipboard.writeText(getJoinLink());
-                         toast.success('Link copied');
+                         toast.success(t('settings.addMemberDialog.toast.linkCopied'));
                        }}
                      >
-                       Copy
+                       {t('settings.addMemberDialog.copy')}
                      </Button>
                    </div>
                  </div>
                </>
              ) : (
-               <div className="text-destructive">Failed to load QR code</div>
+               <div className="text-destructive">{t('settings.addMemberDialog.qrLoadFailed')}</div>
              )}
           </TabsContent>
 
           <TabsContent value="invite" className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>Phone Number</Label>
+              <Label>{t('settings.addMemberDialog.phoneLabel')}</Label>
               <Input 
                 value={invitePhone}
                 onChange={(e) => setInvitePhone(e.target.value)}
-                placeholder="+43 660 1234567" 
+                placeholder={t('settings.addMemberDialog.phonePlaceholder')}
               />
               <p className="text-xs text-muted-foreground">
-                We try to deliver via WhatsApp and linked Telegram (if available).
+                {t('settings.addMemberDialog.phoneHelp')}
               </p>
             </div>
             <Button 
@@ -186,21 +188,21 @@ export function AddMemberDialog({
               onClick={() => handleAction('invite')}
               disabled={!invitePhone || loading}
             >
-              {loading ? 'Sending...' : 'Send Phone Invite'}
+              {loading ? t('common.sending') : t('settings.addMemberDialog.sendPhoneInvite')}
             </Button>
           </TabsContent>
 
           <TabsContent value="email" className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>Email Address</Label>
+              <Label>{t('settings.addMemberDialog.emailLabel')}</Label>
               <Input 
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="grandma@example.com" 
+                placeholder={t('settings.addMemberDialog.emailPlaceholder')}
               />
               <p className="text-xs text-muted-foreground">
-                We will send them a magic link to join the family.
+                {t('settings.addMemberDialog.emailHelp')}
               </p>
             </div>
             <Button 
@@ -208,20 +210,20 @@ export function AddMemberDialog({
               onClick={() => handleAction('inviteEmail')}
               disabled={!email || loading}
             >
-              {loading ? 'Sending...' : 'Send Email Invite'}
+              {loading ? t('common.sending') : t('settings.addMemberDialog.sendEmailInvite')}
             </Button>
           </TabsContent>
           
           <TabsContent value="add" className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>Name</Label>
+              <Label>{t('settings.addMemberDialog.nameLabel')}</Label>
               <Input 
                 value={memberName}
                 onChange={(e) => setMemberName(e.target.value)}
-                placeholder="e.g. Grandma, Kids" 
+                placeholder={t('settings.addMemberDialog.namePlaceholder')}
               />
               <p className="text-xs text-muted-foreground">
-                For members who don&apos;t use the app but participate in tasks/events.
+                {t('settings.addMemberDialog.nameHelp')}
               </p>
             </div>
             <Button 
@@ -230,7 +232,7 @@ export function AddMemberDialog({
               disabled={!memberName || loading}
             >
               <UserPlus className="w-4 h-4 mr-2" />
-              {loading ? 'Adding...' : 'Add Member'}
+              {loading ? t('common.adding') : t('settings.addMemberDialog.addMember')}
             </Button>
           </TabsContent>
         </Tabs>

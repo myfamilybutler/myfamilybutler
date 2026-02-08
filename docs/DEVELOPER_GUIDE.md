@@ -152,6 +152,22 @@ Keep UI constants (links, phone numbers) in config where possible.
   console.log(APP_CONFIG.localization.locale); // 'de-AT'
   ```
 
+### 6.1 UI Consistency Checklist (Required For UI Changes)
+
+Before merging UI work, verify:
+
+1. No hardcoded user-facing strings remain in edited components.
+   - Include aria-labels, placeholders, tooltip text, and toast fallback messages.
+   - Add/update keys in `src/lib/locales/en.json` and `src/lib/locales/de.json`.
+2. Shared UI concepts use shared primitives.
+   - Family member identity chips must use `src/components/ui/family-member-badge.tsx`.
+   - Reuse helpers in `src/lib/utils/ui-helpers.ts` instead of per-component color logic.
+3. Inline styles are only used for dynamic runtime values.
+   - Allowed: animation transforms, measured heights/positions, user-selected colors.
+   - Not allowed: static spacing/shape/color declarations that should be classes/tokens.
+4. Light/dark styles are token-based.
+   - Prefer semantic Tailwind tokens over ad-hoc hardcoded colors in feature components.
+
 ## 7. Middleware & Auth
 
 ### Route Protection

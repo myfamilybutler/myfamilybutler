@@ -15,13 +15,22 @@
     "no": "Nein",
     "edit": "Bearbeiten",
     "add": "Hinzufügen",
+    "adding": "Hinzufügen...",
+    "sending": "Senden...",
     "loading": "Laden...",
+    "networkError": "Netzwerkfehler",
     "error": "Ein Fehler ist aufgetreten",
     "success": "Erfolg",
+    "selected": "Ausgewählt",
     "prevMonth": "Vorheriger Monat",
     "nextMonth": "Nächster Monat",
     "filters": "Filter",
-    "admin": "Admin Dashboard"
+    "admin": "Admin Dashboard",
+    "account": "Konto",
+    "impersonationWarning": "Sie imitieren aktuell einen Benutzer",
+    "exitImpersonation": "Impersonation beenden",
+    "english": "English",
+    "german": "Deutsch"
   },
   "calendar": {
     "upcomingEvents": "Anstehende Termine",
@@ -77,7 +86,34 @@
     "week": "KW",
     "noTime": "Keine Uhrzeit",
     "events": "Termine",
-    "quickAddDescription": "Schnell einen neuen Termin zu Ihrem Kalender hinzufügen"
+    "quickAddDescription": "Schnell einen neuen Termin zu Ihrem Kalender hinzufügen",
+    "familyMember": "Familienmitglied",
+    "familyMemberPlaceholder": "Oder Namen eingeben...",
+    "expandCalendar": "Kalender erweitern",
+    "collapseCalendar": "Kalender einklappen",
+    "eventFallback": "Termin",
+    "reminders": {
+      "title": "Erinnerungen",
+      "hideForm": "Formular ausblenden",
+      "addReminder": "Erinnerung hinzufügen",
+      "loading": "Erinnerungen werden geladen...",
+      "deleteA11y": "Erinnerung löschen",
+      "noneForEvent": "Keine Erinnerungen für diesen Termin gesetzt.",
+      "remindMe": "Erinnere mich",
+      "oneHourBefore": "1 Stunde vorher",
+      "oneDayBefore": "1 Tag vorher",
+      "customTime": "Eigene Zeit",
+      "pickDate": "Datum wählen",
+      "setReminder": "Erinnerung setzen",
+      "toast": {
+        "loadFailed": "Erinnerungen konnten nicht geladen werden",
+        "selectDateTime": "Bitte Datum und Uhrzeit für die Erinnerung wählen",
+        "createFailed": "Erinnerung konnte nicht erstellt werden",
+        "setFor": "Erinnerung gesetzt für {{date}}",
+        "deleteFailed": "Erinnerung konnte nicht entfernt werden",
+        "removed": "Erinnerung entfernt"
+      }
+    }
   },
   "settings": {
     "title": "Einstellungen",
@@ -123,7 +159,120 @@
     "privacyTab": "Datenschutz",
     "privacyTabShort": "DSGVO",
     "dangerZone": "Gefahrenzone",
-    "dangerZoneDesc": "Diese Aktionen können nicht rückgängig gemacht werden. Seien Sie vorsichtig."
+    "dangerZoneDesc": "Diese Aktionen können nicht rückgängig gemacht werden. Seien Sie vorsichtig.",
+    "householdAdmin": "Admin",
+    "unknownUser": "Nutzer",
+    "removeMemberA11y": "{{name}} entfernen",
+    "editMemberA11y": "{{name}} bearbeiten",
+    "deleteMemberA11y": "{{name}} löschen",
+    "noFamilyMembers": "Noch keine Familienmitglieder",
+    "addMemberDialog": {
+      "title": "Familienmitglied hinzufügen",
+      "description": "Per Telefon (WhatsApp/Telegram), E-Mail oder QR-Code einladen oder manuell hinzufügen.",
+      "tabs": {
+        "qr": "QR",
+        "name": "Name",
+        "phone": "Telefon",
+        "email": "E-Mail"
+      },
+      "loadingQr": "QR wird geladen...",
+      "scanHelp": "Familienmitglied soll den Code mit der Kamera scannen, um direkt beizutreten.",
+      "shareLink": "Oder diesen Link teilen:",
+      "copy": "Kopieren",
+      "qrLoadFailed": "QR-Code konnte nicht geladen werden",
+      "phoneLabel": "Telefonnummer",
+      "phonePlaceholder": "+43 660 1234567",
+      "phoneHelp": "Wir versuchen die Zustellung über WhatsApp und verknüpftes Telegram (falls verfügbar).",
+      "sendPhoneInvite": "Telefon-Einladung senden",
+      "emailLabel": "E-Mail-Adresse",
+      "emailPlaceholder": "oma@example.com",
+      "emailHelp": "Wir senden einen Magic-Link zum Beitritt in die Familie.",
+      "sendEmailInvite": "E-Mail-Einladung senden",
+      "nameLabel": "Name",
+      "namePlaceholder": "z. B. Oma, Kinder",
+      "nameHelp": "Für Personen, die die App nicht nutzen, aber bei Aufgaben/Terminen berücksichtigt werden.",
+      "addMember": "Mitglied hinzufügen",
+      "toast": {
+        "qrFailed": "QR-Code konnte nicht erstellt werden",
+        "inviteCreated": "Einladung erstellt.",
+        "emailInviteSent": "E-Mail-Einladung gesendet!",
+        "memberAdded": "Mitglied hinzugefügt!",
+        "addFailed": "Mitglied konnte nicht hinzugefügt werden",
+        "addRetry": "Mitglied konnte nicht hinzugefügt werden. Bitte erneut versuchen.",
+        "linkCopied": "Link kopiert"
+      }
+    },
+    "googleCalendar": {
+      "checkingConnection": "Verbindung wird geprüft...",
+      "connected": "Google Kalender verbunden",
+      "syncWithLabel": "Mit Kalender synchronisieren:",
+      "loadingCalendars": "Kalender werden geladen...",
+      "selectPlaceholder": "Kalender auswählen",
+      "primaryCalendar": "Primärkalender",
+      "primaryTag": "Primär",
+      "noWritableCalendars": "Keine beschreibbaren Kalender gefunden",
+      "disconnect": "Trennen",
+      "connect": "Google Kalender verbinden",
+      "toast": {
+        "loadCalendarsFailed": "Kalender konnten nicht geladen werden",
+        "connectStartFailed": "Google-Verbindung konnte nicht gestartet werden",
+        "connectFailed": "Verbindung zu Google fehlgeschlagen",
+        "disconnected": "Google Kalender wurde getrennt",
+        "disconnectFailed": "Google Kalender konnte nicht getrennt werden",
+        "saveSelectionFailed": "Kalenderauswahl konnte nicht gespeichert werden",
+        "syncingWith": "Synchronisiere mit \"{{name}}\""
+      }
+    },
+    "accountSecurity": {
+      "title": "Konto & Sicherheit",
+      "description": "Verwalten Sie Ihr Profil und Ihre Anmeldemethoden",
+      "fields": {
+        "displayName": "Anzeigename",
+        "email": "E-Mail",
+        "phone": "Telefonnummer",
+        "telegram": "Telegram"
+      },
+      "noName": "Kein Name gesetzt",
+      "notSet": "Nicht gesetzt",
+      "verified": "Verifiziert",
+      "notVerified": "Nicht verifiziert",
+      "resend": "Erneut senden",
+      "whatsApp": "WhatsApp",
+      "pending": "Ausstehend",
+      "phoneNotSet": "Nicht gesetzt - Für WhatsApp-Zugang hinzufügen",
+      "connected": "Verbunden",
+      "telegramHint": "Nicht verbunden - Nachricht an @FamilyButlerBot senden",
+      "dialog": {
+        "changePhone": "Telefonnummer ändern",
+        "addPhone": "Telefonnummer hinzufügen",
+        "phoneDescription": "Telefonnummer mit Ländervorwahl eingeben (z. B. +43 660 1234567).",
+        "phoneVerifyHint": "Die Nummer wird verifiziert, sobald Sie von dieser Nummer eine WhatsApp- oder Telegram-Nachricht senden.",
+        "phonePlaceholder": "+43 660 1234567",
+        "changeEmail": "E-Mail-Adresse ändern",
+        "addEmail": "E-Mail-Adresse hinzufügen",
+        "emailChangeDescription": "Neue E-Mail-Adresse eingeben. Zur Bestätigung wird ein Verifizierungslink gesendet.",
+        "emailAddDescription": "E-Mail-Adresse eingeben. Zur Bestätigung wird ein Verifizierungslink gesendet.",
+        "emailLabel": "E-Mail-Adresse",
+        "emailPlaceholder": "ihre@email.com",
+        "sendVerification": "Verifizierung senden",
+        "changeDisplayName": "Anzeigename ändern",
+        "displayNameDescription": "Wie sollen wir Sie nennen? Dieser Name ist für Ihre Familienmitglieder sichtbar.",
+        "displayNamePlaceholder": "Namen eingeben"
+      },
+      "toast": {
+        "nameUpdated": "Name erfolgreich aktualisiert",
+        "nameUpdateFailed": "Name konnte nicht aktualisiert werden",
+        "verificationSent": "Verifizierungs-E-Mail gesendet. Bitte Posteingang prüfen.",
+        "verificationSendFailed": "Verifizierungs-E-Mail konnte nicht gesendet werden",
+        "emailRequired": "Bitte eine E-Mail-Adresse eingeben",
+        "emailInvalid": "Bitte eine gültige E-Mail-Adresse eingeben",
+        "emailUpdateFailed": "E-Mail konnte nicht aktualisiert werden",
+        "networkRetry": "Netzwerkfehler - bitte erneut versuchen",
+        "phoneRequired": "Bitte eine Telefonnummer eingeben",
+        "phoneUpdated": "Telefonnummer aktualisiert",
+        "phoneUpdateFailed": "Telefonnummer konnte nicht aktualisiert werden"
+      }
+    }
   },
   "dashboard": {
     "upcoming": "Anstehend",
@@ -146,5 +295,11 @@
     "iosChromeInstructions": "Öffne diese Seite in Safari, dann tippe auf Teilen → 'Zum Home-Bildschirm'",
     "installed": "App installiert",
     "dismiss": "Nicht jetzt"
+  },
+  "theme": {
+    "toggle": "Theme wechseln",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
   }
 }
