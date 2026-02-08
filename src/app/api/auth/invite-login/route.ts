@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getInviteByToken, findOrCreateUserByEmail, acceptInvite } from '@/lib/supabase';
+import { getInviteByToken, findOrCreateUserByEmail } from '@/lib/supabase';
 
 /**
  * POST /api/auth/invite-login
@@ -44,18 +44,15 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
     }
 
-    // 4. Accept the invite automatically
-    // Doing this here ensures that even if they bounce after login, they are in the family.
-    await acceptInvite(user.id, invite.inviteId, invite.householdId);
-
-    // 5. Create Session (Set Cookies)
+    // 4. Create Session (Set Cookies)
     // We can't use `cookies()` from next/headers in API route comfortably for setting *response* cookies
     // but NextResponse works fine.
     
     const response = NextResponse.json({ 
         success: true, 
         userId: user.id,
-        isNewUser
+        isNewUser,
+        requiresDecision: true,
     });
 
     const opts = { 

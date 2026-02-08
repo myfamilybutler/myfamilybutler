@@ -150,6 +150,7 @@ export async function acceptInvite(
     .from('household_invites')
     .update({ status: 'accepted' })
     .eq('id', inviteId)
+    .eq('household_id', familyId)
     .eq('status', 'pending')
     .select('id')
     .maybeSingle();
@@ -393,7 +394,7 @@ export async function deleteFamilyMember(
  */
 export async function getFamilyMembers(
   familyId: string
-): Promise<{ users: Array<{ id: string; display_name?: string; phone_number?: string | null; linked_email?: string; is_household_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
+): Promise<{ users: Array<{ id: string; display_name?: string; phone_number?: string; linked_email?: string; is_household_admin: boolean }>; familyMembers: Array<{ id: string; name: string; color?: string }> }> {
   const admin = getAdminClient();
   
   // Fetch users and event-level member labels in parallel.
@@ -433,7 +434,10 @@ export async function getFamilyMembers(
   }
   
   return {
-    users: usersResult.data ?? [],
+    users: (usersResult.data ?? []).map((user) => ({
+      ...user,
+      phone_number: user.phone_number ?? undefined,
+    })),
     familyMembers: membersResult.data ?? []
   };
 }

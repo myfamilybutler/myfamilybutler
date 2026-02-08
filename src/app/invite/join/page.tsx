@@ -11,15 +11,9 @@ interface JoinPageProps {
 
 export default async function JoinPage({ searchParams }: JoinPageProps) {
   const params = await searchParams;
-  // Support both token (new) and id (legacy/email) which might actually be a token
   const token = (params.token || params.id) as string | undefined;
-  // If we have an explicit ID that is NOT a token (e.g. strict ID lookup), we kept it as params.id
-  // But strictly speaking, our email invite returns a token. 
-  // Let's assume 'id' in query might be a token if 'token' is missing.
-  
-  const inviteId = params.id as string | undefined;
 
-  if (!token && !inviteId) {
+  if (!token) {
     redirect('/dashboard?error=missing_token');
   }
 
@@ -37,7 +31,6 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
   return (
       <AutoJoiner 
         token={token} 
-        inviteId={inviteId} 
         isLoggedIn={!!userId} 
       />
   );

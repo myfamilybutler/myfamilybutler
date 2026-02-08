@@ -64,6 +64,13 @@ interface WeekEventSegment {
   endIndex: number;
 }
 
+interface WeekLayout {
+  visibleBars: WeekEventSegment[];
+  visibleTimedByDay: CalendarEvent[][];
+  overflowByDay: number[];
+  barDepthByDay: number[];
+}
+
 export function DesktopCalendarGrid({
   events,
   onEventsChanged,
@@ -188,7 +195,7 @@ export function DesktopCalendarGrid({
   }, []);
 
   // Google-like week lanes: a stable row model per week avoids jitter/overlap and keeps strip continuity correct.
-  const weekLayouts = useMemo(() => {
+  const weekLayouts = useMemo<WeekLayout[]>(() => {
     return weeks.map((week) => {
       const weekDates = week.map((day) => format(day, 'yyyy-MM-dd'));
       const weekStart = weekDates[0];
@@ -298,8 +305,15 @@ export function DesktopCalendarGrid({
         daySegments.filter((segment) => segment.lane < MAX_VISIBLE_EVENTS)
       );
 
+      const visibleBars = segments.filter((segment) => segment.lane < MAX_VISIBLE_EVENTS);
+
+      const barDepthByDay = visibleBarsByDay.map((daySegments) => {
+        if (daySegments.length === 0) return 0;
+        return Math.max(...daySegments.map((segment) => segment.lane)) + 1;
+      });
+
       const visibleTimedByDay = timedEventsByDay.map((dayTimedEvents, dayIndex) => {
-        const remainingSlots = Math.max(0, MAX_VISIBLE_EVENTS - visibleBarsByDay[dayIndex].length);
+        const remainingSlots = Math.max(0, MAX_VISIBLE_EVENTS - barDepthByDay[dayIndex]);
         return dayTimedEvents.slice(0, remainingSlots);
       });
 
@@ -310,40 +324,30 @@ export function DesktopCalendarGrid({
       });
 
       return {
-        visibleBarsByDay,
+        visibleBars,
         visibleTimedByDay,
         overflowByDay,
+        barDepthByDay,
       };
     });
   }, [filteredEvents, getEventEndDate, weeks]);
 
-  const getEventPillLayoutClasses = useCallback(
-    (segment: WeekEventSegment, dayIndex: number) => {
-      const connectLeft = dayIndex > segment.startIndex;
-      const connectRight = dayIndex < segment.endIndex;
+  const getWeekBarLayoutClasses = useCallback(
+    (segment: WeekEventSegment, weekStart: string, weekEnd: string) => {
+      const eventEndDate = getEventEndDate(segment.event);
+      const continuesFromPreviousWeek = segment.startIndex === 0 && segment.event.event_date < weekStart;
+      const continuesToNextWeek = segment.endIndex === 6 && eventEndDate > weekEnd;
 
-      if (connectLeft && connectRight) {
-        return [
-          'rounded-none',
-          "before:content-[''] before:absolute before:inset-y-0 before:-left-[2px] before:w-[2px] before:bg-inherit before:pointer-events-none",
-          "after:content-[''] after:absolute after:inset-y-0 after:-right-[2px] after:w-[2px] after:bg-inherit after:pointer-events-none",
-        ].join(' ');
+      if (continuesFromPreviousWeek && continuesToNextWeek) return 'rounded-none';
+      if (continuesFromPreviousWeek && !continuesToNextWeek) {
+        return 'mr-1.5 sm:mr-2 rounded-r-md rounded-l-none';
       }
-      if (!connectLeft && connectRight) {
-        return [
-          'ml-1.5 sm:ml-2 rounded-l-md rounded-r-none',
-          "after:content-[''] after:absolute after:inset-y-0 after:-right-[2px] after:w-[2px] after:bg-inherit after:pointer-events-none",
-        ].join(' ');
-      }
-      if (connectLeft && !connectRight) {
-        return [
-          'mr-1.5 sm:mr-2 rounded-r-md rounded-l-none',
-          "before:content-[''] before:absolute before:inset-y-0 before:-left-[2px] before:w-[2px] before:bg-inherit before:pointer-events-none",
-        ].join(' ');
+      if (!continuesFromPreviousWeek && continuesToNextWeek) {
+        return 'ml-1.5 sm:ml-2 rounded-l-md rounded-r-none';
       }
       return 'mx-1.5 sm:mx-2 rounded-md';
     },
-    []
+    [getEventEndDate]
   );
   
   // Locale-aware week day names
@@ -388,239 +392,262 @@ export function DesktopCalendarGrid({
         </div>
         
         {/* Calendar weeks */}
-        {weeks.map((week: Date[], weekIndex: number) => (
-          <div 
-            key={weekIndex} 
-            className="grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border"
-          >
-            {/* Week number */}
-            <div className="p-2 text-xs font-medium text-muted-foreground text-center border-r border-border bg-muted/20">
-              {getWeekNumber(week[0])}
-            </div>
-            
-            {/* Day cells */}
-            {week.map((day: Date, dayIndex: number) => {
-              const dayEvents = getEventsForDay(day);
-              const isCurrentMonth = isSameMonth(day, currentMonth);
-              const isTodayDate = isToday(day);
-              const dayStr = format(day, 'yyyy-MM-dd');
-              const weekLayout = weekLayouts[weekIndex];
-              const visibleBarSegments = weekLayout?.visibleBarsByDay[dayIndex] || [];
-              const visibleTimedEvents = weekLayout?.visibleTimedByDay[dayIndex] || [];
-              const overflowCount = weekLayout?.overflowByDay[dayIndex] || 0;
-              
-              return (
-                <div
-                  key={dayIndex}
-                  className={cn(
-                    "relative overflow-visible min-h-[60px] sm:min-h-[100px] cursor-pointer transition-colors",
-                    "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500",
-                    !isCurrentMonth && "bg-muted/10 text-muted-foreground/50"
-                  )}
-                  onClick={() => handleCellClick(day)}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${formatDate(day, 'EEEE, MMMM d')}. ${dayEvents.length} ${t('calendar.events')}`}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleCellClick(day);
-                    }
-                  }}
-                >
-                  {dayIndex < week.length - 1 && (
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute inset-y-0 right-0 w-px bg-border z-0"
-                    />
-                  )}
+        {weeks.map((week: Date[], weekIndex: number) => {
+          const weekLayout = weekLayouts[weekIndex];
+          const weekStart = format(week[0], 'yyyy-MM-dd');
+          const weekEnd = format(week[6], 'yyyy-MM-dd');
+          const visibleWeekBars = weekLayout?.visibleBars || [];
 
-                  {/* Day number */}
-                  <div className="p-1.5 flex justify-end">
-                    <span
-                      className={cn(
-                        "inline-flex items-center justify-center w-7 h-7 text-sm font-medium rounded-full",
-                        isTodayDate 
-                          ? "bg-emerald-500 text-white" 
-                          : isCurrentMonth 
-                            ? "text-foreground" 
-                            : "text-muted-foreground"
-                      )}
+          return (
+            <div
+              key={weekIndex}
+              className="relative grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] border-b border-border"
+            >
+              {/* Week number */}
+              <div className="p-2 text-xs font-medium text-muted-foreground text-center border-r border-border bg-muted/20">
+                {getWeekNumber(week[0])}
+              </div>
+
+              {/* Day cells */}
+              {week.map((day: Date, dayIndex: number) => {
+                const dayEvents = getEventsForDay(day);
+                const isCurrentMonth = isSameMonth(day, currentMonth);
+                const isTodayDate = isToday(day);
+                const dayStr = format(day, 'yyyy-MM-dd');
+                const visibleTimedEvents = weekLayout?.visibleTimedByDay[dayIndex] || [];
+                const overflowCount = weekLayout?.overflowByDay[dayIndex] || 0;
+                const barDepth = weekLayout?.barDepthByDay[dayIndex] || 0;
+
+                return (
+                  <div
+                    key={dayIndex}
+                    className={cn(
+                      "relative overflow-visible min-h-[60px] sm:min-h-[100px] cursor-pointer transition-colors",
+                      "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500",
+                      !isCurrentMonth && "bg-muted/10 text-muted-foreground/50"
+                    )}
+                    onClick={() => handleCellClick(day)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${formatDate(day, 'EEEE, MMMM d')}. ${dayEvents.length} ${t('calendar.events')}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleCellClick(day);
+                      }
+                    }}
+                  >
+                    {dayIndex < week.length - 1 && (
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-y-0 right-0 w-px bg-border z-0"
+                      />
+                    )}
+
+                    {/* Day number */}
+                    <div className="p-1.5 flex justify-end">
+                      <span
+                        className={cn(
+                          "inline-flex items-center justify-center w-7 h-7 text-sm font-medium rounded-full",
+                          isTodayDate
+                            ? "bg-emerald-500 text-white"
+                            : isCurrentMonth
+                              ? "text-foreground"
+                              : "text-muted-foreground"
+                        )}
+                      >
+                        {format(day, 'd')}
+                      </span>
+                    </div>
+
+                    {/* Timed events and overflow */}
+                    <div
+                      className="relative z-10 pb-1.5 space-y-1"
+                      style={barDepth > 0 ? { paddingTop: `${barDepth * 28}px` } : undefined}
                     >
-                      {format(day, 'd')}
-                    </span>
-                  </div>
-                  
-                  {/* Events */}
-                  <div className="relative z-10 pb-1.5 space-y-1">
-                    {visibleBarSegments.map((segment) => (
-                      <HoverCard key={`${segment.event.id}:${dayStr}`} openDelay={200}>
-                        <HoverCardTrigger asChild>
-                          <button
-                            aria-label={segment.event.title}
-                            className={cn(
-                              "relative z-20 flex h-6 items-center w-full text-left px-1.5 sm:px-2 text-[11px] sm:text-xs font-medium text-white",
-                              "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
-                              getEventPillLayoutClasses(segment, dayIndex),
-                              getMemberAppearance(segment.event.family_member).barBg
-                            )}
-                            onClick={(e) => handleEventClick(segment.event, e)}
-                          >
-                            <span className="flex items-center gap-1 truncate">
-                              {!segment.event.is_all_day &&
-                                segment.event.event_time &&
-                                dayStr === segment.event.event_date && (
-                                <span className="font-bold mr-1">
-                                  {formatTime(segment.event.event_time)}
-                                </span>
-                              )}
-                              {dayIndex === segment.startIndex ? segment.event.title : ''}
-                            </span>
-                          </button>
-                        </HoverCardTrigger>
-                        <HoverCardContent 
-                          side="right" 
-                          align="start" 
-                          className="w-64 p-3 hidden sm:block"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="space-y-2">
-                            <h4 className="font-semibold text-sm">{segment.event.title}</h4>
-                            
-                            {/* Time */}
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Clock className="w-3.5 h-3.5" />
-                              {segment.event.is_all_day ? (
-                                <span>{t('calendar.allDay')}</span>
-                              ) : (
-                                <span>
-                                  {formatTime(segment.event.event_time)}
-                                  {segment.event.end_time && ` - ${formatTime(segment.event.end_time)}`}
-                                </span>
-                              )}
-                            </div>
-                            
-                            {/* Location */}
-                            {segment.event.location && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <MapPin className="w-3.5 h-3.5" />
-                                <span className="truncate">{segment.event.location}</span>
-                              </div>
-                            )}
-                            
-                            {segment.event.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-2">
-                                {segment.event.description}
-                              </p>
-                            )}
-                            
-                            {segment.event.family_member && (
-                              <div className="flex items-center gap-2 pt-1 border-t">
-                                <span
-                                  className={cn(
-                                    "w-3 h-3 rounded-full",
-                                    getMemberColor(segment.event.family_member)
+                      {visibleTimedEvents.map((event) => {
+                        const color = getMemberAppearance(event.family_member);
+
+                        return (
+                          <HoverCard key={`${event.id}:${dayStr}:timed`} openDelay={200}>
+                            <HoverCardTrigger asChild>
+                              <button
+                                className={cn(
+                                  "relative z-20 w-full text-left px-1.5 sm:px-2 py-0.5 text-[11px] sm:text-xs",
+                                  "rounded-sm hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+                                )}
+                                onClick={(e) => handleEventClick(event, e)}
+                              >
+                                <span className="flex items-center gap-1 min-w-0">
+                                  <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", color.dotBg)} />
+                                  {event.event_time && (
+                                    <span className={cn("font-semibold tabular-nums whitespace-nowrap", color.text)}>
+                                      {formatTime(event.event_time)}
+                                    </span>
                                   )}
-                                />
-                                <span className="text-xs font-medium">
-                                  {segment.event.family_member}
+                                  <span className={cn("truncate", color.text)}>{event.title}</span>
                                 </span>
+                              </button>
+                            </HoverCardTrigger>
+                            <HoverCardContent
+                              side="right"
+                              align="start"
+                              className="w-64 p-3 hidden sm:block"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="space-y-2">
+                                <h4 className="font-semibold text-sm">{event.title}</h4>
+
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>
+                                    {formatTime(event.event_time)}
+                                    {event.end_time && ` - ${formatTime(event.end_time)}`}
+                                  </span>
+                                </div>
+
+                                {event.location && (
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    <span className="truncate">{event.location}</span>
+                                  </div>
+                                )}
+
+                                {event.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2">
+                                    {event.description}
+                                  </p>
+                                )}
+
+                                {event.family_member && (
+                                  <div className="flex items-center gap-2 pt-1 border-t">
+                                    <span
+                                      className={cn(
+                                        "w-3 h-3 rounded-full",
+                                        color.dotBg
+                                      )}
+                                    />
+                                    <span className="text-xs font-medium">
+                                      {event.family_member}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        );
+                      })}
+
+                      {/* Overflow indicator */}
+                      {overflowCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleMoreEventsClick(day, e)}
+                          className="text-xs text-muted-foreground font-medium px-1.5 sm:px-2 hover:text-foreground transition-colors"
+                        >
+                          +{overflowCount} {t('calendar.more')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Week bar overlay (single element per multi-day/all-day event) */}
+              <div className="pointer-events-none absolute inset-0 z-20 grid grid-cols-[32px_repeat(7,minmax(0,1fr))] sm:grid-cols-[48px_repeat(7,minmax(100px,1fr))] grid-rows-[30px_repeat(3,24px)] sm:grid-rows-[34px_repeat(3,24px)] gap-y-1">
+                {visibleWeekBars.map((segment) => {
+                  const segmentStart = week[segment.startIndex];
+                  const segmentStartDate = format(segmentStart, 'yyyy-MM-dd');
+                  const color = getMemberAppearance(segment.event.family_member);
+
+                  return (
+                    <HoverCard
+                      key={`${segment.event.id}:${weekStart}:${segment.startIndex}:${segment.endIndex}:${segment.lane}`}
+                      openDelay={200}
+                    >
+                      <HoverCardTrigger asChild>
+                        <button
+                          aria-label={segment.event.title}
+                          className={cn(
+                            "pointer-events-auto relative z-20 flex h-6 w-full items-center text-left px-1.5 sm:px-2 text-[11px] sm:text-xs font-medium text-white",
+                            "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
+                            getWeekBarLayoutClasses(segment, weekStart, weekEnd),
+                            color.barBg
+                          )}
+                          style={{
+                            gridColumn: `${segment.startIndex + 2} / ${segment.endIndex + 3}`,
+                            gridRow: `${segment.lane + 2}`,
+                          }}
+                          onClick={(e) => handleEventClick(segment.event, e)}
+                        >
+                          <span className="flex items-center gap-1 truncate">
+                            {!segment.event.is_all_day &&
+                              segment.event.event_time &&
+                              segmentStartDate === segment.event.event_date && (
+                              <span className="font-bold mr-1">
+                                {formatTime(segment.event.event_time)}
+                              </span>
+                            )}
+                            {segment.event.title}
+                          </span>
+                        </button>
+                      </HoverCardTrigger>
+                      <HoverCardContent
+                        side="right"
+                        align="start"
+                        className="w-64 p-3 hidden sm:block"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">{segment.event.title}</h4>
+
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="w-3.5 h-3.5" />
+                            {segment.event.is_all_day ? (
+                              <span>{t('calendar.allDay')}</span>
+                            ) : (
+                              <span>
+                                {formatTime(segment.event.event_time)}
+                                {segment.event.end_time && ` - ${formatTime(segment.event.end_time)}`}
+                              </span>
                             )}
                           </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    ))}
 
-                    {visibleTimedEvents.map((event) => {
-                      const color = getMemberAppearance(event.family_member);
-
-                      return (
-                        <HoverCard key={`${event.id}:${dayStr}:timed`} openDelay={200}>
-                          <HoverCardTrigger asChild>
-                            <button
-                              className={cn(
-                                "relative z-20 w-full text-left px-1.5 sm:px-2 py-0.5 text-[11px] sm:text-xs",
-                                "rounded-sm hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-white/50"
-                              )}
-                              onClick={(e) => handleEventClick(event, e)}
-                            >
-                              <span className="flex items-center gap-1 min-w-0">
-                                <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", color.dotBg)} />
-                                {event.event_time && (
-                                  <span className={cn("font-semibold tabular-nums whitespace-nowrap", color.text)}>
-                                    {formatTime(event.event_time)}
-                                  </span>
-                                )}
-                                <span className={cn("truncate", color.text)}>{event.title}</span>
-                              </span>
-                            </button>
-                          </HoverCardTrigger>
-                          <HoverCardContent
-                            side="right"
-                            align="start"
-                            className="w-64 p-3 hidden sm:block"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="space-y-2">
-                              <h4 className="font-semibold text-sm">{event.title}</h4>
-
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Clock className="w-3.5 h-3.5" />
-                                <span>
-                                  {formatTime(event.event_time)}
-                                  {event.end_time && ` - ${formatTime(event.end_time)}`}
-                                </span>
-                              </div>
-
-                              {event.location && (
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  <span className="truncate">{event.location}</span>
-                                </div>
-                              )}
-
-                              {event.description && (
-                                <p className="text-xs text-muted-foreground line-clamp-2">
-                                  {event.description}
-                                </p>
-                              )}
-
-                              {event.family_member && (
-                                <div className="flex items-center gap-2 pt-1 border-t">
-                                  <span
-                                    className={cn(
-                                      "w-3 h-3 rounded-full",
-                                      color.dotBg
-                                    )}
-                                  />
-                                  <span className="text-xs font-medium">
-                                    {event.family_member}
-                                  </span>
-                                </div>
-                              )}
+                          {segment.event.location && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span className="truncate">{segment.event.location}</span>
                             </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                      );
-                    })}
-                    
-                    {/* Overflow indicator */}
-                    {overflowCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleMoreEventsClick(day, e)}
-                        className="text-xs text-muted-foreground font-medium px-1.5 sm:px-2 hover:text-foreground transition-colors"
-                      >
-                        +{overflowCount} {t('calendar.more')}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                          )}
+
+                          {segment.event.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {segment.event.description}
+                            </p>
+                          )}
+
+                          {segment.event.family_member && (
+                            <div className="flex items-center gap-2 pt-1 border-t">
+                              <span
+                                className={cn(
+                                  "w-3 h-3 rounded-full",
+                                  getMemberColor(segment.event.family_member)
+                                )}
+                              />
+                              <span className="text-xs font-medium">
+                                {segment.event.family_member}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </motion.div>
   );

@@ -9,9 +9,9 @@ import {
   getPendingInvites,
   revokeInvite,
   normalizePhone,
+  getAdminClient,
 } from '@/lib/supabase';
 import { sendInviteEmail } from '@/lib/email/send-email';
-import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 import { log } from '@/lib/utils/logger';
 import { sendPhoneInviteMessages } from '@/lib/invites/delivery';

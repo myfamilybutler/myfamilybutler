@@ -89,7 +89,7 @@ export function AddMemberDialog({
       const data = await res.json();
       
       if (res.ok) {
-        if (type === 'invite') toast.success('Invite sent!');
+        if (type === 'invite') toast.success(data.message || 'Invite created.');
         else if (type === 'inviteEmail') toast.success(data.message || 'Email invite sent!');
         else toast.success('Member added!');
 
@@ -121,7 +121,7 @@ export function AddMemberDialog({
         <DialogHeader>
           <DialogTitle>Add Family Member</DialogTitle>
           <DialogDescription>
-            Invite via WhatsApp, Email, scan QR code, or add a member manually.
+            Invite via phone (WhatsApp/Telegram), email, scan QR code, or add a member manually.
           </DialogDescription>
         </DialogHeader>
         
@@ -131,7 +131,7 @@ export function AddMemberDialog({
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="scan">QR</TabsTrigger>
             <TabsTrigger value="add">Name</TabsTrigger>
-            <TabsTrigger value="invite">WhatsApp</TabsTrigger>
+            <TabsTrigger value="invite">Phone</TabsTrigger>
             <TabsTrigger value="email">Email</TabsTrigger>
           </TabsList>
           
@@ -171,14 +171,14 @@ export function AddMemberDialog({
 
           <TabsContent value="invite" className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>Phone Number (WhatsApp)</Label>
+              <Label>Phone Number</Label>
               <Input 
                 value={invitePhone}
                 onChange={(e) => setInvitePhone(e.target.value)}
                 placeholder="+43 660 1234567" 
               />
               <p className="text-xs text-muted-foreground">
-                They will receive an invite when they message our WhatsApp bot.
+                We try to deliver via WhatsApp and linked Telegram (if available).
               </p>
             </div>
             <Button 
@@ -186,7 +186,7 @@ export function AddMemberDialog({
               onClick={() => handleAction('invite')}
               disabled={!invitePhone || loading}
             >
-              {loading ? 'Sending...' : 'Send WhatsApp Invite'}
+              {loading ? 'Sending...' : 'Send Phone Invite'}
             </Button>
           </TabsContent>
 
