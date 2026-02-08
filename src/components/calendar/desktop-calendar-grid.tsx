@@ -23,7 +23,7 @@ import {
   subMonths,
   addDays,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, MapPin, Clock, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, PanInfo } from 'framer-motion';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -34,7 +34,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
 import { cn, formatTime, formatDate } from '@/lib/utils';
-import { getMemberColorClass, DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
+import { getMemberColorPresentation } from '@/lib/utils/ui-helpers';
 import { getCalendarDays, getWeekNumber, groupEventsByDate } from '@/lib/utils/calendar-helpers';
 import { useSelectedMembers } from '@/stores/filter-store';
 import { useFamilyData } from '@/stores/family-store';
@@ -116,25 +116,11 @@ export function DesktopCalendarGrid({
     return eventsByDate.get(dayStr) || [];
   }, [eventsByDate]);
   
-  // Get color for a family member from the colors map
-  const getMemberColor = useCallback((memberName?: string) => {
-    if (memberName && memberColors?.has(memberName)) {
-      return getMemberColorClass(memberColors.get(memberName));
-    }
-    return getMemberColorClass(DEFAULT_MEMBER_COLOR);
+  // Resolve member color tokens for bar-style and text-style rendering.
+  const getMemberAppearance = useCallback((memberName?: string) => {
+    const explicitHex = memberName ? memberColors?.get(memberName) : undefined;
+    return getMemberColorPresentation(memberName, explicitHex);
   }, [memberColors]);
-
-  const isUrgent = useCallback((event: CalendarEvent) => {
-    if (event.is_all_day || !event.event_time) return false;
-
-    const now = new Date();
-    const eventDate = new Date(`${event.event_date}T${event.event_time}`);
-    if (Number.isNaN(eventDate.getTime())) return false;
-
-    const diffMs = eventDate.getTime() - now.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-    return diffHours > 0 && diffHours <= 2;
-  }, []);
   
   // Navigation handlers
   const handlePrevMonth = useCallback(() => {
@@ -203,10 +189,26 @@ export function DesktopCalendarGrid({
       const weekDates = week.map((day) => format(day, 'yyyy-MM-dd'));
       const weekStart = weekDates[0];
       const weekEnd = weekDates[6];
+      const timedEventsByDay: CalendarEvent[][] = weekDates.map(() => []);
 
-      const intersectingEvents = filteredEvents
+      const barCandidates = filteredEvents
         .map((event) => {
           const eventEndDate = getEventEndDate(event);
+
+          // Google-like month behavior:
+          // - all-day OR multi-day events are rendered as bars
+          // - single-day timed events are rendered as text rows
+          const isMultiDay = eventEndDate > event.event_date;
+          const isBarType = event.is_all_day || isMultiDay;
+
+          if (!isBarType) {
+            const timedIndex = weekDates.indexOf(event.event_date);
+            if (timedIndex !== -1) {
+              timedEventsByDay[timedIndex].push(event);
+            }
+            return null;
+          }
+
           if (eventEndDate < weekStart || event.event_date > weekEnd) {
             return null;
           }
@@ -242,21 +244,23 @@ export function DesktopCalendarGrid({
           const spanB = b.endIndex - b.startIndex;
           if (spanA !== spanB) return spanB - spanA;
 
-          if (a.event.is_all_day && !b.event.is_all_day) return -1;
-          if (!a.event.is_all_day && b.event.is_all_day) return 1;
-
-          const timeA = a.event.event_time || '00:00';
-          const timeB = b.event.event_time || '00:00';
-          const byTime = timeA.localeCompare(timeB);
-          if (byTime !== 0) return byTime;
-
           return a.event.title.localeCompare(b.event.title);
         });
+
+      for (const dayTimedEvents of timedEventsByDay) {
+        dayTimedEvents.sort((a, b) => {
+          const timeA = a.event_time || '00:00';
+          const timeB = b.event_time || '00:00';
+          const byTime = timeA.localeCompare(timeB);
+          if (byTime !== 0) return byTime;
+          return a.title.localeCompare(b.title);
+        });
+      }
 
       const lanes: Array<Array<{ startIndex: number; endIndex: number }>> = [];
       const segments: WeekEventSegment[] = [];
 
-      for (const item of intersectingEvents) {
+      for (const item of barCandidates) {
         let lane = 0;
         while (true) {
           const laneOccupancy = lanes[lane] || [];
@@ -286,16 +290,24 @@ export function DesktopCalendarGrid({
           .sort((a, b) => a.lane - b.lane)
       );
 
-      const visibleByDay = activeByDay.map((daySegments) =>
+      const visibleBarsByDay = activeByDay.map((daySegments) =>
         daySegments.filter((segment) => segment.lane < MAX_VISIBLE_EVENTS)
       );
 
-      const overflowByDay = activeByDay.map((daySegments, dayIndex) =>
-        Math.max(0, daySegments.length - visibleByDay[dayIndex].length)
-      );
+      const visibleTimedByDay = timedEventsByDay.map((dayTimedEvents, dayIndex) => {
+        const remainingSlots = Math.max(0, MAX_VISIBLE_EVENTS - visibleBarsByDay[dayIndex].length);
+        return dayTimedEvents.slice(0, remainingSlots);
+      });
+
+      const overflowByDay = activeByDay.map((daySegments, dayIndex) => {
+        const hiddenBars = Math.max(0, daySegments.length - visibleBarsByDay[dayIndex].length);
+        const hiddenTimed = Math.max(0, timedEventsByDay[dayIndex].length - visibleTimedByDay[dayIndex].length);
+        return hiddenBars + hiddenTimed;
+      });
 
       return {
-        visibleByDay,
+        visibleBarsByDay,
+        visibleTimedByDay,
         overflowByDay,
       };
     });
@@ -376,7 +388,8 @@ export function DesktopCalendarGrid({
               const isTodayDate = isToday(day);
               const dayStr = format(day, 'yyyy-MM-dd');
               const weekLayout = weekLayouts[weekIndex];
-              const visibleSegments = weekLayout?.visibleByDay[dayIndex] || [];
+              const visibleBarSegments = weekLayout?.visibleBarsByDay[dayIndex] || [];
+              const visibleTimedEvents = weekLayout?.visibleTimedByDay[dayIndex] || [];
               const overflowCount = weekLayout?.overflowByDay[dayIndex] || 0;
               
               return (
@@ -416,7 +429,7 @@ export function DesktopCalendarGrid({
                   
                   {/* Events */}
                   <div className="pb-1.5 space-y-1">
-                    {visibleSegments.map((segment) => (
+                    {visibleBarSegments.map((segment) => (
                       <HoverCard key={`${segment.event.id}:${dayStr}`} openDelay={200}>
                         <HoverCardTrigger asChild>
                           <button
@@ -424,15 +437,11 @@ export function DesktopCalendarGrid({
                               "w-full text-left px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-medium text-white",
                               "hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50",
                               getEventPillLayoutClasses(segment, dayIndex),
-                              getMemberColor(segment.event.family_member)
+                              getMemberAppearance(segment.event.family_member).barBg
                             )}
                             onClick={(e) => handleEventClick(segment.event, e)}
                           >
                             <span className="flex items-center gap-1 truncate">
-                              {/* Urgent indicator for events within 2 hours */}
-                              {isUrgent(segment.event) && (
-                                <AlertCircle className="w-3 h-3 flex-shrink-0 animate-pulse" />
-                              )}
                               {!segment.event.is_all_day &&
                                 segment.event.event_time &&
                                 dayStr === segment.event.event_date && (
@@ -497,6 +506,79 @@ export function DesktopCalendarGrid({
                         </HoverCardContent>
                       </HoverCard>
                     ))}
+
+                    {visibleTimedEvents.map((event) => {
+                      const color = getMemberAppearance(event.family_member);
+
+                      return (
+                        <HoverCard key={`${event.id}:${dayStr}:timed`} openDelay={200}>
+                          <HoverCardTrigger asChild>
+                            <button
+                              className={cn(
+                                "w-full text-left px-1.5 sm:px-2 py-0.5 text-[11px] sm:text-xs",
+                                "rounded-sm hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+                              )}
+                              onClick={(e) => handleEventClick(event, e)}
+                            >
+                              <span className="flex items-center gap-1 min-w-0">
+                                <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", color.dotBg)} />
+                                {event.event_time && (
+                                  <span className={cn("font-semibold tabular-nums whitespace-nowrap", color.text)}>
+                                    {formatTime(event.event_time)}
+                                  </span>
+                                )}
+                                <span className={cn("truncate", color.text)}>{event.title}</span>
+                              </span>
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent
+                            side="right"
+                            align="start"
+                            className="w-64 p-3 hidden sm:block"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-sm">{event.title}</h4>
+
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>
+                                  {formatTime(event.event_time)}
+                                  {event.end_time && ` - ${formatTime(event.end_time)}`}
+                                </span>
+                              </div>
+
+                              {event.location && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  <span className="truncate">{event.location}</span>
+                                </div>
+                              )}
+
+                              {event.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  {event.description}
+                                </p>
+                              )}
+
+                              {event.family_member && (
+                                <div className="flex items-center gap-2 pt-1 border-t">
+                                  <span
+                                    className={cn(
+                                      "w-3 h-3 rounded-full",
+                                      color.dotBg
+                                    )}
+                                  />
+                                  <span className="text-xs font-medium">
+                                    {event.family_member}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      );
+                    })}
                     
                     {/* Overflow indicator */}
                     {overflowCount > 0 && (

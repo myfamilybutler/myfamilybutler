@@ -16,6 +16,7 @@ import { immer } from 'zustand/middleware/immer';
 import { log } from '@/lib/utils/logger';
 import { useAuthStore } from './auth-store';
 import { useEffect, useMemo, useCallback, useRef } from 'react';
+import { getStableMemberColorHex } from '@/lib/utils/ui-helpers';
 
 export interface FamilyMember {
   id: string;
@@ -191,9 +192,7 @@ export const useMemberColors = () => {
   return useMemo(() => {
     const colorMap = new Map<string, string>();
     for (const member of members) {
-      if (member.color) {
-        colorMap.set(member.name, member.color);
-      }
+      colorMap.set(member.name, member.color || getStableMemberColorHex(member.name));
     }
     return colorMap;
   }, [members]);
