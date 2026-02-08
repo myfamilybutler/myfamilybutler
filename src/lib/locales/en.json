@@ -1,6 +1,7 @@
 {
   "common": {
     "dashboard": "Dashboard",
+    "appName": "My Family Butler",
     "settings": "Settings",
     "logout": "Logout",
     "language": "Language",
