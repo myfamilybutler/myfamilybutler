@@ -132,3 +132,7 @@ npm test          # Run Vitest tests
 ## License
 
 Private - All rights reserved.
+
+---
+
+*Last updated: 2026-02-14*
