@@ -1,34 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { createClient } from '@/lib/supabase/server';
 import { getAdminClient } from '@/lib/supabase';
-import { validateSession } from '@/lib/auth/helpers';
-import { sendVerificationEmail } from '@/lib/email/send-email';
-import { log, logError } from '@/lib/utils/logger';
-
-const VERIFICATION_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+import { logError } from '@/lib/utils/logger';
 
 /**
  * POST - Initiate email address change
- * 
- * 1. Validates the new email isn't already in use
- * 2. Generates a verification token
- * 3. Stores pending email change with token
- * 4. Sends verification email via Resend
+ *
+ * Uses standard Supabase Auth to update the user's email.
+ * Supabase sends a confirmation email to the new address automatically.
  */
 export async function POST(request: NextRequest) {
   try {
-    // Validate session
-    let session;
-    try {
-      session = await validateSession();
-    } catch {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { userId } = session;
     const { email } = await request.json();
 
-    // Validate email format
     if (!email || typeof email !== 'string') {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
@@ -46,7 +37,7 @@ export async function POST(request: NextRequest) {
       .from('users')
       .select('id')
       .eq('linked_email', normalizedEmail)
-      .neq('id', userId)
+      .neq('id', user.id)
       .maybeSingle();
 
     if (existingUser) {
@@ -56,52 +47,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate secure verification token
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_MS).toISOString();
+    const { error: updateError } = await supabase.auth.updateUser({
+      email: normalizedEmail,
+    });
 
-    // Store pending email change in email_login_tokens table (reusing existing table)
-    // Delete any existing pending verification for this user first
-    await admin
-      .from('email_login_tokens')
-      .delete()
-      .eq('user_id', userId)
-      .is('used_at', null);
-
-    const { error: insertError } = await admin
-      .from('email_login_tokens')
-      .insert({
-        token_hash: tokenHash,
-        user_id: userId,
-        email: normalizedEmail, // This is the NEW email to be verified
-        expires_at: expiresAt,
-      });
-
-    if (insertError) {
-      logError('[update-email] Token insert error:', insertError);
+    if (updateError) {
+      logError('[update-email] Supabase update error:', updateError);
       return NextResponse.json(
-        { error: 'Failed to create verification token' },
+        { error: updateError.message || 'Failed to update email' },
         { status: 500 }
       );
     }
-
-    // Build verification link
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const verifyLink = `${baseUrl}/api/account/verify-email?token=${token}`;
-
-    // Send verification email
-    const emailResult = await sendVerificationEmail(normalizedEmail, verifyLink);
-
-    if (!emailResult.success) {
-      logError('[update-email] Email send error:', emailResult.error);
-      return NextResponse.json(
-        { error: emailResult.error || 'Failed to send verification email' },
-        { status: 500 }
-      );
-    }
-
-    log.info(`[update-email] Verification email sent to: ${normalizedEmail}`);
 
     return NextResponse.json({
       success: true,

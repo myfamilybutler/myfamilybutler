@@ -11,14 +11,14 @@ export interface DbUser {
   household_id?: string | null;
   linked_email?: string | null;
   email_verified?: boolean | null;
-  phone_verified?: boolean | null;  // Whether phone was verified via messaging channel
+  phone_verified?: boolean | null;
   telegram_chat_id?: string | null;
   whatsapp_verified?: boolean | null;
   onboarding_modal_shown?: boolean;
   onboarding_source?: 'whatsapp' | 'telegram' | 'invite' | 'email_invite' | 'web';
-  is_admin?: boolean;  // Super admin (internal team only)
-  is_household_admin?: boolean;  // Household owner/admin
-  identity_linked_at?: string | null;  // When additional identifiers were linked
+  is_admin?: boolean;
+  is_household_admin?: boolean;
+  identity_linked_at?: string | null;
   created_at?: string;
 }
 
@@ -45,9 +45,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
   signOut: async () => {
     try {
       await getSupabase().auth.signOut();
-      set({ user: null, dbUser: null, loading: false });
     } catch (error) {
       logError('Error signing out:', error);
+    } finally {
+      set({ user: null, dbUser: null, loading: false });
     }
   },
 
