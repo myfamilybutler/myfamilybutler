@@ -14,7 +14,7 @@ import { logError } from '@/lib/utils/logger';
  * Keep this list in sync with the UI's DbUser shape.
  */
 export const DASHBOARD_USER_COLUMNS =
-  'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin';
+  'id, display_name, phone_number, household_id, is_household_admin, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin';
 
 /**
  * Result of findOrCreateUser operation
