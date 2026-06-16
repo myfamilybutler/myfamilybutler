@@ -1,0 +1,65 @@
+name: 🐛 Bug Report
+description: Report a bug in MyFamilyButler
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the sections below so we can reproduce and fix it.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear and concise description of the bug.
+      placeholder: "When I send a photo to the WhatsApp bot, it responds with an error."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide a minimal, step-by-step guide to reproduce the issue.
+      placeholder: |
+        1. Send a JPEG photo to the WhatsApp bot
+        2. Wait for processing
+        3. Observe the response
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: "The bot should extract events from the photo and confirm."
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include error messages, logs, or screenshots if possible.
+      placeholder: "The bot replied: 'Sorry, I could not process that image.'"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Help us understand the context.
+      placeholder: |
+        - OS: macOS 15 / Ubuntu 24.04 / Windows 11
+        - Node.js version: 22.x
+        - Browser: Chrome 126
+        - Channel: WhatsApp / Telegram / Web
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Self Checks
+      options:
+        - label: I have searched for existing issues and this is not a duplicate.
+          required: true
+        - label: I am running the latest code on the `main` branch.
+          required: false

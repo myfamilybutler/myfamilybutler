@@ -1,0 +1,11 @@
+# Global fallback owner for the whole repository.
+# Replace with the actual maintainer GitHub username(s).
+* @myfamilybutler
+
+# Domain experts — update these usernames as the maintainer team grows.
+# docs/ @myfamilybutler
+# supabase/migrations/ @myfamilybutler
+# .github/workflows/ @myfamilybutler
+# src/lib/ai/ @myfamilybutler
+# src/lib/channels/ @myfamilybutler
+# src/lib/security/ @myfamilybutler

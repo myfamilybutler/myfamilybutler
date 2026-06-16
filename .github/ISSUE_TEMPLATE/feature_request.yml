@@ -1,0 +1,50 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Please describe the problem and proposed solution clearly.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: What problem are you trying to solve? Why is it important?
+      placeholder: "As a parent, I want to receive a weekly summary of family events so I can plan ahead."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe what you'd like to see happen.
+      placeholder: "Add a new 'weekly digest' setting that sends a summary every Sunday morning."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered other ways to solve this?
+      placeholder: "Users could manually check the dashboard, but a proactive message is more helpful."
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add screenshots, mockups, or links to related discussions.
+      placeholder: "This would be useful for families who primarily use WhatsApp."
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Self Checks
+      options:
+        - label: I have searched for existing issues and this is not a duplicate.
+          required: true
+        - label: I am willing to help implement this feature.
+          required: false

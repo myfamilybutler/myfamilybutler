@@ -1,42 +1,76 @@
-# MyFamilyButler 🏠
+<p align="center">
+  <h1 align="center">MyFamilyButler 🏠</h1>
+  <p align="center">
+    AI-powered family calendar assistant for Austrian households
+  </p>
+  <p align="center">
+    <a href="https://github.com/myfamilybutler/myfamilybutler/blob/main/LICENSE">
+      <img src="https://img.shields.io/github/license/myfamilybutler/myfamilybutler" alt="License">
+    </a>
+    <a href="https://github.com/myfamilybutler/myfamilybutler/actions">
+      <img src="https://img.shields.io/github/actions/workflow/status/myfamilybutler/myfamilybutler/ci.yml?branch=main" alt="CI">
+    </a>
+    <a href="https://github.com/myfamilybutler/myfamilybutler/releases">
+      <img src="https://img.shields.io/github/v/release/myfamilybutler/myfamilybutler" alt="Release">
+    </a>
+    <img src="https://img.shields.io/badge/Node-22+-green.svg" alt="Node 22+">
+  </p>
+</p>
 
-AI-powered family calendar assistant for Austrian households. Manage events,
-reminders, and schedules via WhatsApp, Telegram, or web dashboard.
+---
 
-## Features
+MyFamilyButler helps busy families manage events, reminders, and schedules
+through natural language. Parents can send a quick WhatsApp message like
+"Zahnarzt Montag 10" or snap a photo of a school letter, and the assistant
+creates calendar events automatically.
 
-- 📱 **Multi-Channel** - WhatsApp, Telegram, 360dialog, Web Dashboard
-- 🧠 **AI-Powered** - Natural language event extraction (German/Austrian)
-- 📸 **Vision Processing** - Extract events from school letters & photos
-- 📅 **Google Calendar Sync** - Bidirectional sync with Google Calendar
-- 👨‍👩‍👧‍👦 **Family Sharing** - Shared household calendar
+## ✨ Features
 
-## Tech Stack
+- 📱 **Multi-Channel** — WhatsApp, Telegram, 360dialog, and a responsive web dashboard
+- 🧠 **AI-Powered** — Natural-language event extraction in German/Austrian dialects
+- 📸 **Vision Processing** — Extract events from school letters, appointment cards, and photos
+- 📅 **Google Calendar Sync** — Bidirectional sync with Google Calendar
+- 👨‍👩‍👧‍👦 **Family Sharing** — Shared household calendar with role-aware access
+- 🔐 **Passwordless Login** — Magic-link login from messaging channels
+
+## 🚀 Demo
+
+- **Live app**: *(add your production URL here)*
+- **Landing page**: *(add your marketing URL here)*
+
+<!-- Uncomment once screenshots are available
+<p align="center">
+  <img src="./docs/assets/dashboard-preview.png" alt="Dashboard preview" width="600">
+</p>
+-->
+
+## 🛠️ Tech Stack
 
 | Component   | Technology                                      |
 | ----------- | ----------------------------------------------- |
 | Framework   | Next.js 16 (App Router)                         |
 | Database    | Supabase (PostgreSQL + Auth)                    |
-| AI Primary  | Gemini 3 Flash Preview (free tier)              |
+| AI Primary  | Gemini 3 Flash Preview                          |
 | AI Fallback | OpenAI GPT-4o-mini                              |
 | Messaging   | WhatsApp Cloud API, Telegram Bot API, 360dialog |
 | State       | Zustand                                         |
 | Validation  | Zod                                             |
 | Styling     | Tailwind CSS + shadcn/ui                        |
+| Testing     | Vitest + React Testing Library                  |
 
-## Getting Started
+## 📋 Prerequisites
 
-### Prerequisites
+- [Node.js 22+](https://nodejs.org/) (see [`.nvmrc`](./.nvmrc))
+- [npm](https://www.npmjs.com/) (ships with Node.js)
+- A [Supabase](https://supabase.com/) project
+- A Google AI (Gemini) API key and/or an OpenAI API key
+- (Optional) Messaging provider accounts for WhatsApp, Telegram, or 360dialog
 
-- Node.js 18+
-- Supabase account
-- Google AI API key (Gemini) and/or OpenAI API key
-
-### Installation
+## ⚡ Quick Start
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/myfamilybutler.git
+git clone https://github.com/myfamilybutler/myfamilybutler.git
 cd myfamilybutler
 
 # Install dependencies
@@ -45,11 +79,19 @@ npm install
 # Copy environment variables
 cp .env.local.example .env.local
 
-# Run development server
+# Run the development server
 npm run dev
 ```
 
-### Environment Variables
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+> For a complete local setup guide — including Supabase, messaging channels,
+> and Google Calendar — see [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md).
+
+## 🔑 Environment Variables
+
+The authoritative list lives in [`.env.local.example`](./.env.local.example).
+Key groups:
 
 ```bash
 # Supabase
@@ -75,7 +117,7 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 NEXT_PUBLIC_APP_URL=
 ```
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 src/
@@ -95,51 +137,22 @@ src/
 └── stores/               # Zustand stores
 ```
 
-## AI Provider Strategy
+## 💰 Cost-Optimized AI Strategy
 
-The app uses a **cost-optimized dual-provider strategy**:
+The app uses a **dual-provider strategy** to keep costs low:
 
-1. **Primary: Gemini 3 Flash Preview** (Free tier / $0.075 per 1M tokens)
+1. **Primary: Gemini 3 Flash Preview** (free tier / $0.075 per 1M tokens)
 2. **Fallback: OpenAI GPT-4o-mini** ($0.15 per 1M tokens)
 
 Automatic fallback when Gemini fails or is unavailable.
 
-## Bring Your Own Key (BYOK) Model
+### Bring Your Own Key (BYOK)
 
-To make hosting free for everyone, MyFamilyButler can be configured in a **Bring Your Own Key (BYOK)** structure. Parents obtain their own free Gemini API keys from Google AI Studio and paste them into the dashboard. This offloads AI processing costs, allowing a single hosted instance of this app to support thousands of families for $0/month.
+MyFamilyButler can be configured so each family supplies their own free Gemini
+API key in the dashboard. This offloads AI processing costs, allowing a single
+hosted instance to support thousands of families affordably.
 
-
-## Documentation
-
-Start here:
-- [docs/INDEX.md](./docs/INDEX.md) - Canonical documentation map and reading order
-- [.agents/README.md](./.agents/README.md) - AI agent system overview and coordination rules
-- [.agents/INDEX.md](./.agents/INDEX.md) - Quick reference for all specialized agents
-
-Core governance:
-- [docs/AI_TOOLING_RULEBOOK.md](./docs/AI_TOOLING_RULEBOOK.md) - Hard engineering rules and merge gates
-- [docs/AI_OPERATING_MODEL.md](./docs/AI_OPERATING_MODEL.md) - AI delivery loop (build, review, fix, re-audit)
-- [docs/MULTI_ROLE_REVIEW_TEMPLATE.md](./docs/MULTI_ROLE_REVIEW_TEMPLATE.md) - Major-change review artifact
-
-Engineering and operations:
-- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Runtime boundaries and data flow
-- [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) - Implementation guide and commands
-- [docs/RUNBOOK_SUPABASE_MIGRATIONS.md](./docs/RUNBOOK_SUPABASE_MIGRATIONS.md) - Migration automation and recovery
-- [docs/SECURITY.md](./docs/SECURITY.md) - Security controls and incident flow
-
-Agent configurations (domain-specific rules):
-- [.agents/agents/frontend.md](./.agents/agents/frontend.md) - React/Next.js/UI rules
-- [.agents/agents/backend.md](./.agents/agents/backend.md) - API routes and Server Actions
-- [.agents/agents/supabase.md](./.agents/agents/supabase.md) - Database and RLS policies
-- [.agents/agents/ai-systems.md](./.agents/agents/ai-systems.md) - AI provider configuration
-- [.agents/agents/messaging.md](./.agents/agents/messaging.md) - WhatsApp/Telegram/360dialog
-- [.agents/agents/uxui.md](./.agents/agents/uxui.md) - Design system and accessibility
-- [.agents/agents/architecture.md](./.agents/agents/architecture.md) - System boundaries and data flow
-- [.agents/agents/security.md](./.agents/agents/security.md) - Security controls
-- [.agents/agents/testing.md](./.agents/agents/testing.md) - Test strategy and quality gates
-- [.agents/agents/devops.md](./.agents/agents/devops.md) - CI/CD and infrastructure
-
-## Scripts
+## 🧪 Scripts
 
 ```bash
 npm run dev       # Start development server
@@ -148,13 +161,40 @@ npm run lint      # Run ESLint
 npm test          # Run Vitest tests
 ```
 
-## Contributing
+## 📖 Documentation
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) to learn how you can help improve MyFamilyButler.
+Start here:
+- [docs/INDEX.md](./docs/INDEX.md) — Canonical documentation map and reading order
+- [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) — Implementation guide and commands
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — Runtime boundaries and data flow
+- [docs/SECURITY.md](./docs/SECURITY.md) — Security controls and incident flow
 
-## License
+AI agent system:
+- [.agents/README.md](./.agents/README.md) — AI agent system overview
+- [.agents/INDEX.md](./.agents/INDEX.md) — Quick reference for all specialized agents
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🤝 Contributing
+
+Contributions are welcome! Please read:
+
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — How to report bugs, propose features, and open PRs
+- [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) — Community standards
+- [docs/AI_TOOLING_RULEBOOK.md](./docs/AI_TOOLING_RULEBOOK.md) — Engineering rules and merge gates
+
+Looking for a place to start? Check issues labeled
+[`good first issue`](https://github.com/myfamilybutler/myfamilybutler/labels/good%20first%20issue).
+
+## 🆘 Getting Help
+
+- **Documentation**: [docs/](./docs)
+- **Bug reports & feature requests**: [GitHub Issues](https://github.com/myfamilybutler/myfamilybutler/issues)
+- **Security issues**: Please report privately via
+  [GitHub Security Advisories](https://github.com/myfamilybutler/myfamilybutler/security/advisories/new)
+- **Discussions**: [GitHub Discussions](https://github.com/myfamilybutler/myfamilybutler/discussions)
+
+## 📜 License
+
+This project is licensed under the [MIT License](./LICENSE).
 
 ---
 
