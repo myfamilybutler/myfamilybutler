@@ -68,6 +68,7 @@ function LoginContent() {
   const [error, setError] = useState('');
 
   const urlError = searchParams.get('error');
+  const returnUrl = searchParams.get('returnUrl');
 
   const getUrlErrorMessage = (code: string) => {
     switch (code) {
@@ -83,14 +84,13 @@ function LoginContent() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      const returnUrl = searchParams.get('returnUrl');
       if (returnUrl) {
         router.replace(decodeURIComponent(returnUrl));
       } else {
         router.replace('/dashboard');
       }
     }
-  }, [user, authLoading, router, searchParams]);
+  }, [user, authLoading, router, returnUrl]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
