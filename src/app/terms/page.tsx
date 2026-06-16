@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
+import { BRANDING } from '@/lib/config/branding';
 
 export default function Terms() {
   const { t, i18n } = useTranslation();
@@ -34,11 +35,11 @@ export default function Terms() {
                 bereitgestellt durch:
               </p>
               <div className="mt-4 p-4 bg-muted rounded-lg">
-                <p className="font-medium">MyFamilyButler</p>
-                <p>Khongorzul Gantulga</p>
-                <p>Madleinweg 3</p>
-                <p>6065 Thaur, Österreich</p>
-                <p className="mt-2">E-Mail: info@myfamilybutler.com</p>
+                <p className="font-medium">{BRANDING.appName}</p>
+                <p>{BRANDING.ownerName}</p>
+                <p>{BRANDING.addressStreet}</p>
+                <p>{BRANDING.addressCity}, {BRANDING.addressCountry}</p>
+                <p className="mt-2">E-Mail: {BRANDING.supportEmail}</p>
               </div>
             </section>
 
@@ -92,7 +93,7 @@ export default function Terms() {
               <ul className="list-disc pl-6 space-y-2">
                 <li>Der Vertrag läuft auf unbestimmte Zeit</li>
                 <li>Sie können jederzeit mit einer Frist von 7 Tagen zum Monatsende kündigen</li>
-                <li>Die Kündigung erfolgt per E-Mail an: info@myfamilybutler.com</li>
+                <li>Die Kündigung erfolgt per E-Mail an: {BRANDING.supportEmail}</li>
                 <li>Nach Vertragsende werden Ihre Daten gemäß unserer Datenschutzerklärung gelöscht</li>
                 <li>Eine bereits bezahlte Monatsgebühr wird anteilig nicht erstattet</li>
               </ul>
@@ -175,7 +176,7 @@ export default function Terms() {
               </p>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="font-medium mb-2">Widerruf per E-Mail an:</p>
-                <p>info@myfamilybutler.com</p>
+                <p>{BRANDING.supportEmail}</p>
                 <p className="mt-2 text-sm">
                   Betreff: &quot;Widerruf MyFamilyButler&quot;
                 </p>
@@ -206,7 +207,7 @@ export default function Terms() {
                 </li>
                 <li>
                   <strong>Gerichtsstand:</strong> Für Streitigkeiten ist das sachlich zuständige Gericht in 
-                  Innsbruck zuständig
+                  {BRANDING.jurisdictionCity} zuständig
                 </li>
                 <li>
                   <strong>Salvatorische Klausel:</strong> Sollten einzelne Bestimmungen unwirksam sein, 

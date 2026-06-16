@@ -47,6 +47,7 @@ import type { MessagingChannel, Channel } from './types';
 import type { BrainResult } from '@/lib/ai/types';
 import { resolveConfirmationIntent } from '@/lib/ai/confirmation-resolver';
 import { isAmbiguousFamilyMemberName } from '@/lib/utils/family-members';
+import { log, logError } from '@/lib/utils/logger';
 
 const COMMANDS = {
   dashboard: ['dashboard', 'link', 'login'],
@@ -81,10 +82,10 @@ async function createDefaultReminder(
         reminderTime,
         `⏰ Erinnerung: "${event.title}" in 30 Minuten`
       );
-      console.log(`[Reminder] Created 30-min reminder for event "${event.title}"`);
+      log.info(`[Reminder] Created 30-min reminder for event "${event.title}"`);
     }
   } catch (error) {
-    console.error('[Reminder] Failed to create default reminder:', error);
+    logError('[Reminder] Failed to create default reminder:', error);
     // Non-critical error - don't block event creation
   }
 }
@@ -132,7 +133,7 @@ export async function processMessage(context: PipelineContext): Promise<Pipeline
   const { message, conversationState, startTime, requestId } = context;
 
   try {
-    console.log(`[Pipeline:${requestId}] Processing ${message.type} message`);
+    log.info(`[Pipeline:${requestId}] Processing ${message.type} message`);
 
     if (message.isNewUser) {
       return handleNewUser(context);
@@ -167,7 +168,7 @@ export async function processMessage(context: PipelineContext): Promise<Pipeline
     return processWithBrain(context);
 
   } catch (error) {
-    console.error(`[Pipeline:${requestId}] Error:`, error);
+    logError(`[Pipeline:${requestId}] Error:`, error);
 
     return {
       response: {
@@ -363,7 +364,7 @@ async function handleDraftPending(
     chatHistory
   );
 
-  console.log(`[Pipeline] Draft confirmation intent: ${intentResult.intent}`);
+  log.info(`[Pipeline] Draft confirmation intent: ${intentResult.intent}`);
 
   switch (intentResult.intent) {
     case 'confirm': {
@@ -760,14 +761,14 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
     if (adapter?.downloadMedia) {
       try {
         const buffer = await adapter.downloadMedia(message.mediaRef);
-        console.log(`[Pipeline] Downloaded ${message.type} via ${message.channel}: ${buffer.length} bytes`);
+        log.info(`[Pipeline] Downloaded ${message.type} via ${message.channel}: ${buffer.length} bytes`);
         attachment = {
           buffer,
           mimeType: message.mediaRef.mimeType,
           filename: message.mediaRef.filename,
         };
       } catch (error) {
-        console.error(`[Pipeline] Failed to download ${message.type}:`, error);
+        logError(`[Pipeline] Failed to download ${message.type}:`, error);
       }
     }
     
@@ -792,7 +793,8 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
   const extractionResult = await parseEventWithFallback(
     extractionInput,
     chatHistory,
-    message.familyMembers
+    message.familyMembers,
+    message.householdId
   );
 
   const msgType = message.type as string;
@@ -819,7 +821,7 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
       wasSuccessful: true,
       latencyMs: extractionResult._meta?.latencyMs || 0,
     }
-  ).catch(err => console.error('[Pipeline] AI logging failed:', err));
+  ).catch(err => logError('[Pipeline] AI logging failed:', err));
 
   if (extractionResult.needs_clarification && extractionResult.clarification_question) {
     await setClarifyingState(
@@ -886,7 +888,7 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
     await clearConversationState(message.userId, message.channel);
   }
 
-  const aiResponse = await generateResponseWithFallback(chatHistory, message.content || '');
+  const aiResponse = await generateResponseWithFallback(chatHistory, message.content || '', message.householdId);
 
   return {
     response: {

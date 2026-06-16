@@ -16,6 +16,7 @@ import type {
   MessageType,
 } from '@/lib/core/types';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
+import { logError } from '@/lib/utils/logger';
 import {
   send360DialogMessage,
   send360DialogInteractiveMessage,
@@ -72,7 +73,7 @@ class Dialog360Adapter implements ChannelAdapter {
 
     if (!apiKey) {
       if (process.env.NODE_ENV === 'production') {
-        console.error('[360dialog] CRITICAL: D360_API_KEY not set');
+        logError('[360dialog] CRITICAL: D360_API_KEY not set');
         return false;
       }
       return true;
@@ -237,7 +238,7 @@ class Dialog360Adapter implements ChannelAdapter {
 
       return await send360DialogMessage(phoneNumber, response.text);
     } catch (error) {
-      console.error('[360dialog] Send error:', error);
+      logError('[360dialog] Send error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

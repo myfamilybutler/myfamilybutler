@@ -11,6 +11,7 @@ import { telegramAdapter } from '@/lib/channels/telegram/adapter';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyTelegramSecretToken, maskChatId } from '@/lib/utils/security';
 import { trackIdentityLinked, trackUserCreated, trackDuplicatePrevented } from '@/lib/analytics';
+import { log, logError, logWarn } from '@/lib/utils/logger';
 
 // Ensure adapter registered once
 let telegramAdapterRegistered = false;
@@ -27,7 +28,7 @@ const PENDING_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!isProviderEnabled('telegram')) {
-    console.log('[Telegram Webhook] Provider disabled, ignoring webhook');
+    log.info('[Telegram Webhook] Provider disabled, ignoring webhook');
     return NextResponse.json({ ok: true });
   }
 
@@ -35,18 +36,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const receivedToken = request.headers.get('x-telegram-bot-api-secret-token');
 
   if (!webhookSecret && process.env.NODE_ENV === 'production') {
-    console.error('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET is required in production');
+    logError('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET is required in production');
     return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   if (webhookSecret) {
     if (!verifyTelegramSecretToken(receivedToken, webhookSecret)) {
-      console.error('[Telegram Webhook] Invalid secret token - possible spoofed request');
+      logError('[Telegram Webhook] Invalid secret token - possible spoofed request');
       return NextResponse.json({ ok: true });
     }
-    console.log('[Telegram Webhook] Secret token verified ✓');
+    log.info('[Telegram Webhook] Secret token verified ✓');
   } else {
-    console.warn('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET not set (non-production mode)');
+    logWarn('[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET not set (non-production mode)');
   }
 
   try {
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const message = update.message || update.edited_message;
     if (!message) {
-      console.log('[Telegram Webhook] No message in update, ignoring');
+      log.info('[Telegram Webhook] No message in update, ignoring');
       return NextResponse.json({ ok: true });
     }
 
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
 
       if (!user) {
-        console.error('[Telegram Webhook] Failed to create/find user for phone:', error);
+        logError('[Telegram Webhook] Failed to create/find user for phone:', error);
         await sendTelegramMessage(chatId, '❌ Fehler bei der Registrierung. Bitte versuche es später erneut.');
         return NextResponse.json({ ok: true });
       }
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const linkedUser = await findUserByIdentifier({ telegramChatId: chatId.toString() });
     if (!linkedUser) {
-      console.log(`[Telegram Webhook] User ${maskChatId(chatId)} not linked, requesting phone`);
+      log.info(`[Telegram Webhook] User ${maskChatId(chatId)} not linked, requesting phone`);
 
       PENDING_PHONE_REQUESTS.set(chatId, { timestamp: Date.now() });
       const now = Date.now();
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error('[Telegram Webhook] Error:', error);
+    logError('[Telegram Webhook] Error:', error);
     return NextResponse.json({ ok: true });
   }
 }

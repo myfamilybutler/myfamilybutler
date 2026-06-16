@@ -17,7 +17,7 @@ const require = createRequire(import.meta.url);
 const { getAdminClient } = require('../src/lib/supabase/client');
 
 async function checkAdmin() {
-  const email = 'info@myfamilybutler.com';
+  const email = process.env.ADMIN_EMAIL || 'info@myfamilybutler.com';
   console.log(`Checking admin status for: ${email}`);
 
   const admin = getAdminClient();

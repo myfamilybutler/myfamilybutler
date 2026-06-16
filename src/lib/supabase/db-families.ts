@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { normalizeFamilyMemberName } from '@/lib/utils/family-members';
 import { ensureFamilyMembersForNames } from './family-member-sync';
 import { normalizePhone } from './identity';
+import { logError } from '@/lib/utils/logger';
 
 type InviteStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
 
@@ -48,7 +49,7 @@ export async function createFamilyForUser(
     .single();
   
   if (createError || !household) {
-    console.error('Error creating family:', createError);
+    logError('Error creating family:', createError);
     return null;
   }
   
@@ -63,7 +64,7 @@ export async function createFamilyForUser(
     .eq('id', userId);
   
   if (updateError) {
-    console.error('Error linking user to family:', updateError);
+    logError('Error linking user to family:', updateError);
     return null;
   }
   
@@ -122,7 +123,7 @@ export async function acceptInvite(
   }
   
   // Fallback path for environments where the RPC is missing/outdated.
-  console.error('Error accepting invite (RPC), falling back:', error);
+  logError('Error accepting invite (RPC), falling back:', error);
 
   const { data: pendingInvite, error: pendingInviteError } = await admin
     .from('household_invites')
@@ -133,7 +134,7 @@ export async function acceptInvite(
     .maybeSingle();
 
   if (pendingInviteError || !pendingInvite) {
-    console.error('Fallback accept: pending invite not found:', pendingInviteError);
+    logError('Fallback accept: pending invite not found:', pendingInviteError);
     return false;
   }
 
@@ -156,7 +157,7 @@ export async function acceptInvite(
     .maybeSingle();
 
   if (inviteUpdateError || !acceptedInvite) {
-    console.error('Fallback accept: invite update failed:', inviteUpdateError);
+    logError('Fallback accept: invite update failed:', inviteUpdateError);
     return false;
   }
 
@@ -169,7 +170,7 @@ export async function acceptInvite(
     .eq('id', userId);
 
   if (userUpdateError) {
-    console.error('Fallback accept: user update failed, rolling back invite:', userUpdateError);
+    logError('Fallback accept: user update failed, rolling back invite:', userUpdateError);
     await admin
       .from('household_invites')
       .update({ status: 'pending' })
@@ -209,7 +210,7 @@ export async function createOpenInvite(
     .single();
 
   if (error || !data) {
-    console.error('Error creating open invite:', error);
+    logError('Error creating open invite:', error);
     return null;
   }
 
@@ -240,7 +241,7 @@ export async function createFamilyInvite(
     .maybeSingle();
   
   if (existingUser?.household_id) {
-    console.error('User already belongs to a family');
+    logError('User already belongs to a family');
     return null;
   }
   
@@ -277,7 +278,7 @@ export async function createFamilyInvite(
   }
 
   if (error || !data) {
-    console.error('Error creating invite:', error);
+    logError('Error creating invite:', error);
     return null;
   }
   
@@ -310,7 +311,7 @@ export async function addFamilyMember(
       // Existing member name for this household; treat as idempotent success.
       return true;
     }
-    console.error('Error adding family member:', error);
+    logError('Error adding family member:', error);
     return false;
   }
   
@@ -348,7 +349,7 @@ export async function editFamilyMember(
     if (error.code === '23505') {
       return true;
     }
-    console.error('Error editing family member:', error);
+    logError('Error editing family member:', error);
     return false;
   }
 
@@ -360,7 +361,7 @@ export async function editFamilyMember(
     .eq('family_member_id', memberId);
 
   if (eventsUpdateError) {
-    console.error('Error syncing event family member labels:', eventsUpdateError);
+    logError('Error syncing event family member labels:', eventsUpdateError);
   }
   
   return true;
@@ -382,7 +383,7 @@ export async function deleteFamilyMember(
     .eq('household_id', familyId); // Security: ensure member belongs to user's family
   
   if (error) {
-    console.error('Error deleting family member:', error);
+    logError('Error deleting family member:', error);
     return false;
   }
   
@@ -411,7 +412,7 @@ export async function getFamilyMembers(
   ]);
 
   if (eventMembersResult.error) {
-    console.error('Error fetching event member labels:', eventMembersResult.error);
+    logError('Error fetching event member labels:', eventMembersResult.error);
   } else {
     await ensureFamilyMembersForNames(
       familyId,
@@ -426,11 +427,11 @@ export async function getFamilyMembers(
     .eq('household_id', familyId);
   
   if (usersResult.error) {
-    console.error('Error fetching family users:', usersResult.error);
+    logError('Error fetching family users:', usersResult.error);
   }
   
   if (membersResult.error) {
-    console.error('Error fetching family members:', membersResult.error);
+    logError('Error fetching family members:', membersResult.error);
   }
   
   return {
@@ -457,7 +458,7 @@ export async function getPendingInvites(
     .eq('status', 'pending');
   
   if (error) {
-    console.error('Error fetching pending invites:', error);
+    logError('Error fetching pending invites:', error);
     return [];
   }
   
@@ -593,7 +594,7 @@ export async function createEmailInvite(
   }
 
   if (error || !data) {
-    console.error('Error creating email invite:', error);
+    logError('Error creating email invite:', error);
     return null;
   }
   
@@ -616,7 +617,7 @@ export async function getInviteById(
     .single();
   
   if (error || !data) {
-    console.error('Error fetching invite by ID:', error);
+    logError('Error fetching invite by ID:', error);
     return null;
   }
 
@@ -646,7 +647,7 @@ export async function declineInvite(inviteId: string): Promise<boolean> {
     .maybeSingle();
 
   if (error || !data) {
-    console.error('Error declining invite:', error);
+    logError('Error declining invite:', error);
     return false;
   }
 
@@ -668,7 +669,7 @@ export async function revokeInvite(inviteId: string, familyId: string): Promise<
     .maybeSingle();
 
   if (error || !data) {
-    console.error('Error revoking invite:', error);
+    logError('Error revoking invite:', error);
     return false;
   }
 

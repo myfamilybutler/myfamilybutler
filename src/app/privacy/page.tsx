@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
+import { BRANDING } from '@/lib/config/branding';
 
 export default function Privacy() {
   const { t, i18n } = useTranslation();
@@ -33,11 +34,11 @@ export default function Privacy() {
                 Verantwortlich für die Datenverarbeitung auf dieser Website ist:
               </p>
               <div className="mt-4 p-4 bg-muted rounded-lg">
-                <p className="font-medium">MyFamilyButler</p>
-                <p>Khongorzul Gantulga</p>
-                <p>Madleinweg 3</p>
-                <p>6065 Thaur, Österreich</p>
-                <p className="mt-2">E-Mail: info@myfamilybutler.com</p>
+                <p className="font-medium">{BRANDING.appName}</p>
+                <p>{BRANDING.ownerName}</p>
+                <p>{BRANDING.addressStreet}</p>
+                <p>{BRANDING.addressCity}, {BRANDING.addressCountry}</p>
+                <p className="mt-2">E-Mail: {BRANDING.supportEmail}</p>
               </div>
             </section>
 
@@ -140,7 +141,7 @@ export default function Privacy() {
                 <li><strong>Widerruf der Einwilligung:</strong> Sie können Ihre Einwilligung jederzeit widerrufen</li>
               </ul>
               <p className="mt-4">
-                Zur Ausübung Ihrer Rechte kontaktieren Sie uns bitte unter: <a href="mailto:info@myfamilybutler.com" className="text-primary hover:underline">info@myfamilybutler.com</a>
+                Zur Ausübung Ihrer Rechte kontaktieren Sie uns bitte unter: <a href={`mailto:${BRANDING.supportEmail}`} className="text-primary hover:underline">{BRANDING.supportEmail}</a>
               </p>
             </section>
 

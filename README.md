@@ -104,10 +104,17 @@ The app uses a **cost-optimized dual-provider strategy**:
 
 Automatic fallback when Gemini fails or is unavailable.
 
+## Bring Your Own Key (BYOK) Model
+
+To make hosting free for everyone, MyFamilyButler can be configured in a **Bring Your Own Key (BYOK)** structure. Parents obtain their own free Gemini API keys from Google AI Studio and paste them into the dashboard. This offloads AI processing costs, allowing a single hosted instance of this app to support thousands of families for $0/month.
+
+
 ## Documentation
 
 Start here:
 - [docs/INDEX.md](./docs/INDEX.md) - Canonical documentation map and reading order
+- [.agents/README.md](./.agents/README.md) - AI agent system overview and coordination rules
+- [.agents/INDEX.md](./.agents/INDEX.md) - Quick reference for all specialized agents
 
 Core governance:
 - [docs/AI_TOOLING_RULEBOOK.md](./docs/AI_TOOLING_RULEBOOK.md) - Hard engineering rules and merge gates
@@ -120,6 +127,18 @@ Engineering and operations:
 - [docs/RUNBOOK_SUPABASE_MIGRATIONS.md](./docs/RUNBOOK_SUPABASE_MIGRATIONS.md) - Migration automation and recovery
 - [docs/SECURITY.md](./docs/SECURITY.md) - Security controls and incident flow
 
+Agent configurations (domain-specific rules):
+- [.agents/agents/frontend.md](./.agents/agents/frontend.md) - React/Next.js/UI rules
+- [.agents/agents/backend.md](./.agents/agents/backend.md) - API routes and Server Actions
+- [.agents/agents/supabase.md](./.agents/agents/supabase.md) - Database and RLS policies
+- [.agents/agents/ai-systems.md](./.agents/agents/ai-systems.md) - AI provider configuration
+- [.agents/agents/messaging.md](./.agents/agents/messaging.md) - WhatsApp/Telegram/360dialog
+- [.agents/agents/uxui.md](./.agents/agents/uxui.md) - Design system and accessibility
+- [.agents/agents/architecture.md](./.agents/agents/architecture.md) - System boundaries and data flow
+- [.agents/agents/security.md](./.agents/agents/security.md) - Security controls
+- [.agents/agents/testing.md](./.agents/agents/testing.md) - Test strategy and quality gates
+- [.agents/agents/devops.md](./.agents/agents/devops.md) - CI/CD and infrastructure
+
 ## Scripts
 
 ```bash
@@ -129,10 +148,14 @@ npm run lint      # Run ESLint
 npm test          # Run Vitest tests
 ```
 
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) to learn how you can help improve MyFamilyButler.
+
 ## License
 
-Private - All rights reserved.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-*Last updated: 2026-02-14*
+*Last updated: 2026-06-16*

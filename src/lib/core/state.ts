@@ -7,6 +7,7 @@
 
 import type { ConversationState, Channel } from './types';
 import { getAdminClient } from '@/lib/supabase';
+import { log, logError, logWarn } from '@/lib/utils/logger';
 
 const STATE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const UNDO_TTL_MS = 30 * 1000; // 30 seconds for undo window
@@ -116,7 +117,7 @@ export async function getConversationState(
       .maybeSingle();
 
     if (error) {
-      console.error('[State] Failed to fetch conversation state:', error);
+      logError('[State] Failed to fetch conversation state:', error);
       return readMemoryState(userId, channel);
     }
 
@@ -128,7 +129,7 @@ export async function getConversationState(
     writeMemoryState(userId, channel, parsed);
     return parsed;
   } catch (error) {
-    console.error('[State] Unexpected fetch error:', error);
+    logError('[State] Unexpected fetch error:', error);
     return readMemoryState(userId, channel);
   }
 }
@@ -164,13 +165,13 @@ export async function setConversationState(
       );
 
     if (error) {
-      console.error('[State] Failed to set conversation state:', error);
+      logError('[State] Failed to set conversation state:', error);
       return;
     }
 
-    console.log(`[State] Set conv:${userId}:${channel} to ${state.state} (TTL: ${ttlMs / 1000}s)`);
+    log.info(`[State] Set conv:${userId}:${channel} to ${state.state} (TTL: ${ttlMs / 1000}s)`);
   } catch (error) {
-    console.error('[State] Unexpected set error:', error);
+    logError('[State] Unexpected set error:', error);
   }
 }
 
@@ -193,13 +194,13 @@ export async function clearConversationState(
       .eq('channel', channel);
 
     if (error) {
-      console.error('[State] Failed to clear conversation state:', error);
+      logError('[State] Failed to clear conversation state:', error);
       return;
     }
 
-    console.log(`[State] Cleared conv:${userId}:${channel}`);
+    log.info(`[State] Cleared conv:${userId}:${channel}`);
   } catch (error) {
-    console.error('[State] Unexpected clear error:', error);
+    logError('[State] Unexpected clear error:', error);
   }
 }
 
@@ -290,7 +291,7 @@ export async function setClarifyingState(
   
   // Cap at 3 attempts to prevent infinite loops
   if (attempts > 3) {
-    console.warn(`[State] Max clarification attempts reached for ${userId}`);
+    logWarn(`[State] Max clarification attempts reached for ${userId}`);
     await clearConversationState(userId, channel);
     return;
   }
@@ -338,17 +339,17 @@ export async function cleanupExpiredConversationStates(): Promise<number> {
       .lt('expires_at', new Date().toISOString());
 
     if (error) {
-      console.error('[State] Failed to cleanup expired states:', error);
+      logError('[State] Failed to cleanup expired states:', error);
       return 0;
     }
 
     const deleted = count ?? 0;
     if (deleted > 0) {
-      console.log(`[State] Cleaned up ${deleted} expired conversation states`);
+      log.info(`[State] Cleaned up ${deleted} expired conversation states`);
     }
     return deleted;
   } catch (error) {
-    console.error('[State] Unexpected cleanup error:', error);
+    logError('[State] Unexpected cleanup error:', error);
     return 0;
   }
 }

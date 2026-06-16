@@ -19,6 +19,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { logError } from '@/lib/utils/logger';
 
 interface AddMemberDialogProps {
   open: boolean;
@@ -51,7 +52,7 @@ export function AddMemberDialog({
         toast.error(t('settings.addMemberDialog.toast.qrFailed'));
       }
     } catch (error) {
-      console.error('QR Fetch error:', error);
+      logError('QR Fetch error:', error);
       toast.error(t('common.networkError'));
     } finally {
       setLoading(false);
@@ -104,7 +105,7 @@ export function AddMemberDialog({
         toast.error(data.error || t('settings.addMemberDialog.toast.addFailed'));
       }
     } catch (error) {
-      console.error('Add member error:', error);
+      logError('Add member error:', error);
       toast.error(t('settings.addMemberDialog.toast.addRetry'));
     } finally {
       setLoading(false);

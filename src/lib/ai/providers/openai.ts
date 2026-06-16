@@ -13,6 +13,7 @@ import {
   SingleEventSchema,
   MultiEventSchema,
 } from '../schemas';
+import { logError } from '@/lib/utils/logger';
 import { 
   buildEventExtractorPrompt, 
   buildReminderPrompt,
@@ -105,7 +106,7 @@ export async function parseReminderIntent(
       datetime: new Date(parsed.data.datetime),
     };
   } catch (error) {
-    console.error('[OpenAI] Reminder parsing error:', error);
+    logError('[OpenAI] Reminder parsing error:', error);
     return null;
   }
 }
@@ -185,7 +186,7 @@ export async function parseEventWithClarification(
     // Fallback: Try legacy schemas
     return tryLegacyParsing(parsed);
   } catch (error) {
-    console.error('[OpenAI] Event parsing error:', error);
+    logError('[OpenAI] Event parsing error:', error);
     return { events: [], needs_clarification: false, intent_type: 'unknown' };
   }
 }

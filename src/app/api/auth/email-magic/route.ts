@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { validateEmailLoginToken } from '@/lib/supabase';
+import { log } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
     const token = request.nextUrl.searchParams.get('token');
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     res.cookies.set('session_authenticated', 'true', opts);
     res.cookies.set('session_user_id', session.userId, opts);
 
-    console.log(`[Email Magic] Session created for user: ${session.userId}`);
+    log.info(`[Email Magic] Session created for user: ${session.userId}`);
 
     return res;
 }

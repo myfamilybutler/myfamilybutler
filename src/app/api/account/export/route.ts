@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * GET - Export user data (GDPR: Right to data portability)
@@ -96,7 +97,7 @@ export async function GET() {
     
     return NextResponse.json(exportData);
   } catch (error) {
-    console.error('Export data error:', error);
+    logError('Export data error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

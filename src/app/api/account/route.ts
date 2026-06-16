@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient, normalizePhone } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * GET - Fetch user account data for settings page
@@ -42,7 +43,7 @@ export async function GET() {
             .eq('id', user.id);
         }
       } catch (authError) {
-        console.error('Error fetching auth user:', authError);
+        logError('Error fetching auth user:', authError);
       }
     }
 
@@ -62,7 +63,7 @@ export async function GET() {
     return NextResponse.json({ success: true, data: accountData });
 
   } catch (error) {
-    console.error('Get account error:', error);
+    logError('Get account error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -124,13 +125,13 @@ export async function PUT(request: NextRequest) {
       .eq('id', user.id);
     
     if (updateError) {
-      console.error('Error updating user:', updateError);
+      logError('Error updating user:', updateError);
       return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
     }
     
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Update account error:', error);
+    logError('Update account error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -200,13 +201,13 @@ export async function DELETE() {
       .eq('id', user.id);
     
     if (deleteError) {
-      console.error('Error deleting user:', deleteError);
+      logError('Error deleting user:', deleteError);
       return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
     }
     
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete account error:', error);
+    logError('Delete account error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

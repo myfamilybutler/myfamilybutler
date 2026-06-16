@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { getAdminClient } from '@/lib/supabase';
+import { logWarn } from '@/lib/utils/logger';
 
 export interface ValidSession {
   userId: string;
@@ -73,7 +74,7 @@ export async function validateSession(): Promise<ValidSession> {
       } else {
         // Validation failed - someone trying to hack impersonation?
         // Fallback to real user, ignore fake cookie
-        console.warn(`[Auth] Failed impersonation attempt by ${sessionUserId.value}`);
+        logWarn(`[Auth] Failed impersonation attempt by ${sessionUserId.value}`);
       }
     }
 

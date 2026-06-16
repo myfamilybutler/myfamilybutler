@@ -15,6 +15,7 @@ import { formatDate } from '@/lib/utils';
 import { useSelectedMembers } from '@/stores/filter-store';
 import { useFamilyData } from '@/stores/family-store';
 import { EventDetailDialog } from './event-detail-dialog';
+import { logError } from '@/lib/utils/logger';
 
 interface UpcomingEventsProps {
   events: CalendarEvent[];
@@ -265,7 +266,7 @@ export function UpcomingEvents({
       toast.success(t('calendar.eventDeleted'));
       onEventsChanged?.();
     } catch (error) {
-      console.error('Error deleting event:', error);
+      logError('Error deleting event:', error);
       toast.error(t('calendar.deleteError'));
     } finally {
       setDeletingEventId(null);

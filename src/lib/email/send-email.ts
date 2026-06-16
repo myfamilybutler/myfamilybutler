@@ -1,3 +1,4 @@
+import { log, logError } from '@/lib/utils/logger';
 /**
  * Email sending utility
  * 
@@ -21,7 +22,7 @@ export async function sendLoginEmail(
     magicLink: string
 ): Promise<SendEmailResult> {
     if (!RESEND_API_KEY) {
-        console.error('[Email] RESEND_API_KEY not configured');
+        logError('[Email] RESEND_API_KEY not configured');
         return { success: false, error: 'Email not configured' };
     }
 
@@ -90,14 +91,14 @@ Falls du diese E-Mail nicht angefordert hast, kannst du sie ignorieren.
 
         if (!response.ok) {
             const error = await response.json();
-            console.error('[Email] Resend API error:', error);
+            logError('[Email] Resend API error:', error);
             return { success: false, error: 'Failed to send email' };
         }
 
-        console.log(`[Email] Login email sent to: ${toEmail}`);
+        log.info(`[Email] Login email sent to: ${toEmail}`);
         return { success: true };
     } catch (error) {
-        console.error('[Email] Error sending email:', error);
+        logError('[Email] Error sending email:', error);
         return { success: false, error: 'Email service error' };
     }
 }
@@ -111,7 +112,7 @@ export async function sendInviteEmail(
     inviterName?: string
 ): Promise<SendEmailResult> {
     if (!RESEND_API_KEY) {
-        console.error('[Email] RESEND_API_KEY not configured');
+        logError('[Email] RESEND_API_KEY not configured');
         return { success: false, error: 'Email not configured' };
     }
 
@@ -180,15 +181,15 @@ ${joinLink}
 
         if (!response.ok) {
             const error = await response.json();
-            console.error('[Email] Resend API error:', error);
+            logError('[Email] Resend API error:', error);
             const errorMessage = error.message || error.name || 'Failed to send email';
             return { success: false, error: errorMessage };
         }
 
-        console.log(`[Email] Invite email sent to: ${toEmail}`);
+        log.info(`[Email] Invite email sent to: ${toEmail}`);
         return { success: true };
     } catch (error) {
-        console.error('[Email] Error sending email:', error);
+        logError('[Email] Error sending email:', error);
         return { success: false, error: error instanceof Error ? error.message : 'Email service error' };
     }
 }
@@ -201,7 +202,7 @@ export async function sendVerificationEmail(
     verifyLink: string
 ): Promise<SendEmailResult> {
     if (!RESEND_API_KEY) {
-        console.error('[Email] RESEND_API_KEY not configured');
+        logError('[Email] RESEND_API_KEY not configured');
         return { success: false, error: 'Email not configured' };
     }
 
@@ -270,15 +271,15 @@ If you did not create an account, you can ignore this email.
 
         if (!response.ok) {
             const error = await response.json();
-            console.error('[Email] Resend API error:', error);
+            logError('[Email] Resend API error:', error);
             const errorMessage = error.message || error.name || 'Failed to send email';
             return { success: false, error: errorMessage };
         }
 
-        console.log(`[Email] Verification email sent to: ${toEmail}`);
+        log.info(`[Email] Verification email sent to: ${toEmail}`);
         return { success: true };
     } catch (error) {
-        console.error('[Email] Error sending email:', error);
+        logError('[Email] Error sending email:', error);
         return { success: false, error: error instanceof Error ? error.message : 'Email service error' };
     }
 }

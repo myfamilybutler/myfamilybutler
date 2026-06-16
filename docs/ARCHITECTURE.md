@@ -97,6 +97,7 @@ Model names should mirror `src/lib/ai/providers/*.ts` and `src/actions/process-v
 - Canonical DB migrations: `supabase/migrations/`
 - Concurrency-critical paths must use DB-enforced atomicity (RPC, locks, unique constraints)
 - In-memory maps are optimization-only, never source-of-truth for correctness
+- **AI Agent System**: `.agents/` contains specialized agent configurations for coordinated development. See `.agents/README.md` and `.agents/INDEX.md`.
 
 ## 4. The Data Flow
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * GET - Fetch user by supabaseUserId (for login flow)
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, user });
     
   } catch (error) {
-    console.error('[API] /api/user/me GET error:', error);
+    logError('[API] /api/user/me GET error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -42,7 +43,7 @@ export async function POST() {
     try {
       session = await validateSession();
     } catch (error) {
-      console.error('[API/user/me] Auth failed:', error);
+      logError('[API/user/me] Auth failed:', error);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -57,7 +58,7 @@ export async function POST() {
       .single();
 
     if (userError || !user) {
-      console.error('[API/user/me] User not found for session:', userId);
+      logError('[API/user/me] User not found for session:', userId);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -77,7 +78,7 @@ export async function POST() {
     return NextResponse.json({ success: true, user });
     
   } catch (error) {
-    console.error('[API] /api/user/me error:', error);
+    logError('[API] /api/user/me error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

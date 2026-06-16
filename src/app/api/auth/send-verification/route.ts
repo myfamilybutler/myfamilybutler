@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase/client';
 import { sendVerificationEmail } from '@/lib/email/send-email';
+import { logError } from '@/lib/utils/logger';
 
 export async function POST(request: NextRequest) {
     try {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (error) {
-            console.error('[Verification API] Link generation error:', error);
+            logError('[Verification API] Link generation error:', error);
             // Don't expose specific error (security)
             return NextResponse.json(
                 { success: false, error: 'Failed to generate verification link' },
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
         const verificationLink = data.properties?.action_link;
 
         if (!verificationLink) {
-            console.error('[Verification API] No action_link returned');
+            logError('[Verification API] No action_link returned');
             return NextResponse.json(
                 { success: false, error: 'Failed to generate verification link' },
                 { status: 500 }
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
 
     } catch (error) {
-        console.error('[Verification API] Unexpected error:', error);
+        logError('[Verification API] Unexpected error:', error);
         return NextResponse.json(
             { success: false, error: 'Internal server error' },
             { status: 500 }

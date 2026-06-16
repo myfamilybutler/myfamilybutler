@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
 import { hasGoogleToken, getSelectedCalendar } from '@/lib/auth/vault';
+import { logError } from '@/lib/utils/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('[Google OAuth] Status check error:', error);
+    logError('[Google OAuth] Status check error:', error);
     return NextResponse.json({ connected: false }, { status: 200 });
   }
 }

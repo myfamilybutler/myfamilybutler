@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
 import { AccountSecurityCard } from '@/components/settings/account-security-card';
 import { GoogleCalendarConnectButton } from '@/components/settings/google-calendar-connect';
+import { AIConfigurationCard } from '@/components/settings/ai-configuration-card';
 import { ColorPicker } from '@/components/settings/color-picker';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
@@ -36,13 +37,14 @@ import { FamilyMembersList } from '@/components/dashboard/family-members-list';
 
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 import { useFamilyData } from '@/stores/family-store';
+import { logError } from '@/lib/utils/logger';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { dbUser, signOut } = useAuthStore();
   const { refresh: refreshDashboard } = useDashboardData();
-  const { users, profileMembers, hasHousehold, isHouseholdAdmin, loading: familyLoading, refetch: refetchFamily } = useFamilyData();
+  const { users, profileMembers, hasHousehold, isHouseholdAdmin, hasGeminiKey, loading: familyLoading, refetch: refetchFamily } = useFamilyData();
   
   // Dialog states
   const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
@@ -85,7 +87,7 @@ export default function SettingsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Export error:', error);
+      logError('Export error:', error);
       toast.error(t('settings.exportError'));
     }
   };
@@ -105,7 +107,7 @@ export default function SettingsPage() {
         toast.error(t('settings.deleteAccountError'));
       }
     } catch (error) {
-      console.error('Delete error:', error);
+      logError('Delete error:', error);
     } finally {
       setActionLoading(false);
     }
@@ -127,7 +129,7 @@ export default function SettingsPage() {
         toast.error(t('settings.deleteFamilyError'));
       }
     } catch (error) {
-      console.error('Delete family error:', error);
+      logError('Delete family error:', error);
     } finally {
       setActionLoading(false);
     }
@@ -149,7 +151,7 @@ export default function SettingsPage() {
         toast.error(t('settings.leaveFamilyError'));
       }
     } catch (error) {
-      console.error('Leave error:', error);
+      logError('Leave error:', error);
     } finally {
       setActionLoading(false);
     }
@@ -184,7 +186,7 @@ export default function SettingsPage() {
         toast.error(data.error || t('settings.updateMemberError'));
       }
     } catch (error) {
-      console.error('Edit member error:', error);
+      logError('Edit member error:', error);
       toast.error(t('settings.updateMemberError'));
     } finally {
       setActionLoading(false);
@@ -220,7 +222,7 @@ export default function SettingsPage() {
         toast.error(data.error || t('settings.deleteMemberError'));
       }
     } catch (error) {
-      console.error('Delete member error:', error);
+      logError('Delete member error:', error);
       toast.error(t('settings.deleteMemberError'));
     } finally {
       setActionLoading(false);
@@ -276,6 +278,13 @@ export default function SettingsPage() {
                 dbUser={dbUser} 
                 loading={familyLoading} 
                 onUpdate={handleDataUpdate} 
+              />
+              
+              {/* AI Configuration Section */}
+              <AIConfigurationCard
+                isHouseholdAdmin={isHouseholdAdmin}
+                hasGeminiKey={hasGeminiKey}
+                onUpdate={handleDataUpdate}
               />
               
               {/* Calendar Integrations */}

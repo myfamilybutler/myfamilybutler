@@ -17,6 +17,7 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import type { User, MessageChannel } from '@/types';
 import { getAdminClient } from './client';
+import { log, logError, logWarn } from '@/lib/utils/logger';
 
 // ===========================================
 // Rate Limiting (In-Memory)
@@ -77,7 +78,7 @@ function checkRateLimit(identifier: string): boolean {
   }
   
   if (existing.count >= RATE_LIMIT_MAX_REQUESTS) {
-    console.warn(`[Identity] Rate limited: ${identifier.slice(0, 10)}***`);
+    logWarn(`[Identity] Rate limited: ${identifier.slice(0, 10)}***`);
     return false;
   }
   
@@ -169,7 +170,7 @@ export async function findUserByIdentifier(opts: {
     .or(conditions.join(','));
   
   if (error) {
-    console.error('[Identity] Error finding user:', error);
+    logError('[Identity] Error finding user:', error);
     return null;
   }
   
@@ -185,7 +186,7 @@ export async function findUserByIdentifier(opts: {
     
     // Phone match is highest priority
     if (normalizedPhone && typedUser.phone_number === normalizedPhone) {
-      console.log(`[Identity] Found user by phone: ${typedUser.id}`);
+      log.info(`[Identity] Found user by phone: ${typedUser.id}`);
       return typedUser;
     }
     
@@ -205,7 +206,7 @@ export async function findUserByIdentifier(opts: {
   }
   
   if (bestMatch) {
-    console.log(`[Identity] Found user by ${bestMatch.linked_email === normalizedEmail ? 'email' : 'telegram'}: ${bestMatch.id}`);
+    log.info(`[Identity] Found user by ${bestMatch.linked_email === normalizedEmail ? 'email' : 'telegram'}: ${bestMatch.id}`);
     return bestMatch;
   }
   
@@ -278,7 +279,7 @@ export async function findOrCreateUser(opts: {
   // Log for debugging (masked)
   const phoneHint = normalizedPhone ? `${normalizedPhone.slice(0, 5)}***` : 'none';
   const emailHint = normalizedEmail ? `${normalizedEmail.split('@')[0].slice(0, 3)}***@***` : 'none';
-  console.log(`[Identity] findOrCreateUser - phone: ${phoneHint}, email: ${emailHint}, channel: ${opts.channel || 'unknown'}`);
+  log.info(`[Identity] findOrCreateUser - phone: ${phoneHint}, email: ${emailHint}, channel: ${opts.channel || 'unknown'}`);
   
   // Step 2: Use optimized single-query lookup to find existing user
   const existingUser = await findUserByIdentifier({
@@ -297,7 +298,7 @@ export async function findOrCreateUser(opts: {
       updates.phone_number = normalizedPhone;
       updates.phone_verified = opts.verifyPhone ?? false;
       wasLinked = true;
-      console.log(`[Identity] Linking phone to user ${existingUser.id}`);
+      log.info(`[Identity] Linking phone to user ${existingUser.id}`);
     }
     
     // Update phone verification if coming from messaging channel
@@ -310,14 +311,14 @@ export async function findOrCreateUser(opts: {
       updates.linked_email = normalizedEmail;
       updates.email_verified = false; // Email needs verification
       wasLinked = true;
-      console.log(`[Identity] Linking email to user ${existingUser.id}`);
+      log.info(`[Identity] Linking email to user ${existingUser.id}`);
     }
     
     // Link telegram if missing
     if (opts.telegramChatId && !existingUser.telegram_chat_id) {
       updates.telegram_chat_id = opts.telegramChatId;
       wasLinked = true;
-      console.log(`[Identity] Linking telegram to user ${existingUser.id}`);
+      log.info(`[Identity] Linking telegram to user ${existingUser.id}`);
     }
     
     // Update display name if provided and missing
@@ -340,7 +341,7 @@ export async function findOrCreateUser(opts: {
         .single();
       
       if (updateError) {
-        console.error(`[Identity] Error updating user ${existingUser.id}:`, updateError);
+        logError(`[Identity] Error updating user ${existingUser.id}:`, updateError);
         // Return existing user even if update failed
         return { user: existingUser, isNewUser: false, wasLinked: false };
       }
@@ -352,7 +353,7 @@ export async function findOrCreateUser(opts: {
   }
   
   // Step 6: Create new user
-  console.log(`[Identity] Creating new user`);
+  log.info(`[Identity] Creating new user`);
   
   const insertData: Record<string, unknown> = {
     subscription_status: 'free',
@@ -385,7 +386,7 @@ export async function findOrCreateUser(opts: {
   
   // Handle race condition (another request created user first)
   if (error?.code === '23505') {
-    console.log(`[Identity] Race condition - user already exists, retrying lookup`);
+    log.info(`[Identity] Race condition - user already exists, retrying lookup`);
     // Unique constraint violation - user was just created, try to find them
     const retryUser = await findUserByIdentifier({
       phone: opts.phone,
@@ -396,11 +397,11 @@ export async function findOrCreateUser(opts: {
   }
   
   if (error) {
-    console.error('[Identity] Error creating user:', error);
+    logError('[Identity] Error creating user:', error);
     return { user: null, isNewUser: false, wasLinked: false, error: error.message };
   }
   
-  console.log(`[Identity] Created new user: ${newUser.id}`);
+  log.info(`[Identity] Created new user: ${newUser.id}`);
   return { user: newUser as User, isNewUser: true, wasLinked: false };
 }
 
@@ -450,7 +451,7 @@ export async function linkIdentifierToUser(
     
     updates.phone_number = normalized;
     updates.phone_verified = identifier.verified ?? false;
-    console.log(`[Identity] Linking phone to user ${userId}: ${normalized.slice(0, 5)}***`);
+    log.info(`[Identity] Linking phone to user ${userId}: ${normalized.slice(0, 5)}***`);
   }
   
   // Handle email linking
@@ -477,7 +478,7 @@ export async function linkIdentifierToUser(
     
     updates.linked_email = normalized;
     updates.email_verified = false; // Needs verification
-    console.log(`[Identity] Linking email to user ${userId}`);
+    log.info(`[Identity] Linking email to user ${userId}`);
   }
   
   // Handle telegram linking
@@ -495,7 +496,7 @@ export async function linkIdentifierToUser(
     }
     
     updates.telegram_chat_id = identifier.telegramChatId;
-    console.log(`[Identity] Linking telegram to user ${userId}`);
+    log.info(`[Identity] Linking telegram to user ${userId}`);
   }
   
   // Validate we have something to update
@@ -513,7 +514,7 @@ export async function linkIdentifierToUser(
     .eq('id', userId);
   
   if (error) {
-    console.error(`[Identity] Error linking identifier to user ${userId}:`, error);
+    logError(`[Identity] Error linking identifier to user ${userId}:`, error);
     return { success: false, error: error.message };
   }
   
@@ -546,10 +547,10 @@ export async function markPhoneVerified(
     .eq('phone_number', normalized);
   
   if (error) {
-    console.error(`[Identity] Error marking phone verified for ${userId}:`, error);
+    logError(`[Identity] Error marking phone verified for ${userId}:`, error);
     return false;
   }
   
-  console.log(`[Identity] Phone verified for user ${userId}`);
+  log.info(`[Identity] Phone verified for user ${userId}`);
   return true;
 }

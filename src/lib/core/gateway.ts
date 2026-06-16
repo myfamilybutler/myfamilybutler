@@ -22,6 +22,7 @@ import { isMessageProcessed } from './dedup';
 import { checkRateLimit } from './rate-limit';
 import { getFamilyMembers, logMessage } from '@/lib/supabase';
 import { getTemplate } from '@/lib/ai/response-templates';
+import { log, logError } from '@/lib/utils/logger';
 
 // Module-level adapter storage
 const adapters = new Map<Channel, ChannelAdapter>();
@@ -31,7 +32,7 @@ const adapters = new Map<Channel, ChannelAdapter>();
  */
 export function registerAdapter(adapter: ChannelAdapter): void {
   adapters.set(adapter.name, adapter);
-  console.log(`[Gateway] Registered adapter: ${adapter.displayName}`);
+  log.info(`[Gateway] Registered adapter: ${adapter.displayName}`);
 }
 
 /**
@@ -56,31 +57,31 @@ export async function processMessage(
   const requestId = crypto.randomUUID();
   const startTime = Date.now();
   
-  console.log(`[Gateway:${requestId}] Processing ${channel} message`);
+  log.info(`[Gateway:${requestId}] Processing ${channel} message`);
   
   // Step 1: Get adapter
   const adapter = adapters.get(channel);
   if (!adapter) {
-    console.error(`[Gateway:${requestId}] No adapter for channel: ${channel}`);
+    logError(`[Gateway:${requestId}] No adapter for channel: ${channel}`);
     return { processed: false, reason: 'error' };
   }
   
   // Step 2: Check if provider is enabled
   if (!adapter.isEnabled()) {
-    console.log(`[Gateway:${requestId}] Provider disabled: ${channel}`);
+    log.info(`[Gateway:${requestId}] Provider disabled: ${channel}`);
     return { processed: false, reason: 'provider_disabled' };
   }
   
   // Step 3: Validate signature
   if (!adapter.validateSignature(rawBody, signature)) {
-    console.error(`[Gateway:${requestId}] Invalid signature for ${channel}`);
+    logError(`[Gateway:${requestId}] Invalid signature for ${channel}`);
     return { processed: false, reason: 'error' };
   }
   
   // Step 4: Parse incoming message
   const partialMessage = await adapter.parseIncoming(rawPayload);
   if (!partialMessage) {
-    console.log(`[Gateway:${requestId}] No processable message in payload`);
+    log.info(`[Gateway:${requestId}] No processable message in payload`);
     return { processed: false, reason: 'invalid_message' };
   }
   
@@ -90,7 +91,7 @@ export async function processMessage(
     const messagingChannel = channel as MessagingChannel;
     const isDuplicate = await isMessageProcessed(partialMessage.id, messagingChannel);
     if (isDuplicate) {
-      console.log(`[Gateway:${requestId}] Duplicate message: ${partialMessage.id}`);
+      log.info(`[Gateway:${requestId}] Duplicate message: ${partialMessage.id}`);
       return { processed: false, reason: 'duplicate' };
     }
   }
@@ -104,7 +105,7 @@ export async function processMessage(
   });
   
   if (!identityResult.user) {
-    console.error(`[Gateway:${requestId}] Failed to resolve identity`);
+    logError(`[Gateway:${requestId}] Failed to resolve identity`);
     // Send error response
     await adapter.sendResponse(partialMessage.metadata, {
       text: getTemplate('identityError', 'de'),
@@ -195,7 +196,7 @@ export async function processMessage(
     }
   }
   
-  console.log(`[Gateway:${requestId}] Completed in ${Date.now() - startTime}ms`);
+  log.info(`[Gateway:${requestId}] Completed in ${Date.now() - startTime}ms`);
   
   return {
     processed: true,

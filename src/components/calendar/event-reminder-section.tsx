@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatDate } from '@/lib/utils';
+import { logError } from '@/lib/utils/logger';
 
 interface EventReminderSectionProps {
   eventId: string;
@@ -71,7 +72,7 @@ export function EventReminderSection({
 
       setReminders((result.data || []) as ReminderItem[]);
     } catch (error) {
-      console.error('Error loading reminders:', error);
+      logError('Error loading reminders:', error);
       toast.error(t('calendar.reminders.toast.loadFailed'));
     } finally {
       setIsLoadingReminders(false);
@@ -129,7 +130,7 @@ export function EventReminderSection({
       setCustomTime('');
       await loadReminders();
     } catch (error) {
-      console.error('Error creating reminder:', error);
+      logError('Error creating reminder:', error);
       toast.error(t('calendar.reminders.toast.createFailed'));
     } finally {
       setIsLoading(false);
@@ -151,7 +152,7 @@ export function EventReminderSection({
       toast.success(t('calendar.reminders.toast.removed'));
       await loadReminders();
     } catch (error) {
-      console.error('Error deleting reminder:', error);
+      logError('Error deleting reminder:', error);
       toast.error(t('calendar.reminders.toast.deleteFailed'));
     } finally {
       setDeletingReminderId(null);

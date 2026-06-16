@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { completeGoogleOAuth } from '@/lib/sync/google';
 import { cookies } from 'next/headers';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * GET /api/auth/google/callback
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     // Check for OAuth errors
     if (error) {
-      console.error('[Google OAuth] Callback error:', error);
+      logError('[Google OAuth] Callback error:', error);
       return NextResponse.redirect(
         new URL('/dashboard/settings?google_error=denied', request.url)
       );
@@ -35,14 +36,14 @@ export async function GET(request: NextRequest) {
     const userId = cookieStore.get('google_oauth_user_id')?.value;
 
     if (!storedState || storedState !== state) {
-      console.error('[Google OAuth] State mismatch');
+      logError('[Google OAuth] State mismatch');
       return NextResponse.redirect(
         new URL('/dashboard/settings?google_error=invalid_state', request.url)
       );
     }
 
     if (!userId) {
-      console.error('[Google OAuth] Missing user ID');
+      logError('[Google OAuth] Missing user ID');
       return NextResponse.redirect(
         new URL('/dashboard/settings?google_error=session_expired', request.url)
       );
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('[Google OAuth] Callback error:', error);
+    logError('[Google OAuth] Callback error:', error);
     return NextResponse.redirect(
       new URL('/dashboard/settings?google_error=internal', request.url)
     );

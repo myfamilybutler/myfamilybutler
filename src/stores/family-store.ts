@@ -37,6 +37,8 @@ interface FamilyStore {
   profileMembers: FamilyMember[];
   /** Whether the current user is the household admin (owner) */
   isHouseholdAdmin: boolean;
+  /** Whether the household has a Gemini key configured */
+  hasGeminiKey: boolean;
   /** Loading state */
   loading: boolean;
   /** Error state */
@@ -61,6 +63,7 @@ export const useFamilyStore = create<FamilyStore>()(
     users: [],
     profileMembers: [],
     isHouseholdAdmin: false,
+    hasGeminiKey: false,
     loading: true,
     error: null,
     lastFetchTime: 0,
@@ -131,6 +134,7 @@ export const useFamilyStore = create<FamilyStore>()(
               s.profileMembers = fetchedProfiles;
               s.members = [...fetchedUsers, ...fetchedProfiles];
               s.isHouseholdAdmin = result.data.isHouseholdAdmin || false;
+              s.hasGeminiKey = result.data.hasGeminiKey || false;
               s.error = null;
               s.lastFetchTime = Date.now();
               s.loading = false;
@@ -162,6 +166,7 @@ export const useFamilyStore = create<FamilyStore>()(
           s.users = [];
           s.profileMembers = [];
           s.isHouseholdAdmin = false;
+          s.hasGeminiKey = false;
           s.loading = true;
           s.error = null;
           s.lastFetchTime = 0;
@@ -268,6 +273,7 @@ export function useFamilyData() {
   const users = useFamilyStore((state) => state.users);
   const profileMembers = useFamilyStore((state) => state.profileMembers);
   const isHouseholdAdmin = useFamilyStore((state) => state.isHouseholdAdmin);
+  const hasGeminiKey = useFamilyStore((state) => state.hasGeminiKey);
   const loading = useFamilyStore((state) => state.loading);
   const error = useFamilyStore((state) => state.error);
   const { fetchFamilyMembers } = useFamilyActions();
@@ -299,11 +305,12 @@ export function useFamilyData() {
     getColor,
     hasHousehold,
     isHouseholdAdmin,
+    hasGeminiKey,
     loading,
     error,
     refetch,
   }), [
     members, users, profileMembers, memberNames, memberColors, 
-    getColor, hasHousehold, isHouseholdAdmin, loading, error, refetch
+    getColor, hasHousehold, isHouseholdAdmin, hasGeminiKey, loading, error, refetch
   ]);
 }

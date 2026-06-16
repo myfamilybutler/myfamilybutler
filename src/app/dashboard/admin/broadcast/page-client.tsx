@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Send, Terminal, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
+import { logError } from '@/lib/utils/logger';
 
 export function BroadcastClient() {
   const [message, setMessage] = useState('');
@@ -45,7 +46,7 @@ export function BroadcastClient() {
       setResult({ sent: data.sent, failed: data.failed });
       toast.success(testOnly ? 'Test sent!' : 'Broadcast complete!');
     } catch (error) {
-      console.error(error);
+      logError(error);
       toast.error(error instanceof Error ? error.message : 'Broadcast failed');
     } finally {
       setLoading(false);

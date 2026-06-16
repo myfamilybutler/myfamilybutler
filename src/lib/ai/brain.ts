@@ -18,6 +18,7 @@ import { parseEventWithFallback } from './index';
 import { AI_DECISION_THRESHOLDS } from './constants';
 import { processVoiceMessage } from '@/actions/process-voice';
 import { processVisionMessage } from '@/actions/process-vision';
+import { log, logError } from '@/lib/utils/logger';
 
 const BRAIN_CONFIG = {
   confidenceThreshold: AI_DECISION_THRESHOLDS.save,
@@ -28,7 +29,7 @@ const BRAIN_CONFIG = {
  * Process any input through the unified Brain
  */
 export async function processInput(input: UnifiedInput): Promise<BrainResult> {
-  console.log(`[Brain] Processing ${input.type} for user ${input.userId}`);
+  log.info(`[Brain] Processing ${input.type} for user ${input.userId}`);
   
   try {
     // Route based on input type
@@ -58,7 +59,7 @@ export async function processInput(input: UnifiedInput): Promise<BrainResult> {
         return { action: 'none', events: [], confidence: 0, error: `Unknown type: ${input.type}` };
     }
   } catch (error) {
-    console.error('[Brain] Error:', error);
+    logError('[Brain] Error:', error);
     return {
       action: 'none',
       events: [],
@@ -81,7 +82,7 @@ async function processText(text: string, input: UnifiedInput): Promise<BrainResu
   const confidence = extraction.confidence ?? (extraction.events.length > 0 ? 0.75 : 0.3);
   const { action, clarificationQuestion } = determineAction(extraction, confidence);
   
-  console.log(`[Brain] Text: ${extraction.events.length} events, confidence: ${confidence}, action: ${action}`);
+  log.info(`[Brain] Text: ${extraction.events.length} events, confidence: ${confidence}, action: ${action}`);
   
   return {
     action,
@@ -124,7 +125,7 @@ async function processImage(attachment: { buffer: Buffer; mimeType: string }, in
     confidence
   );
   
-  console.log(`[Brain] Image: ${events.length} events, confidence: ${confidence}, action: ${action}`);
+  log.info(`[Brain] Image: ${events.length} events, confidence: ${confidence}, action: ${action}`);
   
   return {
     action,
@@ -159,7 +160,7 @@ async function processVoice(attachment: { buffer: Buffer; mimeType: string }, in
 async function processDocument(attachment: { buffer: Buffer; mimeType: string; filename?: string }): Promise<BrainResult> {
   // TODO: Implement document text extraction for PDFs
   // For now, return error suggesting user types the content
-  console.log(`[Brain] Document received: ${attachment.filename ?? 'unnamed'} (${attachment.mimeType})`);
+  log.info(`[Brain] Document received: ${attachment.filename ?? 'unnamed'} (${attachment.mimeType})`);
   
   return {
     action: 'ask',

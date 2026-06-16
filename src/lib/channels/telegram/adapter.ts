@@ -16,6 +16,7 @@ import type {
 } from '@/lib/core/types';
 import type { TelegramUpdate, TelegramMessage } from '@/types';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
+import { logError } from '@/lib/utils/logger';
 import {
   sendTelegramMessage,
   sendTelegramMessageWithUrlButton,
@@ -162,7 +163,7 @@ class TelegramAdapter implements ChannelAdapter {
         messageId: result.messageId?.toString(),
       };
     } catch (error) {
-      console.error('[Telegram] Send error:', error);
+      logError('[Telegram] Send error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

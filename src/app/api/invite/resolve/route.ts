@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveInviteByToken, getAdminClient, normalizePhone } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 import { maskPhone } from '@/lib/utils/security';
+import { logError } from '@/lib/utils/logger';
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Invite resolve error:', error);
+    logError('Invite resolve error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

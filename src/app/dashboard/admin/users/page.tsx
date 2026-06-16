@@ -2,6 +2,7 @@ import { getAdminClient } from '@/lib/supabase';
 import { UsersClient } from '@/app/dashboard/admin/users/page-client';
 import { validateSession } from '@/lib/auth/helpers';
 import { redirect } from 'next/navigation';
+import { logError } from '@/lib/utils/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export default async function UsersPage() {
     .limit(50); // Pagination later
 
   if (error) {
-    console.error('Failed to fetch users:', error);
+    logError('Failed to fetch users:', error);
     return <div>Error loading users</div>;
   }
 

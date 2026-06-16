@@ -18,6 +18,7 @@ import type {
 import type { MetaWebhookBody, MetaMessage } from '@/types';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyWhatsAppSignature } from '@/lib/utils/security';
+import { log, logError } from '@/lib/utils/logger';
 import {
   sendWhatsAppMessage,
   sendInteractiveMessage,
@@ -42,11 +43,11 @@ class WhatsAppAdapter implements ChannelAdapter {
     
     if (!appSecret) {
       if (process.env.NODE_ENV === 'production') {
-        console.error('[WhatsApp] CRITICAL: WHATSAPP_APP_SECRET not set');
+        logError('[WhatsApp] CRITICAL: WHATSAPP_APP_SECRET not set');
         return false;
       }
       // Allow in development
-      console.warn('[WhatsApp] DEV MODE: Skipping signature verification');
+      log.warn('[WhatsApp] DEV MODE: Skipping signature verification');
       return true;
     }
     
@@ -206,7 +207,7 @@ class WhatsAppAdapter implements ChannelAdapter {
       const result = await sendWhatsAppMessage(phoneNumber, response.text);
       return result;
     } catch (error) {
-      console.error('[WhatsApp] Send error:', error);
+      logError('[WhatsApp] Send error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

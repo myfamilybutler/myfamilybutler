@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
 import { setSelectedCalendar, getValidGoogleToken } from '@/lib/auth/vault';
+import { logError } from '@/lib/utils/logger';
 
 interface CalendarSelectRequest {
   calendarId: string;
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('[Google OAuth] Calendar select error:', error);
+    logError('[Google OAuth] Calendar select error:', error);
     return NextResponse.json(
       { error: 'Failed to save calendar selection' },
       { status: 500 }

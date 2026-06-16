@@ -17,6 +17,9 @@ import {
 } from '@/lib/ai/agents/vision-agent';
 import { createEventsBulk } from '@/lib/supabase';
 import { isAmbiguousFamilyMemberName } from '@/lib/utils/family-members';
+import { log, logError } from '@/lib/utils/logger';
+import { decrypt } from '@/lib/utils/encryption';
+import { getAdminClient } from '@/lib/supabase/client';
 
 // ===========================================
 // Types
@@ -64,12 +67,33 @@ function getOpenAI(): OpenAI {
 
 let geminiModule: typeof import('@google/generative-ai') | null = null;
 
-async function getGeminiModel() {
+async function getGeminiModel(householdId?: string | null) {
   if (!geminiModule) {
     geminiModule = await import('@google/generative-ai');
   }
   
-  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+  let apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+  
+  if (householdId) {
+    try {
+      const admin = getAdminClient();
+      const { data } = await admin
+        .from('households')
+        .select('gemini_api_key')
+        .eq('id', householdId)
+        .maybeSingle();
+        
+      if (data?.gemini_api_key) {
+        const decrypted = decrypt(data.gemini_api_key);
+        if (decrypted) {
+          apiKey = decrypted;
+        }
+      }
+    } catch (err) {
+      logError('[Vision] Error fetching household key:', err);
+    }
+  }
+  
   if (!apiKey) {
     return null;
   }
@@ -86,12 +110,13 @@ async function getGeminiModel() {
 
 async function extractWithGemini(
   imageBuffer: Buffer,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  householdId?: string | null
 ): Promise<VisionExtractionResponse | null> {
-  const model = await getGeminiModel();
+  const model = await getGeminiModel(householdId);
   
   if (!model) {
-    console.log('[Vision] Gemini not available, skipping');
+    log.info('[Vision] Gemini not available, skipping');
     return null;
   }
 
@@ -113,7 +138,7 @@ async function extractWithGemini(
     let content = response.text();
 
     if (!content) {
-      console.error('[Vision] No response from Gemini');
+      logError('[Vision] No response from Gemini');
       return null;
     }
 
@@ -124,14 +149,14 @@ async function extractWithGemini(
     const validated = VisionExtractionResponseSchema.safeParse(parsed);
 
     if (validated.success) {
-      console.log(`[Vision] Gemini extracted ${validated.data.events.length} events`);
+      log.info(`[Vision] Gemini extracted ${validated.data.events.length} events`);
       return validated.data;
     }
 
-    console.error('[Vision] Gemini validation failed:', validated.error);
+    logError('[Vision] Gemini validation failed:', validated.error);
     return null;
   } catch (error) {
-    console.error('[Vision] Gemini error:', error);
+    logError('[Vision] Gemini error:', error);
     return null;
   }
 }
@@ -168,7 +193,7 @@ async function extractWithOpenAI(
   const content = response.choices[0]?.message?.content;
 
   if (!content) {
-    console.error('[Vision] No response from OpenAI');
+    logError('[Vision] No response from OpenAI');
     return NO_EVENTS_RESPONSE;
   }
 
@@ -177,14 +202,14 @@ async function extractWithOpenAI(
     const validated = VisionExtractionResponseSchema.safeParse(parsed);
 
     if (validated.success) {
-      console.log(`[Vision] OpenAI extracted ${validated.data.events.length} events`);
+      log.info(`[Vision] OpenAI extracted ${validated.data.events.length} events`);
       return validated.data;
     }
 
-    console.error('[Vision] OpenAI validation failed:', validated.error);
+    logError('[Vision] OpenAI validation failed:', validated.error);
     return NO_EVENTS_RESPONSE;
   } catch (parseError) {
-    console.error('[Vision] JSON parse error:', parseError);
+    logError('[Vision] JSON parse error:', parseError);
     return NO_EVENTS_RESPONSE;
   }
 }
@@ -195,16 +220,17 @@ async function extractWithOpenAI(
 
 async function extractEvents(
   imageBuffer: Buffer,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  householdId?: string | null
 ): Promise<VisionExtractionResponse> {
   // Try Gemini first (free/cheap)
-  const geminiResult = await extractWithGemini(imageBuffer, mimeType);
+  const geminiResult = await extractWithGemini(imageBuffer, mimeType, householdId);
   if (geminiResult) {
     return geminiResult;
   }
 
   // Fallback to OpenAI
-  console.log('[Vision] Falling back to OpenAI');
+  log.info('[Vision] Falling back to OpenAI');
   return await extractWithOpenAI(imageBuffer, mimeType);
 }
 
@@ -217,11 +243,11 @@ export async function processVisionMessage(
 ): Promise<ProcessVisionResult> {
   const { imageBuffer, userId, householdId, mimeType } = input;
 
-  console.log(`[Vision] Processing image for user ${userId}: ${imageBuffer.length} bytes`);
+  log.info(`[Vision] Processing image for user ${userId}: ${imageBuffer.length} bytes`);
 
   try {
     // Extract events using AI vision
-    const extraction = await extractEvents(imageBuffer, mimeType);
+    const extraction = await extractEvents(imageBuffer, mimeType, householdId);
 
     if (!extraction.success || extraction.events.length === 0) {
       return {
@@ -272,7 +298,7 @@ export async function processVisionMessage(
       createdFingerprints.has(`${event.title}::${event.event_date}::${event.event_time ?? ''}`)
     );
 
-    console.log(`[Vision] Created ${createdEvents.length} events`);
+    log.info(`[Vision] Created ${createdEvents.length} events`);
 
     return {
       success: true,
@@ -284,7 +310,7 @@ export async function processVisionMessage(
     };
 
   } catch (error) {
-    console.error('[Vision] Processing error:', error);
+    logError('[Vision] Processing error:', error);
     return {
       success: false,
       events: [],

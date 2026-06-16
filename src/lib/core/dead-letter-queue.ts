@@ -5,6 +5,7 @@
  */
 
 import { getAdminClient } from '@/lib/supabase';
+import { logError } from '@/lib/utils/logger';
 
 export interface DeadLetterEntry {
   id?: string;
@@ -43,11 +44,11 @@ export async function addToDeadLetterQueue(
       status: retryCount >= maxRetries ? 'failed_permanently' : 'pending',
     });
 
-    console.error(`[DeadLetter] Added ${jobType} job to DLQ:`, error.message);
+    logError(`[DeadLetter] Added ${jobType} job to DLQ:`, error.message);
   } catch (dlqError) {
     // If DLQ itself fails, log to console as last resort
-    console.error('[DeadLetter] Failed to add to DLQ:', dlqError);
-    console.error('Original error:', error);
+    logError('[DeadLetter] Failed to add to DLQ:', dlqError);
+    logError('Original error:', error);
   }
 }
 
@@ -67,7 +68,7 @@ export async function getPendingDeadLetters(
     .limit(limit);
 
   if (error) {
-    console.error('[DeadLetter] Error fetching pending items:', error);
+    logError('[DeadLetter] Error fetching pending items:', error);
     return [];
   }
 

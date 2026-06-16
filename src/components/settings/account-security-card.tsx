@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, type DbUser } from '@/stores/auth-store';
+import { logError } from '@/lib/utils/logger';
 
 interface AccountSecurityCardProps {
   dbUser: DbUser | null;
@@ -78,7 +79,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         toast.error(data.error || t('settings.accountSecurity.toast.nameUpdateFailed'));
       }
     } catch (error) {
-      console.error('Update error:', error);
+      logError('Update error:', error);
       toast.error(t('settings.accountSecurity.toast.nameUpdateFailed'));
     } finally {
       setSaving(false);
@@ -100,13 +101,13 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
       const data = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
 
       if (!res.ok) {
-        console.error('Resend verification failed:', res.status, data);
+        logError('Resend verification failed:', res.status, data);
         throw new Error(data.error || t('settings.accountSecurity.toast.verificationSendFailed'));
       }
 
       toast.success(t('settings.accountSecurity.toast.verificationSent'));
     } catch (error) {
-      console.error('Resend verification error:', error);
+      logError('Resend verification error:', error);
       toast.error(error instanceof Error ? error.message : t('settings.accountSecurity.toast.verificationSendFailed'));
     } finally {
       setResendingVerification(false);
@@ -142,11 +143,11 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         onUpdate?.();
       } else {
         const data = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
-        console.error('Update email failed:', res.status, data);
+        logError('Update email failed:', res.status, data);
         toast.error(data.error || t('settings.accountSecurity.toast.emailUpdateFailed'));
       }
     } catch (error) {
-      console.error('Update email error:', error);
+      logError('Update email error:', error);
       toast.error(error instanceof Error ? error.message : t('settings.accountSecurity.toast.networkRetry'));
     } finally {
       setSaving(false);
@@ -178,7 +179,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         toast.error(data.error || t('settings.accountSecurity.toast.phoneUpdateFailed'));
       }
     } catch (error) {
-      console.error('Update error:', error);
+      logError('Update error:', error);
       toast.error(t('settings.accountSecurity.toast.phoneUpdateFailed'));
     } finally {
       setSaving(false);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAdminClient } from '@/lib/supabase';
+import { log, logError } from '@/lib/utils/logger';
 
 /**
  * GET - Verify email from link
@@ -22,8 +23,8 @@ export async function GET(request: NextRequest) {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const now = new Date().toISOString();
 
-    console.log('[verify-email] Looking for token hash:', tokenHash.substring(0, 16) + '...');
-    console.log('[verify-email] Current time:', now);
+    log.info('[verify-email] Looking for token hash:', tokenHash.substring(0, 16) + '...');
+    log.info('[verify-email] Current time:', now);
 
     // First, check if token exists at all (for debugging)
     const { data: allTokens } = await admin
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(5);
     
-    console.log('[verify-email] Recent tokens in DB:', allTokens?.map(t => ({
+    log.info('[verify-email] Recent tokens in DB:', allTokens?.map(t => ({
       hash: t.token_hash?.substring(0, 16) + '...',
       email: t.email,
       expires_at: t.expires_at,
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (tokenError || !emailToken) {
-      console.log('[verify-email] Token lookup failed:', { tokenError, emailToken });
+      log.info('[verify-email] Token lookup failed:', { tokenError, emailToken });
       return NextResponse.redirect(`${baseUrl}/dashboard/settings?error=expired_token`);
     }
 
@@ -61,15 +62,15 @@ export async function GET(request: NextRequest) {
       .eq('id', emailToken.user_id);
 
     if (updateError) {
-      console.error('[verify-email] Update error:', updateError);
+      logError('[verify-email] Update error:', updateError);
       return NextResponse.redirect(`${baseUrl}/dashboard/settings?error=update_failed`);
     }
 
-    console.log(`[verify-email] Email verified for user ${emailToken.user_id}: ${emailToken.email}`);
+    log.info(`[verify-email] Email verified for user ${emailToken.user_id}: ${emailToken.email}`);
 
     return NextResponse.redirect(`${baseUrl}/dashboard/settings?verified=true`);
   } catch (error) {
-    console.error('[verify-email] Error:', error);
+    logError('[verify-email] Error:', error);
     return NextResponse.redirect(`${baseUrl}/dashboard/settings?error=server_error`);
   }
 }

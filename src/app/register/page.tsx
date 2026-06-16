@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth-store';
+import { logError } from '@/lib/utils/logger';
 
 export default function RegisterPage() {
   const { t } = useTranslation();
@@ -93,7 +94,7 @@ export default function RegisterPage() {
         }
       }, 1500);
     } catch (err) {
-      console.error('Error signing up:', err);
+      logError('Error signing up:', err);
       
       let errorMessage = t('auth.register.createFailed');
       if (err instanceof Error) {

@@ -2,6 +2,7 @@ import { getAdminClient } from '@/lib/supabase';
 import { AILogsClient } from '@/app/dashboard/admin/ai-logs/page-client';
 import { validateSession } from '@/lib/auth/helpers';
 import { redirect } from 'next/navigation';
+import { logError } from '@/lib/utils/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export default async function AILogsPage() {
     .limit(100);
 
   if (error) {
-    console.error('Failed to fetch AI logs:', error);
+    logError('Failed to fetch AI logs:', error);
     return <div>Error loading logs</div>;
   }
 

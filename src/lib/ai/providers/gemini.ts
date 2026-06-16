@@ -9,35 +9,55 @@ import type { ChatMessage } from '@/types';
 import type { ParsedEvent, EventExtractionResult } from '../types';
 import { EventExtractorResponseSchema } from '../schemas';
 import { buildEventExtractorPrompt, getButlerPersonaPrompt } from '../prompts';
+import { logError } from '@/lib/utils/logger';
+import { decrypt } from '@/lib/utils/encryption';
+import { getAdminClient } from '@/lib/supabase/client';
 
 // ===========================================
 // Dynamic Import for Edge Runtime Compatibility
 // ===========================================
 
 let geminiModule: typeof import('@google/generative-ai') | null = null;
-let geminiModelInstance: import('@google/generative-ai').GenerativeModel | null = null;
 
-async function getGemini() {
-  if (!geminiModelInstance) {
-    if (!geminiModule) {
-      geminiModule = await import('@google/generative-ai');
-    }
-    
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GOOGLE_GEMINI_API_KEY is not configured');
-    }
-    
-    const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
-    geminiModelInstance = genAI.getGenerativeModel({ 
-      model: 'gemini-3-flash-preview',
-      generationConfig: {
-        temperature: 0,
-        maxOutputTokens: 1000,
-      },
-    });
+async function getGemini(householdId?: string | null) {
+  if (!geminiModule) {
+    geminiModule = await import('@google/generative-ai');
   }
-  return geminiModelInstance;
+  
+  let apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+  
+  if (householdId) {
+    try {
+      const admin = getAdminClient();
+      const { data } = await admin
+        .from('households')
+        .select('gemini_api_key')
+        .eq('id', householdId)
+        .maybeSingle();
+        
+      if (data?.gemini_api_key) {
+        const decrypted = decrypt(data.gemini_api_key);
+        if (decrypted) {
+          apiKey = decrypted;
+        }
+      }
+    } catch (err) {
+      logError('[Gemini] Error fetching household key:', err);
+    }
+  }
+
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured');
+  }
+  
+  const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
+  return genAI.getGenerativeModel({ 
+    model: 'gemini-3-flash-preview',
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 1000,
+    },
+  });
 }
 
 // ===========================================
@@ -45,10 +65,26 @@ async function getGemini() {
 // ===========================================
 
 /**
- * Check if Gemini is available (API key configured)
+ * Check if Gemini is available (API key configured globally or for household)
  */
-export function isGeminiAvailable(): boolean {
-  return !!process.env.GOOGLE_GEMINI_API_KEY;
+export async function isGeminiAvailable(householdId?: string | null): Promise<boolean> {
+  if (process.env.GOOGLE_GEMINI_API_KEY) {
+    return true;
+  }
+  if (householdId) {
+    try {
+      const admin = getAdminClient();
+      const { data } = await admin
+        .from('households')
+        .select('gemini_api_key')
+        .eq('id', householdId)
+        .maybeSingle();
+      return !!data?.gemini_api_key;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 // ===========================================
@@ -63,9 +99,10 @@ export function isGeminiAvailable(): boolean {
 export async function parseEventWithGemini(
   message: string,
   conversationHistory?: ChatMessage[],
-  familyMembers?: string[]
+  familyMembers?: string[],
+  householdId?: string | null
 ): Promise<EventExtractionResult> {
-  const model = await getGemini();
+  const model = await getGemini(householdId);
   const systemPrompt = buildEventExtractorPrompt(familyMembers, message);
 
   // Build conversation context
@@ -92,7 +129,7 @@ export async function parseEventWithGemini(
     try {
       parsed = JSON.parse(content);
     } catch (parseError) {
-      console.error('[Gemini] JSON parse failed, attempting recovery:', parseError);
+      logError('[Gemini] JSON parse failed, attempting recovery:', parseError);
       // Try to extract JSON from within the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -131,10 +168,10 @@ export async function parseEventWithGemini(
     }
 
     // SMART_AI_V2: Salvage partial result instead of returning empty
-    console.error('[Gemini] Schema validation failed, attempting salvage:', validated.error);
+    logError('[Gemini] Schema validation failed, attempting salvage:', validated.error);
     return salvagePartialResult(parsed);
   } catch (error) {
-    console.error('[Gemini] Event parsing error:', error);
+    logError('[Gemini] Event parsing error:', error);
     return { events: [], needs_clarification: false, intent_type: 'unknown' };
   }
 }
@@ -226,9 +263,10 @@ export async function parseEventIntentGemini(
  */
 export async function generateGeminiResponse(
   history: ChatMessage[],
-  newMessage: string
+  newMessage: string,
+  householdId?: string | null
 ): Promise<string> {
-  const model = await getGemini();
+  const model = await getGemini(householdId);
   const systemPrompt = getButlerPersonaPrompt();
 
   // Build conversation as single prompt
@@ -246,7 +284,7 @@ export async function generateGeminiResponse(
     const response = await result.response;
     return response.text() || 'Entschuldigung, ich konnte keine Antwort generieren.';
   } catch (error) {
-    console.error('[Gemini] Response generation error:', error);
+    logError('[Gemini] Response generation error:', error);
     throw error;
   }
 }

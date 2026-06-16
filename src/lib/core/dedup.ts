@@ -7,6 +7,7 @@
 
 import type { MessagingChannel } from './types';
 import { getAdminClient } from '@/lib/supabase';
+import { log, logError } from '@/lib/utils/logger';
 
 const DEDUP_WINDOW_MINUTES = 15;
 
@@ -38,12 +39,12 @@ export async function isMessageProcessed(
     if (error) {
       // Check for unique constraint violation (PostgreSQL error code 23505)
       if (error.code === '23505') {
-        console.log(`[Dedup] Duplicate message detected: ${messageId}`);
+        log.info(`[Dedup] Duplicate message detected: ${messageId}`);
         return true;
       }
 
       // Log other errors but don't block processing
-      console.error('[Dedup] Database error:', error);
+      logError('[Dedup] Database error:', error);
       
       // On error, check if message exists to be safe
       const { data, error: checkError } = await admin
@@ -54,7 +55,7 @@ export async function isMessageProcessed(
         .maybeSingle();
 
       if (checkError) {
-        console.error('[Dedup] Check error:', checkError);
+        logError('[Dedup] Check error:', checkError);
         // Fail safe - treat as duplicate to avoid double side effects
         return true;
       }
@@ -65,7 +66,7 @@ export async function isMessageProcessed(
     // Insert successful - message is new
     return false;
   } catch (err) {
-    console.error('[Dedup] Unexpected error:', err);
+    logError('[Dedup] Unexpected error:', err);
     // Fail safe on unexpected errors
     return true;
   }

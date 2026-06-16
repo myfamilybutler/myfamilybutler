@@ -3,6 +3,7 @@
  */
 import type { Reminder, User } from '@/types';
 import { getAdminClient } from './client';
+import { logError } from '@/lib/utils/logger';
 
 export interface ClaimedReminder extends Reminder {
   users: User;
@@ -31,7 +32,7 @@ export async function createReminder(
     .single();
   
   if (error) {
-    console.error('Error creating reminder:', error);
+    logError('Error creating reminder:', error);
     return null;
   }
   
@@ -51,7 +52,7 @@ export async function getPendingReminders(): Promise<(Reminder & { users: User }
     .lte('remind_at', new Date().toISOString());
   
   if (error) {
-    console.error('Error fetching pending reminders:', error);
+    logError('Error fetching pending reminders:', error);
     return [];
   }
   
@@ -73,7 +74,7 @@ export async function updateReminderStatus(
     .eq('id', reminderId);
   
   if (error) {
-    console.error('Error updating reminder status:', error);
+    logError('Error updating reminder status:', error);
     return false;
   }
   
@@ -95,7 +96,7 @@ export async function claimDueReminders(
   });
 
   if (error) {
-    console.error('Error claiming due reminders:', error);
+    logError('Error claiming due reminders:', error);
     return [];
   }
 
@@ -128,7 +129,7 @@ export async function completeClaimedReminder(
     .single();
 
   if (error || !data) {
-    console.error('Error completing claimed reminder:', error);
+    logError('Error completing claimed reminder:', error);
     return false;
   }
 
@@ -150,7 +151,7 @@ export async function claimReminderById(
   });
 
   if (error) {
-    console.error('Error claiming reminder by ID:', error);
+    logError('Error claiming reminder by ID:', error);
     return null;
   }
 

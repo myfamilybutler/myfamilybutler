@@ -11,6 +11,7 @@
  * - Falls back to direct connection if pooler URL not set
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { log } from '@/lib/utils/logger';
 
 // ===========================================
 // Environment Variables
@@ -36,7 +37,7 @@ const supabasePoolerUrl = process.env.SUPABASE_POOLER_URL;
 function getAdminConnectionUrl(): string {
   // In production with pooler configured, use pooler
   if (process.env.NODE_ENV === 'production' && supabasePoolerUrl) {
-    console.log('[Supabase] Using connection pooler');
+    log.info('[Supabase] Using connection pooler');
     return supabasePoolerUrl;
   }
   
@@ -142,5 +143,5 @@ export function getConnectionInfo(): {
 // Log connection mode on module load (development only)
 if (process.env.NODE_ENV === 'development') {
   const info = getConnectionInfo();
-  console.log(`[Supabase] Connection mode: ${info.mode} (${info.url})`);
+  log.info(`[Supabase] Connection mode: ${info.mode} (${info.url})`);
 }

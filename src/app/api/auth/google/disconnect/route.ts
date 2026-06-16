@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
 import { deleteGoogleToken } from '@/lib/auth/vault';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * POST /api/auth/google/disconnect
@@ -25,7 +26,7 @@ export async function POST() {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('[Google OAuth] Disconnect error:', error);
+    logError('[Google OAuth] Disconnect error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { logError } from '@/lib/utils/logger';
 
 interface AutoJoinerProps {
     token?: string;
@@ -94,7 +95,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                     setError(loginData.error || 'Unable to sign in from this invite. Please log in manually.');
                 }
             } catch (err) {
-                console.error('Invite resolve error:', err);
+                logError('Invite resolve error:', err);
                 setError('Could not load invite details.');
             } finally {
                 setLoading(false);
@@ -126,7 +127,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
             }
             setError(data.error || 'Failed to accept invite.');
         } catch (err) {
-            console.error('Invite accept error:', err);
+            logError('Invite accept error:', err);
             setError('Failed to accept invite.');
         } finally {
             setProcessing(null);
@@ -150,7 +151,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
             }
             setError(data.error || 'Failed to decline invite.');
         } catch (err) {
-            console.error('Invite decline error:', err);
+            logError('Invite decline error:', err);
             setError('Failed to decline invite.');
         } finally {
             setProcessing(null);

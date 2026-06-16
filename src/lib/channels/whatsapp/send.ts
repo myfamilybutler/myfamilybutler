@@ -5,6 +5,7 @@
 
 import { fetchWithTimeout } from '../../utils/fetch';
 import { maskPhone, truncateMessage, MAX_MESSAGE_LENGTH } from '../../utils/security';
+import { log, logError } from '@/lib/utils/logger';
 
 const GRAPH_API_VERSION = 'v21.0';
 const BASE_URL = 'https://graph.facebook.com';
@@ -20,7 +21,7 @@ export async function sendWhatsAppMessage(
   const accessToken = process.env.WHATSAPP_API_TOKEN;
 
   if (!phoneNumberId || !accessToken) {
-    console.error('Missing Meta WhatsApp configuration');
+    logError('Missing Meta WhatsApp configuration');
     return { success: false, error: 'Missing Meta WhatsApp configuration' };
   }
 
@@ -30,7 +31,7 @@ export async function sendWhatsAppMessage(
   // Truncate message to prevent API errors
   const truncatedText = truncateMessage(text, MAX_MESSAGE_LENGTH);
 
-  console.log(`[WhatsApp] Sending message to ${maskPhone(normalizedTo)}`);
+  log.info(`[WhatsApp] Sending message to ${maskPhone(normalizedTo)}`);
 
   try {
     const response = await fetchWithTimeout(
@@ -54,20 +55,20 @@ export async function sendWhatsAppMessage(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[WhatsApp] Meta API Error:', JSON.stringify(data, null, 2));
+      logError('[WhatsApp] Meta API Error:', JSON.stringify(data, null, 2));
       return {
         success: false,
         error: data?.error?.message || 'Failed to send message',
       };
     }
 
-    console.log('[WhatsApp] Message sent successfully:', data?.messages?.[0]?.id);
+    log.info('[WhatsApp] Message sent successfully:', data?.messages?.[0]?.id);
     return {
       success: true,
       messageId: data?.messages?.[0]?.id,
     };
   } catch (error) {
-    console.error('[WhatsApp] Send error:', error);
+    logError('[WhatsApp] Send error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -105,7 +106,7 @@ export async function markMessageAsRead(messageId: string): Promise<boolean> {
 
     return response.ok;
   } catch (error) {
-    console.error('[WhatsApp] Mark read error:', error);
+    logError('[WhatsApp] Mark read error:', error);
     return false;
   }
 }
@@ -130,7 +131,7 @@ export async function sendInteractiveMessage(
   const accessToken = process.env.WHATSAPP_API_TOKEN;
 
   if (!phoneNumberId || !accessToken) {
-    console.error('Missing Meta WhatsApp configuration');
+    logError('Missing Meta WhatsApp configuration');
     return { success: false, error: 'Missing Meta WhatsApp configuration' };
   }
 
@@ -143,7 +144,7 @@ export async function sendInteractiveMessage(
   // Truncate body text
   const truncatedBody = truncateMessage(bodyText, MAX_MESSAGE_LENGTH);
 
-  console.log(`[WhatsApp] Sending interactive message to ${maskPhone(normalizedTo)}`);
+  log.info(`[WhatsApp] Sending interactive message to ${maskPhone(normalizedTo)}`);
 
   try {
     const response = await fetchWithTimeout(
@@ -176,18 +177,18 @@ export async function sendInteractiveMessage(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[WhatsApp] Interactive API Error:', JSON.stringify(data, null, 2));
+      logError('[WhatsApp] Interactive API Error:', JSON.stringify(data, null, 2));
       // Fallback to text message if interactive fails
       return sendWhatsAppMessage(to, bodyText);
     }
 
-    console.log('[WhatsApp] Interactive message sent:', data?.messages?.[0]?.id);
+    log.info('[WhatsApp] Interactive message sent:', data?.messages?.[0]?.id);
     return {
       success: true,
       messageId: data?.messages?.[0]?.id,
     };
   } catch (error) {
-    console.error('[WhatsApp] Interactive send error:', error);
+    logError('[WhatsApp] Interactive send error:', error);
     // Fallback to text message
     return sendWhatsAppMessage(to, bodyText);
   }
@@ -215,14 +216,14 @@ export async function sendMessageWithUrlButton(
   const accessToken = process.env.WHATSAPP_API_TOKEN;
 
   if (!phoneNumberId || !accessToken) {
-    console.error('Missing Meta WhatsApp configuration');
+    logError('Missing Meta WhatsApp configuration');
     return { success: false, error: 'Missing Meta WhatsApp configuration' };
   }
 
   const normalizedTo = to.replace(/\D/g, '');
   const truncatedBody = truncateMessage(bodyText, MAX_MESSAGE_LENGTH);
 
-  console.log(`[WhatsApp] Sending CTA URL message to ${maskPhone(normalizedTo)}`);
+  log.info(`[WhatsApp] Sending CTA URL message to ${maskPhone(normalizedTo)}`);
 
   try {
     const response = await fetchWithTimeout(
@@ -256,18 +257,18 @@ export async function sendMessageWithUrlButton(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[WhatsApp] CTA URL API Error:', JSON.stringify(data, null, 2));
+      logError('[WhatsApp] CTA URL API Error:', JSON.stringify(data, null, 2));
       // Fallback to text message with link
       return sendWhatsAppMessage(to, `${bodyText}\n\n🔗 ${button.url}`);
     }
 
-    console.log('[WhatsApp] CTA URL message sent:', data?.messages?.[0]?.id);
+    log.info('[WhatsApp] CTA URL message sent:', data?.messages?.[0]?.id);
     return {
       success: true,
       messageId: data?.messages?.[0]?.id,
     };
   } catch (error) {
-    console.error('[WhatsApp] CTA URL send error:', error);
+    logError('[WhatsApp] CTA URL send error:', error);
     // Fallback to text message with link
     return sendWhatsAppMessage(to, `${bodyText}\n\n🔗 ${button.url}`);
   }
