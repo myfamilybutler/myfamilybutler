@@ -155,3 +155,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) to lea
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+*Last updated: 2026-06-16*
