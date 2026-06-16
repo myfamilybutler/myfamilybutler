@@ -27,6 +27,8 @@ Why this split:
    - `docs/SECURITY.md`
    - `docs/ONBOARDING.md`
    - `docs/WHATSAPP_SETUP.md`
+   - `docs/TROUBLESHOOTING.md`
+   - `docs/ROADMAP.md`
 9. Agent-specific rules (when working in a domain):
    - `.agents/agents/frontend.md`
    - `.agents/agents/backend.md`
@@ -53,6 +55,9 @@ Why this split:
 | `docs/PROJECT_INFO.md` | Snapshot/status summary | No |
 | `docs/ONBOARDING.md` | Product design notes and rollout plan | No (Design/Planned) |
 | `docs/WHATSAPP_SETUP.md` | Provider-specific setup runbook | No (Operational snapshot) |
+| `docs/TROUBLESHOOTING.md` | Common problems and resolutions | No |
+| `docs/ROADMAP.md` | Planned features and priorities | No |
+| `CHANGELOG.md` | Release history | No |
 
 ## Documentation Update Policy
 
@@ -75,4 +80,4 @@ You must update the corresponding source-of-truth docs in the same change.
 
 ---
 
-Last updated: 2026-02-08
+Last updated: 2026-06-16

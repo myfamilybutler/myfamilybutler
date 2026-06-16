@@ -12,10 +12,17 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-async function fetchDbUser(): Promise<import('@/stores/auth-store').DbUser | null> {
+async function fetchDbUser(token?: string): Promise<import('@/stores/auth-store').DbUser | null> {
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
     const response = await fetchWithTimeout('/api/user/me', {
       method: 'POST',
+      headers,
       credentials: 'include',
     });
 
@@ -61,7 +68,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         setAuthState({ user: session.user, dbUserLoading: true, loading: true });
-        const dbUser = await fetchDbUser();
+        const dbUser = await fetchDbUser(session.access_token);
         if (!isMounted) return;
 
         if (!dbUser) {

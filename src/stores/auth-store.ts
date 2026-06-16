@@ -71,8 +71,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
     refreshDbUserPromise = (async () => {
       set({ dbUserLoading: true });
       try {
+        const { data: { session } } = await getSupabase().auth.getSession();
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
         const response = await fetchWithTimeout('/api/user/me', {
           method: 'POST',
+          headers,
           credentials: 'include',
         });
         if (!response.ok) {

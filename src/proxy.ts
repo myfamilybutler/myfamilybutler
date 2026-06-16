@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
-const PROTECTED_PATHS = ['/dashboard', '/onboarding', '/invite/join'];
+const PROTECTED_PATHS = ['/dashboard'];
 const PUBLIC_FILE_REGEX = /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|json|webmanifest)$/;
 
 function isProtectedPath(pathname: string): boolean {

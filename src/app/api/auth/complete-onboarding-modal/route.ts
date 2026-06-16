@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     if (body.skipped) {
       await admin
         .from('users')
-        .update({ onboarding_modal_shown: true, onboarding_completed: true })
+        .update({ onboarding_modal_shown: true })
         .eq('id', userId);
 
       return NextResponse.json({ success: true });
@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
 
     const updates: Record<string, unknown> = {
       onboarding_modal_shown: true,
-      onboarding_completed: true,
     };
 
     if (body.displayName?.trim()) {

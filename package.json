@@ -2,6 +2,21 @@
   "name": "myfamilybutler",
   "version": "0.1.0",
   "private": true,
+  "description": "AI-powered family calendar assistant for Austrian households",
+  "homepage": "https://github.com/myfamilybutler/myfamilybutler#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/myfamilybutler/myfamilybutler.git"
+  },
+  "bugs": {
+    "url": "https://github.com/myfamilybutler/myfamilybutler/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "packageManager": "npm@10.9.8",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

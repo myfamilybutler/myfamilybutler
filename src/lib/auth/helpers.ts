@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getAdminClient } from '@/lib/supabase/client';
 import { logError } from '@/lib/utils/logger';
+import { headers } from 'next/headers';
 
 export interface ValidSession {
   userId: string;
@@ -11,8 +12,19 @@ export interface ValidSession {
  * Throws an error if no valid session is found.
  */
 export async function validateSession(): Promise<ValidSession> {
+  let token: string | undefined;
+  try {
+    const reqHeaders = await headers();
+    const authHeader = reqHeaders.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  } catch {
+    // Ignore errors when headers() is called outside request context
+  }
+
   const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser(token);
 
   if (error || !user) {
     throw new Error('Unauthorized: No valid session found');
