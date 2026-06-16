@@ -91,6 +91,61 @@ export async function findUserById(userId: string): Promise<User | null> {
 }
 
 /**
+ * Ensure a public.users row exists for a Supabase Auth user.
+ * Defensive fallback in case the auth trigger fails or is missing.
+ */
+export async function ensureUserFromAuth(authUser: {
+  id: string;
+  email?: string | null;
+  user_metadata?: { full_name?: string; name?: string };
+}): Promise<User | null> {
+  const admin = getAdminClient();
+
+  const { data: existing } = await admin
+    .from('users')
+    .select('*')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  if (existing) {
+    return existing as User;
+  }
+
+  const { data: newUser, error } = await admin
+    .from('users')
+    .insert({
+      id: authUser.id,
+      linked_email: authUser.email ?? null,
+      display_name:
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        'User',
+      subscription_status: 'free',
+      onboarding_source: 'web',
+      email_verified: !!authUser.email,
+      onboarding_modal_shown: false,
+    })
+    .select()
+    .single();
+
+  if (error?.code === '23505') {
+    const { data } = await admin
+      .from('users')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+    return data as User | null;
+  }
+
+  if (error) {
+    logError('Error ensuring user from auth:', error);
+    return null;
+  }
+
+  return newUser as User;
+}
+
+/**
  * Update user's display name
  */
 export async function updateUserDisplayName(

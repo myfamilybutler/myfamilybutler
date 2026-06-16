@@ -112,8 +112,11 @@ export function useDashboardData() {
 
     setLoading(false); // Show data immediately
 
-    // Step 2: Trigger Sync in background
-    // If sync makes changes, we reload the data
+    // Step 2: Trigger Sync in background (only if user has a household)
+    if (!dashboardResponse?.user?.household_id) {
+      return;
+    }
+
     const hasChanges = await triggerGoogleSync(signal);
     
     if (hasChanges && isMounted.current) {

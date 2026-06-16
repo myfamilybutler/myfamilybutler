@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
+import { ensureUserFromAuth } from '@/lib/supabase/db-users';
 import { validateSession } from '@/lib/auth/helpers';
 import { log } from '@/lib/utils/logger';
 
@@ -24,15 +25,27 @@ export async function GET() {
     const supabase = getAdminClient();
 
     // 1. Fetch User Profile
-    const { data: user, error: userError } = await supabase
+    let { data: user } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
       .single();
 
-    if (userError || !user) {
-      log.error('[API/dashboard] User not found:', userError);
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!user) {
+      log.warn('[API/dashboard] User row missing, creating from auth session:', userId);
+
+      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
+      if (authError || !authUser?.user) {
+        log.error('[API/dashboard] Auth user not found:', authError);
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+
+      user = await ensureUserFromAuth(authUser.user);
+
+      if (!user) {
+        log.error('[API/dashboard] Failed to create missing user row:', userId);
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
     }
 
     // 2. Fetch Events (if user has household)
