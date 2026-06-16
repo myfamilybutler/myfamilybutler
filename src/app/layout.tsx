@@ -5,7 +5,6 @@ import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { I18nProvider } from "@/components/providers/i18n-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from '@/components/layout/theme-provider';
-import { ServiceWorkerCleanup } from "@/components/service-worker-cleanup";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -42,7 +41,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <ServiceWorkerCleanup />
         <PostHogProvider>
           <ThemeProvider
             attribute="class"
