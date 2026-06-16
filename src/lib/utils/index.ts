@@ -8,7 +8,7 @@
 export { cn, formatTime } from './cn';
 
 // Fetch utilities
-export { fetchWithTimeout } from './fetch';
+export { fetchWithTimeout, isAllowedMediaUrl } from './fetch';
 
 // Phone utilities
 export { 

@@ -32,17 +32,27 @@ export async function GET() {
     }
     
     // Get user's messages
-    const { data: messages } = await admin
+    const { data: messages, error: messagesError } = await admin
       .from('messages')
       .select('role, content, type, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true });
-    
+
+    if (messagesError) {
+      logError('Export data: failed to fetch messages:', messagesError);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+
     // Get user's reminders
-    const { data: reminders } = await admin
+    const { data: reminders, error: remindersError } = await admin
       .from('reminders')
       .select('message, remind_at, status, created_at')
       .eq('user_id', user.id);
+
+    if (remindersError) {
+      logError('Export data: failed to fetch reminders:', remindersError);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
     
     // Get household data if exists
     let householdData = null;

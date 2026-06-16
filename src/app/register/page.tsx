@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Loader2, ArrowLeft, UserPlus, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getSupabase } from '@/lib/supabase';
+import { safeReturnUrl } from '@/lib/utils/url';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,18 +60,27 @@ function OAuthButtons({ disabled }: { disabled?: boolean }) {
 export default function RegisterPage() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuthStore();
+  const { user, dbUser, loading: authLoading, dbUserLoading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const returnUrl = searchParams?.get('returnUrl') ?? null;
+
   useEffect(() => {
-    if (!authLoading && user) {
-      router.replace('/dashboard');
+    if (authLoading || dbUserLoading) return;
+
+    if (user) {
+      if (dbUser?.household_id) {
+        router.replace(safeReturnUrl(returnUrl ?? undefined, '/dashboard'));
+      } else {
+        router.replace(safeReturnUrl(returnUrl ?? undefined, '/onboarding'));
+      }
     }
-  }, [user, authLoading, router]);
+  }, [user, dbUser, authLoading, dbUserLoading, router, returnUrl]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +112,7 @@ export default function RegisterPage() {
       }
 
       const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
-      router.push(returnUrl || '/onboarding');
+      router.push(safeReturnUrl(returnUrl, '/onboarding'));
     } catch (err) {
       let errorMessage = t('auth.register.createFailed');
       if (err instanceof Error) {

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       logError('[update-email] Supabase update error:', updateError);
       return NextResponse.json(
-        { error: updateError.message || 'Failed to update email' },
+        { error: 'Failed to update email' },
         { status: 500 }
       );
     }

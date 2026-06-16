@@ -80,8 +80,39 @@ export function EventReminderSection({
   }, [eventId, t]);
 
   useEffect(() => {
-    void loadReminders();
-  }, [loadReminders]);
+    let isMounted = true;
+
+    const runLoad = async () => {
+      setIsLoadingReminders(true);
+      try {
+        const response = await fetch(`/api/reminders?eventId=${encodeURIComponent(eventId)}`);
+        const result = await response.json();
+
+        if (!isMounted) return;
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || t('calendar.reminders.toast.loadFailed'));
+        }
+
+        setReminders((result.data || []) as ReminderItem[]);
+      } catch (error) {
+        logError('Error loading reminders:', error);
+        if (isMounted) {
+          toast.error(t('calendar.reminders.toast.loadFailed'));
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingReminders(false);
+        }
+      }
+    };
+
+    void runLoad();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [eventId, t]);
 
   const handleAddReminder = async () => {
     let remindAt: Date;

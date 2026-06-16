@@ -4,10 +4,10 @@ import { getAdminClient } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { logError } from '@/lib/utils/logger';
+import { validateSession } from '@/lib/auth/helpers';
 
 // Schema for Reminder creation
 const CreateReminderSchema = z.object({
-  userId: z.string().uuid(),
   message: z.string().min(1, "Message is required"),
   remindAt: z.string().datetime(),
 });
@@ -23,10 +23,17 @@ export async function createReminderAction(
   formData: FormData
 ): Promise<ServerActionState> {
   const admin = getAdminClient();
-  
+
+  // SECURITY: Validate session; do not trust client-supplied userId.
+  let session;
+  try {
+    session = await validateSession();
+  } catch {
+    return { success: false, message: 'Unauthorized' };
+  }
+
   // Extract data from FormData
   const rawData = {
-    userId: formData.get('userId'),
     message: formData.get('message'),
     remindAt: formData.get('remindAt'),
   };
@@ -42,13 +49,13 @@ export async function createReminderAction(
     };
   }
 
-  const { userId, message, remindAt } = validatedFields.data;
+  const { message, remindAt } = validatedFields.data;
 
   try {
     const { error } = await admin
       .from('reminders')
       .insert({
-        user_id: userId,
+        user_id: session.userId,
         message,
         remind_at: remindAt,
         status: 'pending',

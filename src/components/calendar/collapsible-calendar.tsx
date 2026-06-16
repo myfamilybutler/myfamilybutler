@@ -71,6 +71,20 @@ export function CollapsibleCalendar({
     return colorsByDate;
   }, [events, memberColors]);
 
+  // Pre-index events by date so render-time lookups are O(1) instead of scanning
+  // the whole events array for each day cell.
+  const { eventsByDate, eventCountByDate } = useMemo(() => {
+    const byDate = new Map<string, CalendarEvent[]>();
+    const countByDate = new Map<string, number>();
+    for (const event of events) {
+      const list = byDate.get(event.event_date) ?? [];
+      list.push(event);
+      byDate.set(event.event_date, list);
+      countByDate.set(event.event_date, (countByDate.get(event.event_date) ?? 0) + 1);
+    }
+    return { eventsByDate: byDate, eventCountByDate: countByDate };
+  }, [events]);
+
   const handleDayClick = (day: Date) => {
     setSelectedDate(day);
   };
@@ -235,12 +249,15 @@ export function CollapsibleCalendar({
                             <div
                               className="h-1.5 w-4 rounded-full"
                               style={{ backgroundColor: dayColors[0] }}
-                              title={events.find(e => {
-                                const d = new Date(day);
-                                const dateStr = format(d, 'yyyy-MM-dd');
-                                return e.event_date === dateStr && 
-                                  (e.family_member ? memberColors.get(e.family_member) === dayColors[0] : true);
-                              })?.family_member || t('calendar.eventFallback')}
+                              title={
+                                eventsByDate
+                                  .get(dateStr)
+                                  ?.find((e) =>
+                                    e.family_member
+                                      ? memberColors.get(e.family_member) === dayColors[0]
+                                      : true
+                                  )?.family_member || t('calendar.eventFallback')
+                              }
                             />
                           ) : (
                             // Multiple events: show dots (increased size from 1.5px to 5px)
@@ -253,11 +270,7 @@ export function CollapsibleCalendar({
                             ))
                           )}
                           {/* Show count if many events */}
-                          {dayColors.length === 3 && events.filter(e => {
-                            const d = new Date(day);
-                            const dateStr = format(d, 'yyyy-MM-dd');
-                            return e.event_date === dateStr;
-                          }).length > 3 && (
+                          {dayColors.length === 3 && (eventCountByDate.get(dateStr) ?? 0) > 3 && (
                             <span className="text-[9px] text-muted-foreground leading-none">+</span>
                           )}
                         </div>

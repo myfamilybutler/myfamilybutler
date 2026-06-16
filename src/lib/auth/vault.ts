@@ -282,14 +282,21 @@ export async function storeSyncToken(
   const admin = getAdminClient();
 
   try {
+    // Upsert so missing rows are created automatically. The table has a unique
+    // constraint on (user_id, provider) that drives the conflict resolution.
     const { error } = await admin
       .from('user_oauth_tokens')
-      .update({ 
-        sync_token: syncToken,
-        last_full_sync_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId)
-      .eq('provider', 'google');
+      .upsert(
+        {
+          user_id: userId,
+          provider: 'google',
+          sync_token: syncToken,
+          last_full_sync_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'user_id,provider',
+        }
+      );
 
     if (error) {
       logError('[OAuth] Error storing sync token:', error);

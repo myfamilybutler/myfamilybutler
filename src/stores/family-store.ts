@@ -51,6 +51,8 @@ interface FamilyStore {
   // Actions
   actions: {
     fetchFamilyMembers: (householdId: string | null) => Promise<void>;
+    /** Mark cached data as stale so the next fetch reloads from the server. */
+    invalidate: () => void;
     reset: () => void;
   };
 }
@@ -160,6 +162,12 @@ export const useFamilyStore = create<FamilyStore>()(
         }
       },
       
+      invalidate: () => {
+        set((s) => {
+          s.lastFetchTime = 0;
+        });
+      },
+
       reset: () => {
         set((s) => {
           s.members = [];
@@ -276,7 +284,7 @@ export function useFamilyData() {
   const hasGeminiKey = useFamilyStore((state) => state.hasGeminiKey);
   const loading = useFamilyStore((state) => state.loading);
   const error = useFamilyStore((state) => state.error);
-  const { fetchFamilyMembers } = useFamilyActions();
+  const { fetchFamilyMembers, invalidate } = useFamilyActions();
   
   // Derived state (these use useMemo internally now)
   const hasHousehold = useHasHousehold();
@@ -289,11 +297,12 @@ export function useFamilyData() {
     return memberColors.get(memberName);
   }, [memberColors]);
 
-  // Stable refetch function
+  // Stable refetch function - forces a fresh fetch regardless of debounce.
   const refetch = useCallback(() => {
     const dbUser = useAuthStore.getState().dbUser;
+    invalidate();
     return fetchFamilyMembers(dbUser?.household_id ?? null);
-  }, [fetchFamilyMembers]);
+  }, [fetchFamilyMembers, invalidate]);
 
   // Stable return object
   return useMemo(() => ({

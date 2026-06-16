@@ -71,3 +71,19 @@ export async function isMessageProcessed(
     return true;
   }
 }
+
+/**
+ * Mark a message as processed after it has been handled successfully.
+ * This should be called only after side effects are committed so retries of
+ * a failed attempt are not silently dropped.
+ */
+export async function markMessageProcessed(
+  messageId: string,
+  channel: MessagingChannel
+): Promise<void> {
+  try {
+    await isMessageProcessed(messageId, channel);
+  } catch (err) {
+    logError('[Dedup] Failed to mark message as processed:', err);
+  }
+}

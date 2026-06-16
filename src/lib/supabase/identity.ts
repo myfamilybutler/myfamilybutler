@@ -15,9 +15,11 @@
  * - This is implicit verification - no SMS costs!
  */
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import type { CountryCode } from 'libphonenumber-js';
 import type { User, MessageChannel } from '@/types';
 import { getAdminClient } from './client';
 import { log, logError, logWarn } from '@/lib/utils/logger';
+import { LRUCache } from '@/lib/utils/lru';
 
 // ===========================================
 // Rate Limiting (In-Memory)
@@ -31,7 +33,7 @@ interface RateLimitEntry {
   windowStart: number;
 }
 
-const rateLimitMap = new Map<string, RateLimitEntry>();
+const rateLimitMap = new LRUCache<string, RateLimitEntry>(10000);
 
 // Cleanup old entries periodically
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
@@ -111,8 +113,9 @@ export function normalizePhone(phone: string): string | null {
     cleaned = '+' + cleaned.slice(2);
   }
   
-  // Try to parse with Austrian default (AT)
-  const parsed = parsePhoneNumberFromString(cleaned, 'AT');
+  // Use a configurable default country (default DE) instead of hard-coding AT.
+  const defaultCountry = process.env.NEXT_PUBLIC_DEFAULT_COUNTRY_CODE || 'DE';
+  const parsed = parsePhoneNumberFromString(cleaned, defaultCountry as CountryCode);
   
   if (parsed && parsed.isValid()) {
     return parsed.format('E.164');
@@ -163,11 +166,13 @@ export async function findUserByIdentifier(opts: {
     return null;
   }
   
-  // Single query with OR conditions
+  // Single query with OR conditions. Cap results so the priority loop below
+  // never processes an unbounded set.
   const { data: users, error } = await admin
     .from('users')
     .select('*')
-    .or(conditions.join(','));
+    .or(conditions.join(','))
+    .limit(10);
   
   if (error) {
     logError('[Identity] Error finding user:', error);

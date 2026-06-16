@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth-store';
+import { useFamilyActions } from '@/stores/family-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { logError } from '@/lib/utils/logger';
@@ -41,6 +43,8 @@ interface InviteResolvePayload {
 
 export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
     const router = useRouter();
+    const refreshDbUser = useAuthStore((state) => state.refreshDbUser);
+    const { invalidate: invalidateFamily } = useFamilyActions();
     const effectiveToken = token || inviteId;
     const returnUrl = useMemo(
         () => encodeURIComponent(`/invite/join?token=${effectiveToken ?? ''}`),
@@ -62,6 +66,8 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
             return;
         }
 
+        let isMounted = true;
+
         const loadInvite = async () => {
             setLoading(true);
             setError('');
@@ -70,6 +76,8 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
             try {
                 const res = await fetch(`/api/invite/resolve?token=${encodeURIComponent(effectiveToken)}`);
                 const data = await res.json();
+
+                if (!isMounted) return;
 
                 if (!res.ok || !data.success) {
                     setError(data.error || 'Invalid or expired invite link.');
@@ -80,14 +88,22 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                 setResolveData(data as InviteResolvePayload);
             } catch (err) {
                 logError('Invite resolve error:', err);
-                setError('Could not load invite details.');
+                if (isMounted) {
+                    setError('Could not load invite details.');
+                }
             } finally {
-                setLoading(false);
-                setProcessing(null);
+                if (isMounted) {
+                    setLoading(false);
+                    setProcessing(null);
+                }
             }
         };
 
         void loadInvite();
+
+        return () => {
+            isMounted = false;
+        };
     }, [effectiveToken, isLoggedIn]);
 
     const handleAccept = async (forceSwitch: boolean = false) => {
@@ -102,6 +118,8 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                await refreshDbUser();
+                invalidateFamily();
                 router.push('/dashboard?joined=true');
                 return;
             }

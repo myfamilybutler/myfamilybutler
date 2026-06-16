@@ -22,10 +22,10 @@ export default async function AILogsPage() {
     redirect('/dashboard');
   }
 
-  // Fetch recent interactions
+  // Fetch recent interactions (explicit columns - avoid pulling full JSONB unless needed)
   const { data: logs, error } = await admin
     .from('ai_interactions')
-    .select('*')
+    .select('id, created_at, user_message, intent_detected, confidence, was_successful, latency_ms, ai_output, error_message, channel')
     .order('created_at', { ascending: false })
     .limit(100);
 

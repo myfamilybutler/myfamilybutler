@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Loader2, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getSupabase } from '@/lib/supabase';
+import { safeReturnUrl } from '@/lib/utils/url';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,7 +62,7 @@ function LoginContent() {
   const router = useRouter();
   const { t } = useTranslation();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useAuthStore();
+  const { user, dbUser, loading: authLoading, dbUserLoading } = useAuthStore();
   const [email, setEmail] = useState(searchParams.get('email') ?? '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -83,14 +84,17 @@ function LoginContent() {
   };
 
   useEffect(() => {
-    if (!authLoading && user) {
-      if (returnUrl) {
-        router.replace(decodeURIComponent(returnUrl));
+    if (authLoading || dbUserLoading) return;
+
+    if (user) {
+      if (!dbUser?.household_id) {
+        // Preserve invite/dashboard context for users who still need onboarding.
+        router.replace(safeReturnUrl(returnUrl ?? undefined, '/onboarding'));
       } else {
-        router.replace('/dashboard');
+        router.replace(safeReturnUrl(returnUrl ?? undefined, '/dashboard'));
       }
     }
-  }, [user, authLoading, router, returnUrl]);
+  }, [user, dbUser, authLoading, dbUserLoading, router, returnUrl]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();

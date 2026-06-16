@@ -19,6 +19,7 @@ import type { MetaWebhookBody, MetaMessage } from '@/types';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { verifyWhatsAppSignature } from '@/lib/utils/security';
 import { log, logError } from '@/lib/utils/logger';
+import { assertDownloadedMediaIsSafe } from '@/lib/utils/media';
 import {
   sendWhatsAppMessage,
   sendInteractiveMessage,
@@ -249,7 +250,14 @@ class WhatsAppAdapter implements ChannelAdapter {
     }
     
     const arrayBuffer = await mediaResponse.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+
+    const validation = assertDownloadedMediaIsSafe(buffer, mediaRef.mimeType || 'application/octet-stream');
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    return buffer;
   }
 }
 

@@ -1,88 +1,71 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
-import { sendWhatsAppMessage } from '@/lib/channels/whatsapp/send';
-import { sendTelegramMessage } from '@/lib/channels/telegram/send';
 import { logError } from '@/lib/utils/logger';
+import { checkRateLimit } from '@/lib/core/rate-limit';
+import { inngest } from '@/lib/inngest';
 
-// Increase timeout for long running broadcasts
-export const maxDuration = 60; 
+// Keep the route timeout conservative; the actual send work now runs in Inngest.
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    // 1. Auth Check
+    // 1. Auth check
     const session = await validateSession();
     const admin = getAdminClient();
-    
-    // Check if requester is admin
-    const { data: requester } = await admin
+
+    const { data: requester, error: requesterError } = await admin
       .from('users')
-      .select('is_admin, phone_number, telegram_chat_id')
+      .select('is_admin, phone_number, telegram_chat_id, onboarding_source')
       .eq('id', session.userId)
       .single();
 
-    if (!requester?.is_admin) {
+    if (requesterError || !requester?.is_admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // 2. Rate limiting (preserved from the original route)
+    const rateKey = `broadcast:${session.userId}`;
+    const allowed = await checkRateLimit(rateKey, 15 * 60 * 1000, 5);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many broadcasts. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    // 3. Parse request body
     const body = await req.json();
-    const { message, channel, testOnly } = body;
+    const {
+      message,
+      channel = 'all',
+      testOnly = false,
+      subject,
+    } = body;
 
-    let targetUsers = [];
+    // 4. Enqueue the background broadcast job
+    await inngest.send({
+      name: 'admin/broadcast.requested',
+      data: {
+        subject,
+        message,
+        channels: channel ? [channel] : undefined,
+        channel,
+        testOnly,
+        requestedBy: session.userId,
+        requester: {
+          phone_number: requester.phone_number,
+          telegram_chat_id: requester.telegram_chat_id,
+          onboarding_source: requester.onboarding_source,
+        },
+      },
+    });
 
-    if (testOnly) {
-      // Send only to self
-      targetUsers = [requester];
-    } else {
-      // Send to all
-      let query = admin.from('users').select('phone_number, telegram_chat_id, onboarding_source');
-      
-      if (channel !== 'all') {
-        query = query.eq('onboarding_source', channel);
-      }
-
-      const { data } = await query;
-      targetUsers = data || [];
-    }
-
-    let sent = 0;
-    let failed = 0;
-
-    // Send logic with simple Promise.all (chunking recommended for huge lists, 
-    // but OK for MVP with < 100 users)
-    // Send logic with batching to avoid rate limits
-    const CHUNK_SIZE = 50;
-    for (let i = 0; i < targetUsers.length; i += CHUNK_SIZE) {
-      const chunk = targetUsers.slice(i, i + CHUNK_SIZE);
-      
-      await Promise.all(chunk.map(async (user) => {
-        try {
-          let success = false;
-          // Determine channel priority
-          if (user.telegram_chat_id && (channel === 'all' || channel === 'telegram')) {
-            const res = await sendTelegramMessage(user.telegram_chat_id, message);
-            if (res.success) success = true;
-          } 
-          
-          if (!success && user.phone_number && (channel === 'all' || channel === 'whatsapp')) {
-             const res = await sendWhatsAppMessage(user.phone_number, message);
-             if (res.success) success = true;
-          }
-
-          if (success) sent++;
-          else failed++;
-        } catch (e) {
-          failed++;
-          logError('Broadcast send error', e);
-        }
-      }));
-      
-      // small delay between chunks
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    return NextResponse.json({ success: true, sent, failed });
-
+    // 5. Return immediately while Inngest handles delivery
+    return NextResponse.json(
+      { accepted: true, message: 'Broadcast queued' },
+      { status: 202 }
+    );
   } catch (error) {
     logError('Broadcast error:', error);
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 });

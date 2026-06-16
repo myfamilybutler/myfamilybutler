@@ -180,29 +180,24 @@ async function updateProfileFromGoogle(
 ): Promise<void> {
   const admin = getAdminClient();
 
-  // Get current user data
-  const { data: user, error: fetchError } = await admin
-    .from('users')
-    .select('display_name, phone_number')
-    .eq('id', userId)
-    .single();
-
-  if (fetchError || !user) {
-    logError('[GoogleOAuth] Failed to fetch user for profile update');
+  if (!googleInfo.name) {
     return;
   }
 
-  // Only update if display_name is missing
-  if (!user.display_name && googleInfo.name) {
-    const { error: updateError } = await admin
-      .from('users')
-      .update({ display_name: googleInfo.name })
-      .eq('id', userId);
+  // Single atomic write: only touch rows where display_name is still NULL.
+  // This is equivalent to `SET display_name = COALESCE(display_name, $1)` for
+  // this use case and avoids the read-update race where another writer sets
+  // display_name between our fetch and update.
+  const { error: updateError } = await admin
+    .from('users')
+    .update({ display_name: googleInfo.name })
+    .eq('id', userId)
+    .is('display_name', null);
 
-    if (updateError) {
-      logError('[GoogleOAuth] Failed to update display_name:', updateError);
-    } else {
-      log.info(`[GoogleOAuth] Updated display_name for user ${userId}`);
-    }
+  if (updateError) {
+    logError('[GoogleOAuth] Failed to update display_name:', updateError);
+    return;
   }
+
+  log.info(`[GoogleOAuth] Ensured display_name for user ${userId}`);
 }

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
-import { useFamilyDataSync } from '@/stores/family-store';
+import { useFamilyDataSync, useFamilyStore } from '@/stores/family-store';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { logError } from '@/lib/utils/logger';
 
@@ -32,9 +32,8 @@ async function fetchDbUser(): Promise<import('@/stores/auth-store').DbUser | nul
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const setUser = useAuthStore((s) => s.setUser);
-  const setDbUser = useAuthStore((s) => s.setDbUser);
-  const setLoading = useAuthStore((s) => s.setLoading);
+  const setAuthState = useAuthStore((s) => s.setAuthState);
+  const resetFamily = useFamilyStore((s) => s.actions.reset);
 
   useFamilyDataSync();
 
@@ -46,16 +45,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!isMounted) return;
 
       if (session?.user) {
-        setUser(session.user);
+        setAuthState({ user: session.user, dbUserLoading: true, loading: true });
         const dbUser = await fetchDbUser();
-        if (isMounted) {
-          setDbUser(dbUser);
-          setLoading(false);
+        if (!isMounted) return;
+
+        if (!dbUser) {
+          // Treat a missing/broken DB user as an authentication failure so
+          // consumers never see an authenticated user without a valid DB row.
+          logError('AuthProvider: dbUser missing for authenticated session; signing out client state');
+          setAuthState({
+            user: null,
+            dbUser: null,
+            dbUserLoading: false,
+            loading: false,
+          });
+          resetFamily();
+          return;
         }
+
+        setAuthState({
+          user: session.user,
+          dbUser,
+          dbUserLoading: false,
+          loading: false,
+        });
       } else {
-        setUser(null);
-        setDbUser(null);
-        setLoading(false);
+        setAuthState({
+          user: null,
+          dbUser: null,
+          dbUserLoading: false,
+          loading: false,
+        });
+        resetFamily();
       }
     }
 
@@ -64,7 +85,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }).catch((err) => {
       if (!isMounted) return;
       logError('AuthProvider: session check failed', err);
-      setLoading(false);
+      setAuthState({
+        user: null,
+        dbUser: null,
+        dbUserLoading: false,
+        loading: false,
+      });
+      resetFamily();
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -72,9 +99,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (!isMounted) return;
 
         if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setDbUser(null);
-          setLoading(false);
+          setAuthState({
+            user: null,
+            dbUser: null,
+            dbUserLoading: false,
+            loading: false,
+          });
+          resetFamily();
         } else {
           await handleSession(session);
         }
@@ -85,7 +116,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [setUser, setLoading, setDbUser]);
+  }, [setAuthState, resetFamily]);
 
   return <>{children}</>;
 }

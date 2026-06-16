@@ -10,6 +10,7 @@ import { getFamilyMembers } from '@/lib/supabase';
 import type { Event, User } from '@/types';
 import { APP_CONFIG } from '@/lib/config';
 import { log, logError } from '@/lib/utils/logger';
+import { LRUCache } from '@/lib/utils/lru';
 
 // ===========================================
 // Types
@@ -62,7 +63,7 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-const contextCache = new Map<string, CacheEntry>();
+const contextCache = new LRUCache<string, CacheEntry>(1000);
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_TIMEZONE = APP_CONFIG.localization.timezone;
 

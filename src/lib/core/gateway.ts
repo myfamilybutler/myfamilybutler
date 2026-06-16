@@ -18,7 +18,7 @@ import type {
 import { processMessage as processPipeline } from './pipeline';
 import { getConversationState } from './state';
 import { findOrCreateUser } from '@/lib/supabase/identity';
-import { isMessageProcessed } from './dedup';
+import { markMessageProcessed } from './dedup';
 import { checkRateLimit } from './rate-limit';
 import { getFamilyMembers, logMessage } from '@/lib/supabase';
 import { getTemplate } from '@/lib/ai/response-templates';
@@ -85,16 +85,7 @@ export async function processMessage(
     return { processed: false, reason: 'invalid_message' };
   }
   
-  // Step 5: Deduplication check
-  if (!options.skipDedup) {
-    // Only check dedup for messaging channels
-    const messagingChannel = channel as MessagingChannel;
-    const isDuplicate = await isMessageProcessed(partialMessage.id, messagingChannel);
-    if (isDuplicate) {
-      log.info(`[Gateway:${requestId}] Duplicate message: ${partialMessage.id}`);
-      return { processed: false, reason: 'duplicate' };
-    }
-  }
+
   
   // Step 6: Identity resolution
   const identityResult = await findOrCreateUser({
@@ -151,7 +142,9 @@ export async function processMessage(
   
   // Step 11: Mark as read (non-blocking)
   if (adapter.markAsRead) {
-    adapter.markAsRead(message.id).catch(() => {});
+    adapter.markAsRead(message.id).catch((error) => {
+      logError(`[Gateway:${requestId}] Failed to mark message as read:`, error);
+    });
   }
   
   // Step 12: Log user message
@@ -180,9 +173,11 @@ export async function processMessage(
   });
   
   // Step 14: Send response
+  let responseSent = false;
   if (pipelineResult.response && !pipelineResult.response.metadata?.skipSend) {
     const sendResult = await adapter.sendResponse(message.metadata, pipelineResult.response);
-    
+    responseSent = sendResult.success;
+
     // Log assistant message
     if (sendResult.success && pipelineResult.response.metadata?.shouldLog !== false) {
       await logMessage(
@@ -194,10 +189,19 @@ export async function processMessage(
         loggableChannel
       );
     }
+  } else {
+    responseSent = true;
   }
-  
+
+  // Step 15: Mark message as processed only after successful handling.
+  // Keeping this until the end prevents Inngest retries of a failed attempt
+  // from being treated as duplicates and silently dropped.
+  if (!options.skipDedup && responseSent) {
+    await markMessageProcessed(partialMessage.id, channel as MessagingChannel);
+  }
+
   log.info(`[Gateway:${requestId}] Completed in ${Date.now() - startTime}ms`);
-  
+
   return {
     processed: true,
     pipelineResult,

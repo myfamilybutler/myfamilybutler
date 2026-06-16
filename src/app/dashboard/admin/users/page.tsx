@@ -25,7 +25,7 @@ export default async function UsersPage() {
 
   const { data: users, error } = await admin
     .from('users')
-    .select('*')
+    .select('id, phone_number, display_name, subscription_status, created_at, onboarding_source, is_admin')
     .order('created_at', { ascending: false })
     .limit(50); // Pagination later
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { format, parseISO, isBefore, startOfDay, addDays } from 'date-fns';
 import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Hand } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, PanInfo, AnimatePresence } from 'framer-motion';
@@ -48,16 +48,23 @@ function SwipeableEventCard({ event, onSelect, onEdit, onDelete, isDeleting, sho
   const x = useMotionValue(0);
   const [isDragging, setIsDragging] = useState(false);
   const [hintVisible, setHintVisible] = useState(showSwipeHint);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-dismiss hint after 5 seconds
   useEffect(() => {
     if (hintVisible) {
-      const timer = setTimeout(() => {
+      hintTimerRef.current = setTimeout(() => {
+        hintTimerRef.current = null;
         setHintVisible(false);
         onHintDismiss?.();
       }, 5000);
-      return () => clearTimeout(timer);
     }
+    return () => {
+      if (hintTimerRef.current) {
+        clearTimeout(hintTimerRef.current);
+        hintTimerRef.current = null;
+      }
+    };
   }, [hintVisible, onHintDismiss]);
   
   const actionsOpacity = useTransform(x, [-120, -60, 0], [1, 0.5, 0]);

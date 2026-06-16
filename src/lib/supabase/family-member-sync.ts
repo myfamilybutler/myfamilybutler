@@ -20,7 +20,7 @@ export async function ensureAndResolveFamilyMemberIds(
   }
 
   const admin = getAdminClient();
-  let membersResult = await admin
+  const membersResult = await admin
     .from('family_members')
     .select('id, name')
     .eq('household_id', householdId);
@@ -56,34 +56,37 @@ export async function ensureAndResolveFamilyMemberIds(
     return !existingFamilyKeys.has(key) && !existingUserKeys.has(key);
   });
 
-  for (const name of missingNames) {
-    const normalized = normalizeFamilyMemberName(name);
-    const { error } = await admin
-      .from('family_members')
-      .insert({
-        household_id: householdId,
-        name: normalized,
-      });
+  // Batch upsert all missing members. onConflict + ignoreDuplicates skips rows
+  // that already exist (e.g., inserted by a concurrent request) and .select()
+  // returns only the newly inserted rows, avoiding a second full table read.
+  const insertedRows: Array<{ id: string; name: string }> = [];
+  if (missingNames.length > 0) {
+    const missingRows = missingNames.map((name) => ({
+      household_id: householdId,
+      name: normalizeFamilyMemberName(name),
+    }));
 
-    // Unique violations are expected in race windows and can be ignored.
-    if (error && error.code !== '23505') {
-      logError('[FamilyMemberSync] Failed inserting family member:', error);
+    const { data: insertData, error: insertError } = await admin
+      .from('family_members')
+      .upsert(missingRows, {
+        onConflict: 'household_id,name',
+        ignoreDuplicates: true,
+      })
+      .select('id, name');
+
+    if (insertError && insertError.code !== '23505') {
+      logError('[FamilyMemberSync] Failed batch upserting family members:', insertError);
+    }
+
+    for (const row of insertData ?? []) {
+      insertedRows.push(row as { id: string; name: string });
     }
   }
 
-  // Refresh profile members after any insert attempts so callers can resolve IDs.
-  membersResult = await admin
-    .from('family_members')
-    .select('id, name')
-    .eq('household_id', householdId);
-
-  if (membersResult.error) {
-    logError('[FamilyMemberSync] Failed reading family_members after sync:', membersResult.error);
-    return new Map();
-  }
-
+  // Build the map from the original read plus the rows we just inserted.
+  // We intentionally avoid re-reading the entire table again.
   const byNameKey = new Map<string, string>();
-  for (const row of membersResult.data ?? []) {
+  for (const row of (membersResult.data ?? []).concat(insertedRows)) {
     if (!row.name) continue;
     const key = familyMemberNameKey(row.name);
     byNameKey.set(key, row.id);

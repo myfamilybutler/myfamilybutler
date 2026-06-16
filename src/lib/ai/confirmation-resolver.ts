@@ -9,10 +9,8 @@
 
 import OpenAI from 'openai';
 import { detectLanguage } from './response-templates';
-import { isGeminiAvailable } from './providers/gemini';
+import { isGeminiAvailable, getHouseholdGeminiKey } from './providers/gemini';
 import { log, logError } from '@/lib/utils/logger';
-import { decrypt } from '@/lib/utils/encryption';
-import { getAdminClient } from '@/lib/supabase/client';
 
 export type ConfirmationIntent = 
   | 'confirm'           // User wants to save the event
@@ -62,36 +60,16 @@ async function getGemini(householdId?: string | null) {
   if (!geminiModule) {
     geminiModule = await import('@google/generative-ai');
   }
-  
-  let apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-  
-  if (householdId) {
-    try {
-      const admin = getAdminClient();
-      const { data } = await admin
-        .from('households')
-        .select('gemini_api_key')
-        .eq('id', householdId)
-        .maybeSingle();
-        
-      if (data?.gemini_api_key) {
-        const decrypted = decrypt(data.gemini_api_key);
-        if (decrypted) {
-          apiKey = decrypted;
-        }
-      }
-    } catch (err) {
-      logError('[ConfirmationResolver] Error fetching household key:', err);
-    }
-  }
+
+  const apiKey = await getHouseholdGeminiKey(householdId);
 
   if (!apiKey) {
     throw new Error('GOOGLE_GEMINI_API_KEY is not configured');
   }
-  
+
   const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ 
-    model: 'gemini-3-flash-preview',
+  return genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash',
     generationConfig: {
       temperature: 0.2,
       maxOutputTokens: 300,

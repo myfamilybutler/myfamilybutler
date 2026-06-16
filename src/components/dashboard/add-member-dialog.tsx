@@ -20,6 +20,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { logError } from '@/lib/utils/logger';
+import { useFamilyActions } from '@/stores/family-store';
 
 interface AddMemberDialogProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function AddMemberDialog({
   onSuccess
 }: AddMemberDialogProps) {
   const { t } = useTranslation();
+  const { invalidate: invalidateFamily } = useFamilyActions();
   const [loading, setLoading] = useState(false);
   const [invitePhone, setInvitePhone] = useState('');
   const [memberName, setMemberName] = useState('');
@@ -40,12 +42,12 @@ export function AddMemberDialog({
 
   const fetchQrToken = useCallback(async () => {
     if (qrToken) return;
-    
+
     setLoading(true);
     try {
       const res = await fetch('/api/family/qr', { method: 'POST' });
       const data = await res.json();
-      
+
       if (res.ok && data.token) {
         setQrToken(data.token);
       } else {
@@ -62,11 +64,42 @@ export function AddMemberDialog({
   useEffect(() => {
     if (!open) {
       setQrToken(null);
-    } else {
-      // Fetch token immediately if opening to default tab
-      fetchQrToken();
+      return;
     }
-  }, [open, fetchQrToken]);
+
+    let isMounted = true;
+
+    const fetchToken = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/family/qr', { method: 'POST' });
+        const data = await res.json();
+
+        if (!isMounted) return;
+
+        if (res.ok && data.token) {
+          setQrToken(data.token);
+        } else {
+          toast.error(t('settings.addMemberDialog.toast.qrFailed'));
+        }
+      } catch (error) {
+        logError('QR Fetch error:', error);
+        if (isMounted) {
+          toast.error(t('common.networkError'));
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void fetchToken();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [open, t]);
 
   const [email, setEmail] = useState('');
 
@@ -100,6 +133,7 @@ export function AddMemberDialog({
         setMemberName('');
         setEmail('');
         onOpenChange(false);
+        invalidateFamily();
         if (onSuccess) onSuccess();
       } else {
         toast.error(data.error || t('settings.addMemberDialog.toast.addFailed'));

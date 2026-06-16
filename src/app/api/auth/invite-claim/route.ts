@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Accept the invite
-    const success = await acceptInvite(userId, invite.inviteId, invite.householdId);
+    const success = await acceptInvite(userId, invite.inviteId, invite.householdId, forceSwitch);
 
     if (!success) {
         return NextResponse.json({ error: 'Failed to accept invite' }, { status: 500 });

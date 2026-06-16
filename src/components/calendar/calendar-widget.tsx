@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   format,
   startOfMonth,
@@ -69,7 +69,18 @@ export function CalendarWidget({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
   const isDragging = useRef(false);
+  const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { t, i18n } = useTranslation();
+
+  // Clear any pending drag timeout on unmount to avoid leaking timers.
+  useEffect(() => {
+    return () => {
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = null;
+      }
+    };
+  }, []);
   const weekStartsOn = useMemo(() => getWeekStartsOn(i18n.language), [i18n.language]);
 
   const monthStart = startOfMonth(currentMonth);
@@ -143,17 +154,22 @@ export function CalendarWidget({
     const threshold = 50;
     const velocity = info.velocity.x;
     const offset = info.offset.x;
-    
+
     // Use velocity or offset to determine navigation
     if (velocity > 200 || offset > threshold) {
       handlePrevMonth();
     } else if (velocity < -200 || offset < -threshold) {
       handleNextMonth();
     }
-    
-    // Reset dragging state after a brief delay to prevent click
-    setTimeout(() => {
+
+    // Reset dragging state after a brief delay to prevent click.
+    // Clear any pending timeout first so only the latest drag leaks a timer.
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+    }
+    dragTimeoutRef.current = setTimeout(() => {
       isDragging.current = false;
+      dragTimeoutRef.current = null;
     }, 100);
   };
 

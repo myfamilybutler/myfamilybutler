@@ -4,8 +4,9 @@
 // Documentation: https://docs.360dialog.com
 // Uses same WhatsApp Cloud API format as Meta
 
-import { fetchWithTimeout } from '../../utils/fetch';
+import { fetchWithTimeout, isAllowedMediaUrl } from '@/lib/utils/fetch';
 import { maskPhone, truncateMessage, MAX_MESSAGE_LENGTH } from '../../utils/security';
+import { assertDownloadedMediaIsSafe } from '@/lib/utils/media';
 import { log, logError } from '@/lib/utils/logger';
 
 const DEFAULT_BASE_URL = 'https://waba.360dialog.io';
@@ -14,7 +15,10 @@ const DEFAULT_BASE_URL = 'https://waba.360dialog.io';
  * Download media from 360dialog WhatsApp API
  * @see https://docs.360dialog.com/docs/360dialog-cloud-api/media
  */
-export async function download360DialogMedia(mediaId: string): Promise<Buffer> {
+export async function download360DialogMedia(
+  mediaId: string,
+  mimeType: string = 'application/octet-stream'
+): Promise<Buffer> {
   const apiKey = process.env.D360_API_KEY;
   const baseUrl = process.env.D360_BASE_URL || DEFAULT_BASE_URL;
 
@@ -23,7 +27,7 @@ export async function download360DialogMedia(mediaId: string): Promise<Buffer> {
   }
 
   // Step 1: Get the media URL from 360dialog
-  const mediaInfoResponse = await fetch(
+  const mediaInfoResponse = await fetchWithTimeout(
     `${baseUrl}/v1/media/${mediaId}`,
     {
       headers: {
@@ -37,14 +41,19 @@ export async function download360DialogMedia(mediaId: string): Promise<Buffer> {
     throw new Error(`Failed to get media info: ${errorData}`);
   }
 
-  const mediaInfo = await mediaInfoResponse.json() as { url: string };
+  const mediaInfo = await mediaInfoResponse.json() as { url: string; mime_type?: string };
 
   if (!mediaInfo.url) {
     throw new Error('No URL in media info response');
   }
 
+  // Validate the media URL to prevent SSRF before following it.
+  if (!(await isAllowedMediaUrl(mediaInfo.url))) {
+    throw new Error('Media URL is not from an allowed endpoint');
+  }
+
   // Step 2: Download the actual media file
-  const mediaResponse = await fetch(mediaInfo.url, {
+  const mediaResponse = await fetchWithTimeout(mediaInfo.url, {
     headers: {
       'D360-API-KEY': apiKey,
     },
@@ -55,7 +64,14 @@ export async function download360DialogMedia(mediaId: string): Promise<Buffer> {
   }
 
   const arrayBuffer = await mediaResponse.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  const buffer = Buffer.from(arrayBuffer);
+
+  const validation = assertDownloadedMediaIsSafe(buffer, mimeType || mediaInfo.mime_type || 'application/octet-stream');
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  return buffer;
 }
 
 /**

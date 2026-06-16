@@ -174,10 +174,12 @@ async function performPullFromGoogle(
       .filter(e => e.status !== 'cancelled')
       .map(e => fingerprintFromGoogleEvent(e));
 
-    // Query 1: Get all events already linked to these Google IDs
+    // Query 1: Get all events already linked to these Google IDs, including
+    // version so we can avoid deleting events that have local edits.
     const { data: linkedEvents } = await admin
       .from('events')
-      .select('id, google_event_id, title, event_date, event_time')
+      .select('id, google_event_id, title, event_date, event_time, version')
+      .eq('household_id', householdId)
       .in('google_event_id', googleEventIds.length > 0 ? googleEventIds : ['__none__']);
     
     // Query 2: Get all events matching these fingerprints (for dedup linking)
@@ -189,7 +191,7 @@ async function performPullFromGoogle(
       .in('event_fingerprint', fingerprints.length > 0 ? fingerprints : ['__none__']);
 
     // Type for lookup maps
-    type LinkedEvent = { id: string; google_event_id: string; title: string; event_date: string; event_time: string | null };
+    type LinkedEvent = { id: string; google_event_id: string; title: string; event_date: string; event_time: string | null; version: number | null };
     type FingerprintMatch = { id: string; event_fingerprint: string; google_event_id: string | null };
 
     // Build lookup maps for O(1) access
@@ -218,12 +220,12 @@ async function performPullFromGoogle(
 
         const fingerprint = fingerprintFromGoogleEvent(googleEvent);
 
-        // Handle deleted events
+        // Handle deleted events. Skip deleting local events that have been
+        // modified locally (version > 1) to avoid losing user edits.
         if (googleEvent.status === 'cancelled') {
           const linked = linkedByGoogleId.get(googleEvent.id);
-          if (linked) {
+          if (linked && (linked.version ?? 0) <= 1) {
             toDelete.push(linked.id);
-            result.deleted++;
           }
           continue;
         }
@@ -233,7 +235,6 @@ async function performPullFromGoogle(
         if (existing) {
           const updates = convertGoogleToLocalEvent(googleEvent);
           toUpdate.push({ id: existing.id, data: updates });
-          result.updated++;
           continue;
         }
 
@@ -243,7 +244,6 @@ async function performPullFromGoogle(
           toLink.push({ id: duplicate.id, googleEventId: googleEvent.id });
           // Mark as linked to prevent double-linking
           unlinkedByFingerprint.delete(fingerprint);
-          result.linked++;
           continue;
         }
 
@@ -259,7 +259,6 @@ async function performPullFromGoogle(
           google_synced_at: new Date().toISOString(),
           version: 1, // Initial version for optimistic locking
         });
-        result.created++;
         
       } catch (error) {
         result.errors.push(`Failed to process event ${googleEvent.id}: ${error}`);
@@ -267,66 +266,77 @@ async function performPullFromGoogle(
     }
 
     // =============================================
-    // Execute batch operations (max 3 queries for all events)
+    // Execute mutations with household scoping and optimistic locking
     // =============================================
     
     // Batch delete
     if (toDelete.length > 0) {
-      const { error: deleteError } = await admin.from('events').delete().in('id', toDelete);
+      const { error: deleteError } = await admin
+        .from('events')
+        .delete()
+        .eq('household_id', householdId)
+        .in('id', toDelete);
       if (deleteError) {
         result.errors.push(`Delete batch failed: ${deleteError.message}`);
       } else {
+        result.deleted += toDelete.length;
         log.debug(`[Sync] Batch deleted ${toDelete.length} events`);
       }
     }
 
-    // Batch update with version increment (single write query)
+    // Conditional updates with optimistic locking (skip events modified locally)
     if (toUpdate.length > 0) {
       // Fetch current versions first
       const { data: currentEvents } = await admin
         .from('events')
         .select('id, version')
+        .eq('household_id', householdId)
         .in('id', toUpdate.map(u => u.id));
-      
-      const versionMap = new Map(currentEvents?.map(e => [e.id, e.version || 0]) || []);
 
-      const updateRows = toUpdate.map(({ id, data }) => {
-        const currentVersion = versionMap.get(id) || 0;
-        return {
-          id,
+      const versionMap = new Map(currentEvents?.map(e => [e.id, e.version ?? 0]) || []);
+
+      for (const { id, data } of toUpdate) {
+        const expectedVersion = versionMap.get(id) ?? 0;
+        const versionIsNull = currentEvents?.find(e => e.id === id)?.version === null;
+
+        const updatePayload = {
           ...data,
-          version: currentVersion + 1,
+          version: expectedVersion + 1,
           updated_at: new Date().toISOString(),
         };
-      });
 
-      const { error: updateError } = await admin
-        .from('events')
-        .upsert(updateRows, { onConflict: 'id' });
+        const versionQuery = versionIsNull
+          ? admin.from('events').update(updatePayload).eq('id', id).eq('household_id', householdId).is('version', null)
+          : admin.from('events').update(updatePayload).eq('id', id).eq('household_id', householdId).eq('version', expectedVersion);
 
-      if (updateError) {
-        result.errors.push(`Update batch failed: ${updateError.message}`);
-      } else {
-        log.debug(`[Sync] Batch updated ${toUpdate.length} events`);
+        const { error: updateError } = await versionQuery;
+
+        if (updateError) {
+          result.errors.push(`Update failed for event ${id}: ${updateError.message}`);
+        } else {
+          result.updated++;
+        }
       }
     }
 
-    // Batch link by event id (single write query)
+    // Conditional links: only claim unlinked events
     if (toLink.length > 0) {
-      const linkRows = toLink.map(({ id, googleEventId }) => ({
-        id,
-        google_event_id: googleEventId,
-        google_synced_at: new Date().toISOString(),
-      }));
+      for (const { id, googleEventId } of toLink) {
+        const { error: linkError } = await admin
+          .from('events')
+          .update({
+            google_event_id: googleEventId,
+            google_synced_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('household_id', householdId)
+          .is('google_event_id', null);
 
-      const { error: linkError } = await admin
-        .from('events')
-        .upsert(linkRows, { onConflict: 'id' });
-
-      if (linkError) {
-        result.errors.push(`Link batch failed: ${linkError.message}`);
-      } else {
-        log.debug(`[Sync] Batch linked ${toLink.length} events`);
+        if (linkError) {
+          result.errors.push(`Link failed for event ${id}: ${linkError.message}`);
+        } else {
+          result.linked++;
+        }
       }
     }
 
@@ -336,6 +346,7 @@ async function performPullFromGoogle(
       if (insertError) {
         result.errors.push(`Insert batch failed: ${insertError.message}`);
       } else {
+        result.created += toInsert.length;
         log.debug(`[Sync] Batch inserted ${toInsert.length} events`);
       }
     }
@@ -450,23 +461,51 @@ export async function pushCreateToGoogle(
     return { success: true, googleEventId: event.google_event_id };
   }
 
-  const googleEventId = await syncEventToGoogle(userId, event);
-  
-  if (googleEventId) {
-    // Store the Google event ID
-    const admin = getAdminClient();
-    await admin
-      .from('events')
-      .update({ 
-        google_event_id: googleEventId,
-        google_synced_at: new Date().toISOString(),
-      })
-      .eq('id', event.id);
-    
-    return { success: true, googleEventId };
+  const newGoogleId = await syncEventToGoogle(userId, event);
+
+  if (!newGoogleId) {
+    return { success: false, error: 'Failed to create in Google Calendar' };
   }
 
-  return { success: false, error: 'Failed to create in Google Calendar' };
+  const admin = getAdminClient();
+
+  // Atomic update: only claim this Google ID if no concurrent request already did
+  const { data: updated, error: claimError } = await admin
+    .from('events')
+    .update({
+      google_event_id: newGoogleId,
+      google_synced_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', event.id)
+    .eq('household_id', event.household_id)
+    .is('google_event_id', null)
+    .select('id')
+    .maybeSingle();
+
+  if (claimError) {
+    // Roll back the duplicate Google event so we don't orphan it
+    await deleteGoogleEvent(userId, newGoogleId);
+    return { success: false, error: `Failed to claim Google event ID: ${claimError.message}` };
+  }
+
+  if (!updated) {
+    // Another concurrent request won the race; clean up the duplicate in Google
+    log.info(`[Sync] Duplicate Google event ${newGoogleId} discarded for event ${event.id}`);
+    await deleteGoogleEvent(userId, newGoogleId);
+  }
+
+  // Refresh local event to ensure we use the winning Google ID
+  const { data: refreshed } = await admin
+    .from('events')
+    .select('google_event_id')
+    .eq('id', event.id)
+    .eq('household_id', event.household_id)
+    .maybeSingle();
+
+  const winningGoogleId = refreshed?.google_event_id as string | undefined;
+
+  return { success: true, googleEventId: winningGoogleId };
 }
 
 /**
@@ -492,7 +531,8 @@ export async function pushUpdateToGoogle(
     await admin
       .from('events')
       .update({ google_synced_at: new Date().toISOString() })
-      .eq('id', event.id);
+      .eq('id', event.id)
+      .eq('household_id', event.household_id);
   }
 
   return { 
@@ -542,7 +582,9 @@ export async function checkDuplicateEvent(
   const admin = getAdminClient();
   const { data: duplicate } = await admin
     .from('events')
-    .select('*')
+    .select(
+      'id, household_id, created_by, title, event_date, end_date, event_time, end_time, is_all_day, recurrence_rule, recurrence_end, parent_event_id, is_exception, family_member, family_member_id, location, description, source_message_id, google_event_id, event_fingerprint, google_synced_at, sync_source, created_at'
+    )
     .eq('event_fingerprint', fingerprint)
     .eq('household_id', householdId)
     .single();

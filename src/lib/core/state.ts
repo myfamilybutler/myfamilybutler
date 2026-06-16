@@ -8,6 +8,7 @@
 import type { ConversationState, Channel } from './types';
 import { getAdminClient } from '@/lib/supabase';
 import { log, logError, logWarn } from '@/lib/utils/logger';
+import { LRUCache } from '@/lib/utils/lru';
 
 const STATE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const UNDO_TTL_MS = 30 * 1000; // 30 seconds for undo window
@@ -18,7 +19,7 @@ type MemoryStateEntry = {
   expiresAtMs: number;
 };
 
-const memoryStateStore = new Map<string, MemoryStateEntry>();
+const memoryStateStore = new LRUCache<string, MemoryStateEntry>(5000);
 
 function stateKey(userId: string, channel: Channel): string {
   return `${userId}:${channel}`;
@@ -67,7 +68,7 @@ function serializeStateData(state: ConversationState): Record<string, unknown> {
   return {
     draftEventId: state.draftEventId ?? null,
     draftBundleId: state.draftBundleId ?? null,
-    undoableEventId: state.undoableEventId ?? null,
+    undoableEventIds: state.undoableEventIds ?? null,
     clarificationContext: state.clarificationContext ?? null,
     attempts: state.attempts ?? 0,
   };
@@ -78,7 +79,8 @@ function parseStateFromRow(row: {
   data: {
     draftEventId?: string | null;
     draftBundleId?: string | null;
-    undoableEventId?: string | null;
+    undoableEventIds?: string[] | null;
+    undoableEventId?: string | null; // legacy single-event field
     clarificationContext?: string | null;
     attempts?: number | null;
   } | null;
@@ -86,11 +88,14 @@ function parseStateFromRow(row: {
 }): ConversationState {
   const data = row.data ?? {};
 
+  const undoableEventIds = data.undoableEventIds
+    ?? (data.undoableEventId ? [data.undoableEventId] : undefined);
+
   return {
     state: row.state as ConversationState['state'],
     draftEventId: data.draftEventId ?? undefined,
     draftBundleId: data.draftBundleId ?? undefined,
-    undoableEventId: data.undoableEventId ?? undefined,
+    undoableEventIds,
     clarificationContext: data.clarificationContext ?? undefined,
     attempts: typeof data.attempts === 'number' ? data.attempts : undefined,
     expiresAt: new Date(row.expires_at),
@@ -135,6 +140,91 @@ export async function getConversationState(
 }
 
 /**
+ * Persist conversation state to the database with optimistic concurrency.
+ *
+ * Uses the `version` column to ensure that stale writes do not clobber a more
+ * recent state. If the row has changed since we read it, the update is skipped
+ * and the caller is informed so the in-memory state can stay authoritative.
+ */
+async function persistConversationState(
+  userId: string,
+  channel: Channel,
+  state: string,
+  data: Record<string, unknown>,
+  expiresAt: string,
+  updatedAt: string
+): Promise<boolean> {
+  const admin = getAdminClient();
+
+  // Fetch the current version (if any) to perform an optimistic-concurrency update.
+  const { data: existing, error: fetchError } = await admin
+    .from(CONVERSATION_STATE_TABLE)
+    .select('version')
+    .eq('user_id', userId)
+    .eq('channel', channel)
+    .maybeSingle();
+
+  if (fetchError) {
+    logError('[State] Failed to fetch conversation state version:', fetchError);
+    return false;
+  }
+
+  if (existing) {
+    const expectedVersion = existing.version ?? 1;
+
+    // Optimistic update: only succeed if the version hasn't changed since we read it.
+    const { error: updateError, count } = await admin
+      .from(CONVERSATION_STATE_TABLE)
+      .update(
+        {
+          state,
+          data,
+          expires_at: expiresAt,
+          updated_at: updatedAt,
+          version: expectedVersion + 1,
+        },
+        { count: 'exact' }
+      )
+      .eq('user_id', userId)
+      .eq('channel', channel)
+      .eq('version', expectedVersion);
+
+    if (updateError) {
+      logError('[State] Failed to update conversation state:', updateError);
+      return false;
+    }
+
+    if (count === 0) {
+      logWarn(`[State] Conv:${userId}:${channel} version changed mid-write; skipping stale update`);
+      return false;
+    }
+
+    return true;
+  }
+
+  // No existing row: insert the first version.
+  const { error: insertError } = await admin
+    .from(CONVERSATION_STATE_TABLE)
+    .insert({
+      user_id: userId,
+      channel,
+      state,
+      data,
+      expires_at: expiresAt,
+      updated_at: updatedAt,
+      version: 1,
+    });
+
+  if (insertError) {
+    // A concurrent insert may have created the row between our fetch and insert.
+    logError('[State] Failed to insert conversation state:', insertError);
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Set conversation state for a user
  */
 export async function setConversationState(
@@ -142,30 +232,22 @@ export async function setConversationState(
   channel: Channel,
   state: ConversationState
 ): Promise<void> {
-  const admin = getAdminClient();
   const ttlMs = getTtlMs(state);
 
   writeMemoryState(userId, channel, state);
 
   try {
-    const { error } = await admin
-      .from(CONVERSATION_STATE_TABLE)
-      .upsert(
-        {
-          user_id: userId,
-          channel,
-          state: state.state,
-          data: serializeStateData(state),
-          expires_at: toIsoWithTtl(ttlMs),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'user_id,channel',
-        }
-      );
+    const persisted = await persistConversationState(
+      userId,
+      channel,
+      state.state,
+      serializeStateData(state),
+      toIsoWithTtl(ttlMs),
+      new Date().toISOString()
+    );
 
-    if (error) {
-      logError('[State] Failed to set conversation state:', error);
+    if (!persisted) {
+      logWarn(`[State] Failed to persist conv:${userId}:${channel}; memory state may diverge`);
       return;
     }
 
@@ -205,34 +287,35 @@ export async function clearConversationState(
 }
 
 /**
- * Set up undo window for a created event
+ * Set up undo window for created events
  */
 export async function setUndoState(
   userId: string,
   channel: Channel,
-  eventId: string
+  eventIds: string | string[]
 ): Promise<void> {
+  const ids = Array.isArray(eventIds) ? eventIds : [eventIds];
   await setConversationState(userId, channel, {
     state: 'awaiting_undo',
-    undoableEventId: eventId,
+    undoableEventIds: ids,
     expiresAt: new Date(Date.now() + UNDO_TTL_MS),
   });
 }
 
 /**
- * Get undoable event ID if still in undo window
+ * Get undoable event IDs if still in undo window
  */
-export async function getUndoableEventId(
+export async function getUndoableEventIds(
   userId: string,
   channel: Channel
-): Promise<string | null> {
+): Promise<string[]> {
   const state = await getConversationState(userId, channel);
-  
-  if (state.state === 'awaiting_undo' && state.undoableEventId) {
-    return state.undoableEventId;
+
+  if (state.state === 'awaiting_undo' && state.undoableEventIds && state.undoableEventIds.length > 0) {
+    return state.undoableEventIds;
   }
-  
-  return null;
+
+  return [];
 }
 
 /**

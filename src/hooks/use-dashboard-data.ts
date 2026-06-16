@@ -22,20 +22,13 @@ interface SyncResponse {
 }
 
 export function useDashboardData() {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [rawEvents, setRawEvents] = useState<CalendarEvent[]>([]);
   const { members: familyMembers, memberNames: familyMemberNames, memberColors, loading: familyLoading } = useFamilyData();
   const [loading, setLoading] = useState(true);
   const dbUser = useAuthStore((state) => state.dbUser);
-  const setDbUser = useAuthStore((state) => state.setDbUser);
   
   // Use refs to avoid stale closures and callback recreation
   const isMounted = useRef(true);
-  const setDbUserRef = useRef(setDbUser);
-  
-  // Keep setDbUser ref up to date without adding to dependencies
-  useEffect(() => {
-    setDbUserRef.current = setDbUser;
-  }, [setDbUser]);
 
   const fetchEventsData = useCallback(async (signal?: AbortSignal): Promise<DashboardApiResponse | null> => {
     try {
@@ -86,13 +79,17 @@ export function useDashboardData() {
     }
   }, []);
 
-  const normalizeEvents = useCallback((items: CalendarEvent[]) => {
-    const withSource = items.map((e) => ({
+  // Normalize source only; recurrence expansion is memoized below.
+  const normalizeSource = useCallback((items: CalendarEvent[]) => {
+    return items.map((e) => ({
       ...e,
       source: e.source || 'app',
     }));
-    return expandRecurringCalendarEvents(withSource);
   }, []);
+
+  // Memoize recurring-event expansion so identical raw event arrays reuse the
+  // same expanded result across renders.
+  const events = useMemo(() => expandRecurringCalendarEvents(rawEvents), [rawEvents]);
 
   const loadAllData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -102,12 +99,8 @@ export function useDashboardData() {
     
     if (!isMounted.current) return;
     
-    if (dashboardResponse?.user) {
-      setDbUserRef.current(dashboardResponse.user);
-    }
-    
     if (dashboardResponse?.events) {
-      setEvents(normalizeEvents(dashboardResponse.events));
+      setRawEvents(normalizeSource(dashboardResponse.events));
     }
 
     setLoading(false); // Show data immediately
@@ -124,10 +117,10 @@ export function useDashboardData() {
       const updatedResponse = await fetchEventsData(signal);
       
       if (updatedResponse?.events && isMounted.current) {
-        setEvents(normalizeEvents(updatedResponse.events));
+        setRawEvents(normalizeSource(updatedResponse.events));
       }
     }
-  }, [fetchEventsData, normalizeEvents, triggerGoogleSync]);
+  }, [fetchEventsData, normalizeSource, triggerGoogleSync]);
 
   useEffect(() => {
     const abortController = new AbortController();

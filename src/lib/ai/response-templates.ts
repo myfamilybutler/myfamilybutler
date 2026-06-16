@@ -83,6 +83,19 @@ export interface ResponseTemplates {
     identityError: string;
     rateLimitReached: string;
     genericProcessingError: string;
+    draftNotFound: string;
+    draftNotMatched: string;
+    draftExpired: string;
+    multipleDraftsNeedDay: string;
+    eventSavedWithReminder: string;
+    eventsSavedWithReminders: string;
+    saveEventError: string;
+    fileProcessingError: string;
+    visionEventSaved: string;
+    visionEventsSaved: string;
+    eventSavedDetails: string;
+    eventsSavedCount: string;
+    openDashboard: string;
     // Meal Planner
     mealNoHousehold: string;
     mealNoToday: string;
@@ -178,8 +191,22 @@ Probiere es aus! Schreib mir einfach eine Nachricht.`,
         identityError: `Entschuldigung, es ist ein Fehler aufgetreten. Bitte versuche es später erneut.`,
         
         rateLimitReached: `Du sendest Nachrichten zu schnell. Bitte warte einen Moment.`,
-        
+
         genericProcessingError: `Es tut mir leid, es ist ein Fehler aufgetreten. Bitte versuche es erneut.`,
+
+        draftNotFound: `Entschuldigung, der Entwurf konnte nicht gefunden werden. Bitte erstelle den Termin erneut.`,
+        draftNotMatched: `Entschuldigung, ich konnte den Entwurf nicht zuordnen. Bitte erstelle den Termin erneut.`,
+        draftExpired: `Der Entwurf wurde nicht mehr gefunden. Bitte erstelle den Termin erneut.`,
+        multipleDraftsNeedDay: `Ich habe mehrere Termine im Entwurf. Für welchen Tag soll ich das ändern?`,
+        eventSavedWithReminder: `Termin "{title}" wurde gespeichert!\n\n⏰ Ich erinnere dich 30 Minuten vorher.`,
+        eventsSavedWithReminders: `{count} Termine wurden gespeichert!\n\n⏰ Erinnerungen wurden für alle Termine mit Uhrzeit erstellt.`,
+        saveEventError: `Entschuldigung, beim Speichern ist ein Fehler aufgetreten.`,
+        fileProcessingError: `Entschuldigung, ich konnte die Datei nicht verarbeiten.`,
+        visionEventSaved: `Termin erkannt und gespeichert:\n"{title}"`,
+        visionEventsSaved: `{count} Termine erkannt und gespeichert!`,
+        eventSavedDetails: `Termin gespeichert:\n\n"{title}"{memberStr}\n{formattedDate}{timeStr}{reminderStr}`,
+        eventsSavedCount: `{count} Termine gespeichert!`,
+        openDashboard: `Dashboard öffnen`,
 
         mealNoHousehold: `Du bist noch keinem Haushalt zugeordnet.`,
         mealNoToday: `Für heute ist noch nichts geplant. Was möchtest du essen?`,
@@ -279,8 +306,22 @@ Give it a try! Just send me a message.`,
         identityError: `Sorry, there was an error. Please try again later.`,
         
         rateLimitReached: `You are sending messages too fast. Please wait a moment.`,
-        
+
         genericProcessingError: `I'm sorry, an error occurred. Please try again.`,
+
+        draftNotFound: `Sorry, the draft could not be found. Please create the event again.`,
+        draftNotMatched: `Sorry, I could not match the draft. Please create the event again.`,
+        draftExpired: `The draft was no longer found. Please create the event again.`,
+        multipleDraftsNeedDay: `I have several events in the draft. Which day should I change?`,
+        eventSavedWithReminder: `Event "{title}" saved!\n\n⏰ I'll remind you 30 minutes before.`,
+        eventsSavedWithReminders: `{count} events saved!\n\n⏰ Reminders created for all events with a time.`,
+        saveEventError: `Sorry, an error occurred while saving.`,
+        fileProcessingError: `Sorry, I could not process the file.`,
+        visionEventSaved: `Event recognized and saved:\n"{title}"`,
+        visionEventsSaved: `{count} events recognized and saved!`,
+        eventSavedDetails: `Event saved:\n\n"{title}"{memberStr}\n{formattedDate}{timeStr}{reminderStr}`,
+        eventsSavedCount: `{count} events saved!`,
+        openDashboard: `Open dashboard`,
 
         mealNoHousehold: `You are not part of a household yet.`,
         mealNoToday: `Nothing planned for today. What would you like to eat?`,

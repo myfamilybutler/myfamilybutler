@@ -16,25 +16,63 @@ export interface DeadLetterEntry {
   retry_count: number;
   max_retries: number;
   status: 'pending' | 'processed' | 'failed_permanently';
+  message_id?: string;
+  channel?: string;
   created_at?: string;
   updated_at?: string;
   processed_at?: string;
 }
 
 /**
- * Add a failed job to the dead letter queue
+ * Add a failed job to the dead letter queue.
+ *
+ * When `messageId` and `channel` are provided, the insert becomes an upsert on
+ * `(message_id, channel)` so retries of the same logical failure do not create
+ * multiple DLQ rows.
  */
 export async function addToDeadLetterQueue(
   jobType: string,
   payload: Record<string, unknown>,
   error: Error,
   retryCount: number,
-  maxRetries: number
+  maxRetries: number,
+  messageId?: string,
+  channel?: string
 ): Promise<void> {
   const admin = getAdminClient();
 
   try {
-    await admin.from('dead_letter_queue').insert({
+    if (messageId && channel) {
+      // Preserve the original error context from the first failure. Retries of
+      // the same message should update the retry bookkeeping without overwriting
+      // the initial error message/stack.
+      const { data: existing } = await admin
+        .from('dead_letter_queue')
+        .select('id, error_message, error_stack, payload, retry_count, created_at')
+        .eq('message_id', messageId)
+        .eq('channel', channel)
+        .maybeSingle();
+
+      if (existing) {
+        const nextRetryCount = Math.max(existing.retry_count ?? 0, retryCount);
+        const { error: updateError } = await admin
+          .from('dead_letter_queue')
+          .update({
+            retry_count: nextRetryCount,
+            max_retries: maxRetries,
+            status: nextRetryCount >= maxRetries ? 'failed_permanently' : 'pending',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+
+        if (updateError) {
+          logError('[DeadLetter] Failed to update existing DLQ entry:', updateError);
+        }
+        return;
+      }
+    }
+
+    const row = {
       job_type: jobType,
       payload,
       error_message: error.message,
@@ -42,7 +80,11 @@ export async function addToDeadLetterQueue(
       retry_count: retryCount,
       max_retries: maxRetries,
       status: retryCount >= maxRetries ? 'failed_permanently' : 'pending',
-    });
+      message_id: messageId ?? null,
+      channel: channel ?? null,
+    };
+
+    await admin.from('dead_letter_queue').insert(row);
 
     logError(`[DeadLetter] Added ${jobType} job to DLQ:`, error.message);
   } catch (dlqError) {

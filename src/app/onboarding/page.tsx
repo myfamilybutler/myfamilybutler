@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
+import { useFamilyActions } from '@/stores/family-store';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Users, ArrowRight, Loader2, Sparkles, HelpCircle } from 'lucide-react';
@@ -22,30 +23,24 @@ export default function OnboardingPage() {
   const [geminiKey, setGeminiKey] = useState('');
   const [savingKey, setSavingKey] = useState(false);
   
-  const { dbUser, setDbUser } = useAuthStore();
+  const { user, dbUser, loading: authLoading, dbUserLoading } = useAuthStore();
+  const refreshDbUser = useAuthStore((state) => state.refreshDbUser);
+  const { invalidate: invalidateFamily } = useFamilyActions();
   const router = useRouter();
 
-  const refetchUser = async () => {
-    try {
-      const res = await fetch('/api/user/me', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.user) {
-          setDbUser(data.user);
-        }
-      }
-    } catch (error) {
-      logError('Failed to refetch user:', error);
-    }
-  };
-
-  // Redirect if user already has a family AND they are not in the key step
+  // Redirect unauthenticated users to login; skip onboarding if household already exists.
   useEffect(() => {
-    if (dbUser?.household_id && step === 'family') {
-      // If they already have a household, skip to dashboard or check key
-      router.push('/dashboard');
+    if (authLoading || dbUserLoading) return;
+
+    if (!user) {
+      router.replace('/login');
+      return;
     }
-  }, [dbUser, step, router]);
+
+    if (dbUser?.household_id) {
+      router.replace('/dashboard');
+    }
+  }, [user, dbUser, authLoading, dbUserLoading, step, router]);
 
   const handleCreateFamily = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,8 +60,9 @@ export default function OnboardingPage() {
 
       if (res.ok && data.success) {
         toast.success(t('onboarding.familyCreated'));
-        // Refresh local store user data
-        await refetchUser();
+        // Refresh local store user data and family cache
+        await refreshDbUser();
+        invalidateFamily();
         // Go to Step 2
         setStep('aiKey');
       } else {
@@ -101,7 +97,8 @@ export default function OnboardingPage() {
 
       if (res.ok) {
         toast.success(t('onboarding.geminiKeySuccess'));
-        window.location.href = '/dashboard';
+        invalidateFamily();
+        router.replace('/dashboard');
       } else {
         const data = await res.json();
         toast.error(data.error || t('onboarding.geminiKeyError'));
@@ -115,8 +112,16 @@ export default function OnboardingPage() {
   };
 
   const handleSkipKey = () => {
-    window.location.href = '/dashboard';
+    router.replace('/dashboard');
   };
+
+  if (authLoading || dbUserLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
