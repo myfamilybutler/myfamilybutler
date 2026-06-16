@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { completeGoogleOAuth } from '@/lib/sync/google';
+import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { logError } from '@/lib/utils/logger';
 
 /**
  * GET /api/auth/google/callback
- * 
+ *
  * Handles the OAuth callback from Google.
  * Exchanges the authorization code for tokens and stores them.
  */
@@ -33,7 +34,6 @@ export async function GET(request: NextRequest) {
     // Verify state token (CSRF protection)
     const cookieStore = await cookies();
     const storedState = cookieStore.get('google_oauth_state')?.value;
-    const userId = cookieStore.get('google_oauth_user_id')?.value;
 
     if (!storedState || storedState !== state) {
       logError('[Google OAuth] State mismatch');
@@ -42,19 +42,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!userId) {
-      logError('[Google OAuth] Missing user ID');
+    // Clear the OAuth state cookie
+    cookieStore.delete('google_oauth_state');
+
+    // Derive the user from the Supabase session
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      logError('[Google OAuth] Missing Supabase session');
       return NextResponse.redirect(
         new URL('/dashboard/settings?google_error=session_expired', request.url)
       );
     }
 
-    // Clear the OAuth cookies
-    cookieStore.delete('google_oauth_state');
-    cookieStore.delete('google_oauth_user_id');
-
     // Complete the OAuth flow
-    const success = await completeGoogleOAuth(userId, code);
+    const success = await completeGoogleOAuth(user.id, code);
 
     if (!success) {
       return NextResponse.redirect(
@@ -66,7 +69,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL('/dashboard/settings?google_connected=true', request.url)
     );
-
   } catch (error) {
     logError('[Google OAuth] Callback error:', error);
     return NextResponse.redirect(

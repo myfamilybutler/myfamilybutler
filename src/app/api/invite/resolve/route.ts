@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     const isOpenInvite = !invite.email && !invite.phoneNumber;
     const channel = invite.email ? 'email' : invite.phoneNumber ? 'phone' : 'open';
-    const canAutoLogin = !sessionUserId && !!invite.email;
+    const canAutoLogin = false; // Auto-login removed: users must sign in via Supabase Auth
     const canRespond = Boolean(
       sessionUserId && invite.status === 'pending' && (isOpenInvite || isTargetMatch)
     );

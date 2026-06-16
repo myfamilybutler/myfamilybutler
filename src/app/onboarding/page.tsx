@@ -27,10 +27,10 @@ export default function OnboardingPage() {
 
   const refetchUser = async () => {
     try {
-      const res = await fetch('/api/auth/status');
+      const res = await fetch('/api/user/me', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        if (data.authenticated && data.user) {
+        if (data.success && data.user) {
           setDbUser(data.user);
         }
       }

@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { impersonateUser } from '@/actions/admin-auth';
+
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -111,12 +111,6 @@ export function UsersClient({ initialUsers }: { initialUsers: User[] }) {
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem>View Logs</DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => impersonateUser(user.id)}
-                        className="text-amber-600"
-                      >
-                        Impersonate
-                      </DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">Ban User</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

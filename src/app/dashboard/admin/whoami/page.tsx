@@ -29,10 +29,9 @@ export default async function WhoAmIPage() {
           <CardHeader><CardTitle>Session (Cookies)</CardTitle></CardHeader>
           <CardContent>
             <pre className="max-h-64 overflow-auto rounded bg-muted p-4 text-xs font-mono">
-              {JSON.stringify({ 
-                sessionUserId: session?.userId || 'null', 
-                sessionType: session?.type || 'null',
-                validationError: error 
+              {JSON.stringify({
+                sessionUserId: session?.userId || 'null',
+                validationError: error
               }, null, 2)}
             </pre>
           </CardContent>
@@ -55,7 +54,7 @@ export default async function WhoAmIPage() {
         <h3 className="font-bold text-blue-800 dark:text-blue-300">Troubleshooting Guide</h3>
         <ul className="list-disc list-inside text-sm text-blue-700 dark:text-blue-200/90 mt-2 space-y-1">
           <li><strong>IDs don&apos;t match?</strong> You might be logged in as a different user. Try logging out and back in.</li>
-          <li><strong>User not found?</strong> Your cookie `session_user_id` might be stale or invalid.</li>
+          <li><strong>User not found?</strong> Your Supabase session might be stale or invalid. Try logging out and back in.</li>
           <li><strong>Not Admin?</strong> The database says `is_admin` is false. Run the SQL fix script.</li>
         </ul>
       </div>
