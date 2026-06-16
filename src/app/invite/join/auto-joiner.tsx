@@ -78,22 +78,6 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
                 }
 
                 setResolveData(data as InviteResolvePayload);
-
-                // Email-targeted invite can auto-authenticate before explicit accept/decline.
-                if (!isLoggedIn && data.auth?.canAutoLogin) {
-                    setProcessing('autologin');
-                    const loginRes = await fetch('/api/auth/invite-login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token: effectiveToken }),
-                    });
-                    const loginData = await loginRes.json();
-                    if (loginRes.ok && loginData.success) {
-                        window.location.href = `/invite/join?token=${encodeURIComponent(effectiveToken)}`;
-                        return;
-                    }
-                    setError(loginData.error || 'Unable to sign in from this invite. Please log in manually.');
-                }
             } catch (err) {
                 logError('Invite resolve error:', err);
                 setError('Could not load invite details.');

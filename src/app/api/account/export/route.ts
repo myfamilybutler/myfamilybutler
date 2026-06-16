@@ -84,7 +84,7 @@ export async function GET() {
     const exportData = {
       exportDate: new Date().toISOString(),
       user: {
-        email: user.email,
+        email: user.linked_email,
         phoneNumber: user.phone_number,
         displayName: user.display_name,
         isAdmin: user.is_admin,

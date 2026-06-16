@@ -18,8 +18,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { stopImpersonating } from '@/actions/admin-auth';
-import { useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import i18n from '@/lib/config/i18n';
 import { FamilyFilter } from './family-filter';
@@ -29,10 +27,6 @@ export function Navbar() {
   const router = useRouter();
   const { t } = useTranslation();
   const { user, dbUser, signOut } = useAuthStore();
-  
-  const [isImpersonating] = useState(
-    typeof document !== 'undefined' && document.cookie.includes('impersonate_id')
-  );
 
   const handleSignOut = async () => {
     await signOut();
@@ -45,19 +39,6 @@ export function Navbar() {
 
   return (
     <div className="flex flex-col">
-      {isImpersonating && (
-        <div className="flex w-full items-center justify-center gap-4 bg-amber-500 p-2 text-sm font-bold text-white">
-          <span>{t('common.impersonationWarning')}</span>
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            onClick={() => stopImpersonating()}
-            className="h-6 text-xs"
-          >
-            {t('common.exitImpersonation')}
-          </Button>
-        </div>
-      )}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">

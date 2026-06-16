@@ -48,7 +48,6 @@ interface DraftContext {
 
 let openaiInstance: OpenAI | null = null;
 let geminiModule: typeof import('@google/generative-ai') | null = null;
-let geminiModelInstance: import('@google/generative-ai').GenerativeModel | null = null;
 
 function getOpenAI(): OpenAI {
   if (!openaiInstance) {

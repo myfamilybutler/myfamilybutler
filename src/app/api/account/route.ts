@@ -21,7 +21,7 @@ export async function GET() {
     // Get user data
     const { data: user, error: userError } = await admin
       .from('users')
-      .select('id, email, phone_number, display_name, telegram_chat_id, supabase_user_id, created_at')
+      .select('id, linked_email, phone_number, display_name, telegram_chat_id, created_at')
       .eq('id', userId)
       .single();
 
@@ -29,33 +29,15 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Try to get email from Supabase Auth if not in users table
-    let email = user.email;
-    if (!email && user.supabase_user_id) {
-      try {
-        const { data: authUser } = await admin.auth.admin.getUserById(user.supabase_user_id);
-        if (authUser?.user?.email) {
-          email = authUser.user.email;
-          // Also update the users table to sync the email
-          await admin
-            .from('users')
-            .update({ email: authUser.user.email })
-            .eq('id', user.id);
-        }
-      } catch (authError) {
-        logError('Error fetching auth user:', authError);
-      }
-    }
-
     // Build response with connection statuses
     const accountData = {
       displayName: user.display_name || '',
-      email: email || null,
+      email: user.linked_email || null,
       phoneNumber: user.phone_number || null,
       connections: {
         whatsapp: !!user.phone_number,
         telegram: !!user.telegram_chat_id,
-        supabaseAuth: !!user.supabase_user_id,
+        supabaseAuth: true,
       },
       createdAt: user.created_at,
     };

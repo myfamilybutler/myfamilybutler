@@ -1,22 +1,26 @@
 /**
  * Supabase Module - Main Entry Point
- * 
+ *
  * Re-exports all database operations from focused modules.
- * 
+ *
  * Module structure:
- * - client.ts       - Client configuration
- * - identity.ts     - Unified identity resolution (NEW - use this!)
- * - db-users.ts     - User operations (legacy, being deprecated)
+ * - client.ts       - Browser/admin client configuration
+ * - server.ts       - SSR server client
+ * - middleware.ts   - SSR middleware session refresh
+ * - identity.ts     - Unified identity resolution
+ * - db-users.ts     - User operations
  * - db-messages.ts  - Message operations
  * - db-reminders.ts - Reminder operations
  * - db-events.ts    - Event operations
  * - db-families.ts  - Family operations
- * - magic-tokens.ts - Auth token operations
- * - email-tokens.ts - Email auth operations
  */
 
 // Client
 export { getSupabase, getAdminClient } from './client';
+
+// NOTE: Server and middleware clients are intentionally NOT re-exported here.
+// Import them directly from '@/lib/supabase/server' or '@/lib/supabase/middleware'
+// to avoid bundling server-only modules into client bundles.
 
 // ============================================
 // Identity Resolution (NEW - Preferred API)
