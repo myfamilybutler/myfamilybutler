@@ -2,9 +2,7 @@
 -- Description: Centralize authentication on native Supabase Auth.
 --              New auth.users rows are automatically synced to public.users.
 --
--- NOTE: Existing public.users rows that were created via WhatsApp/Telegram/magic
--- links do not automatically get auth.users identities. A separate backfill
--- migration (or manual script) is required if those users need web login.
+-- This project has no active legacy users, so no backfill is required.
 
 -- Allow 'web' as an onboarding source (used by standard email/password sign-ups).
 ALTER TABLE public.users
