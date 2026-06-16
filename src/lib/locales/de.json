@@ -127,6 +127,18 @@
     "leaveFamily": "Familie verlassen",
     "calendarSync": "Kalender-Synchronisierung",
     "calendarSyncDesc": "Verbinden Sie Ihren Kalender, um Ereignisse automatisch zu synchronisieren",
+    "aiConfigTitle": "KI-Konfiguration",
+    "aiConfigDesc": "Gib deinen eigenen Gemini API-Key ein, um den Familien-Assistenten zu betreiben.",
+    "geminiKey": "Gemini API-Key",
+    "geminiKeyPlaceholder": "Neuen Key eingeben (leer lassen, um den aktuellen zu behalten)",
+    "geminiKeyPlaceholderEmpty": "Gib deinen Gemini API-Key ein (AIzaSy...)",
+    "geminiKeyHelp": "Um den Assistenten kostenlos zu nutzen, erstelle einen Key bei ",
+    "geminiKeyHelpLink": "Google AI Studio",
+    "geminiKeyStatusConfigured": "Konfiguriert",
+    "geminiKeyStatusNotConfigured": "Nicht konfiguriert",
+    "saveKey": "API-Key speichern",
+    "savingKey": "Wird gespeichert...",
+    "onlyAdminCanEditKey": "Nur Familien-Administratoren können die KI-Konfiguration ändern.",
     "gdprTitle": "Ihre Daten (DSGVO)",
     "gdprDesc": "Verwalten Sie Ihre persönlichen Daten gemäß DSGVO",
     "exportData": "Meine Daten exportieren",
@@ -274,6 +286,17 @@
         "phoneUpdated": "Telefonnummer aktualisiert",
         "phoneUpdateFailed": "Telefonnummer konnte nicht aktualisiert werden"
       }
+    },
+    "aiConfiguration": {
+      "title": "AI-Konfiguration",
+      "description": "Verwalte den Gemini API-Key für diese Familie",
+      "geminiApiKey": "Gemini API-Key",
+      "geminiApiKeyDesc": "Trage hier deinen kostenlosen API-Key von Google AI Studio ein",
+      "saveKey": "Key speichern",
+      "keySaved": "Gemini API-Key erfolgreich gespeichert!",
+      "saveKeyError": "Speichern fehlgeschlagen",
+      "hasKey": "Aktiv (Dein eigener API-Key ist hinterlegt)",
+      "noKey": "Nicht hinterlegt (Es wird der Standard-Key verwendet)"
     }
   },
   "auth": {
@@ -350,7 +373,15 @@
     "familyCreated": "Familie erfolgreich erstellt!",
     "familyExists": "Du hast bereits eine Familie. Weiterleitung...",
     "createError": "Familie konnte nicht erstellt werden",
-    "networkError": "Netzwerkfehler"
+    "networkError": "Netzwerkfehler",
+    "aiKeyTitle": "AI-Konfiguration",
+    "aiKeyDescription": "Um MyFamilyButler kostenlos zu nutzen, trage deinen eigenen Gemini API-Key ein.",
+    "geminiKey": "Gemini API-Key",
+    "geminiKeyPlaceholder": "AIzaSy...",
+    "geminiKeyHelp": "Du hast keinen API-Key? Klicke hier, um in 15 Sekunden kostenlos einen zu erstellen.",
+    "geminiKeySuccess": "Gemini API-Key erfolgreich gespeichert!",
+    "geminiKeyError": "Speichern des API-Keys fehlgeschlagen",
+    "skip": "Später einrichten"
   },
   "landing": {
     "nav": {
@@ -421,18 +452,18 @@
       }
     },
     "pricing": {
-      "badge": "Einführungspreis",
-      "amount": "€4,99",
-      "perMonth": "/Monat",
+      "badge": "100% Kostenlos",
+      "amount": "€0",
+      "perMonth": "für immer",
       "list": {
         "item1": "Unbegrenzte Nachrichten",
         "item2": "WhatsApp + Telegram",
         "item3": "Familienkalender & Dashboard",
         "item4": "Bild- & Dokumentenanalyse",
-        "item5": "Jederzeit kündbar"
+        "item5": "Eigener Gemini API-Key (BYOK)"
       },
-      "cta": "Kostenlos testen",
-      "footnote": "7 Tage kostenlos • Keine Kreditkarte • Keine Registrierung"
+      "cta": "Kostenlos starten",
+      "footnote": "Google AI Studio bietet Gemini API-Keys dauerhaft kostenlos"
     },
     "footer": {
       "privacy": "Datenschutz",

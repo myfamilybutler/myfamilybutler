@@ -47,17 +47,18 @@ export interface EventExtractionResultWithMeta extends EventExtractionResult {
 export async function parseEventWithFallback(
   message: string,
   conversationHistory?: ChatMessage[],
-  familyMembers?: string[]
+  familyMembers?: string[],
+  householdId?: string | null
 ): Promise<EventExtractionResultWithMeta> {
   const startTime = performance.now();
   
   // Try primary provider (Gemini - free/cheap)
-  if (isGeminiAvailable()) {
+  if (await isGeminiAvailable(householdId)) {
     for (let attempt = 0; attempt <= AI_CONFIG.maxRetries; attempt++) {
       try {
         log.info('[AI] Parsing with Gemini (primary)');
         const result = await Promise.race([
-          parseEventWithGemini(message, conversationHistory, familyMembers),
+          parseEventWithGemini(message, conversationHistory, familyMembers, householdId),
           new Promise<never>((_, reject) => 
             setTimeout(() => reject(new Error('timeout')), AI_CONFIG.timeoutMs)
           )
@@ -126,13 +127,14 @@ export async function parseEventWithFallback(
  */
 export async function generateResponseWithFallback(
   history: ChatMessage[],
-  newMessage: string
+  newMessage: string,
+  householdId?: string | null
 ): Promise<string> {
   // Try Gemini first (free/cheap)
-  if (isGeminiAvailable()) {
+  if (await isGeminiAvailable(householdId)) {
     try {
       log.info('[AI] Generating response with Gemini (primary)');
-      return await generateGeminiResponse(history, newMessage);
+      return await generateGeminiResponse(history, newMessage, householdId);
     } catch (error) {
       logError('[AI] Gemini response failed:', error);
     }

@@ -793,7 +793,8 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
   const extractionResult = await parseEventWithFallback(
     extractionInput,
     chatHistory,
-    message.familyMembers
+    message.familyMembers,
+    message.householdId
   );
 
   const msgType = message.type as string;
@@ -887,7 +888,7 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
     await clearConversationState(message.userId, message.channel);
   }
 
-  const aiResponse = await generateResponseWithFallback(chatHistory, message.content || '');
+  const aiResponse = await generateResponseWithFallback(chatHistory, message.content || '', message.householdId);
 
   return {
     response: {

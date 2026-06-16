@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
 import { AccountSecurityCard } from '@/components/settings/account-security-card';
 import { GoogleCalendarConnectButton } from '@/components/settings/google-calendar-connect';
+import { AIConfigurationCard } from '@/components/settings/ai-configuration-card';
 import { ColorPicker } from '@/components/settings/color-picker';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuthStore } from '@/stores/auth-store';
@@ -43,7 +44,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { dbUser, signOut } = useAuthStore();
   const { refresh: refreshDashboard } = useDashboardData();
-  const { users, profileMembers, hasHousehold, isHouseholdAdmin, loading: familyLoading, refetch: refetchFamily } = useFamilyData();
+  const { users, profileMembers, hasHousehold, isHouseholdAdmin, hasGeminiKey, loading: familyLoading, refetch: refetchFamily } = useFamilyData();
   
   // Dialog states
   const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
@@ -277,6 +278,13 @@ export default function SettingsPage() {
                 dbUser={dbUser} 
                 loading={familyLoading} 
                 onUpdate={handleDataUpdate} 
+              />
+              
+              {/* AI Configuration Section */}
+              <AIConfigurationCard
+                isHouseholdAdmin={isHouseholdAdmin}
+                hasGeminiKey={hasGeminiKey}
+                onUpdate={handleDataUpdate}
               />
               
               {/* Calendar Integrations */}

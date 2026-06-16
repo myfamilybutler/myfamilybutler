@@ -18,6 +18,8 @@ import {
 import { createEventsBulk } from '@/lib/supabase';
 import { isAmbiguousFamilyMemberName } from '@/lib/utils/family-members';
 import { log, logError } from '@/lib/utils/logger';
+import { decrypt } from '@/lib/utils/encryption';
+import { getAdminClient } from '@/lib/supabase/client';
 
 // ===========================================
 // Types
@@ -65,12 +67,33 @@ function getOpenAI(): OpenAI {
 
 let geminiModule: typeof import('@google/generative-ai') | null = null;
 
-async function getGeminiModel() {
+async function getGeminiModel(householdId?: string | null) {
   if (!geminiModule) {
     geminiModule = await import('@google/generative-ai');
   }
   
-  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+  let apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+  
+  if (householdId) {
+    try {
+      const admin = getAdminClient();
+      const { data } = await admin
+        .from('households')
+        .select('gemini_api_key')
+        .eq('id', householdId)
+        .maybeSingle();
+        
+      if (data?.gemini_api_key) {
+        const decrypted = decrypt(data.gemini_api_key);
+        if (decrypted) {
+          apiKey = decrypted;
+        }
+      }
+    } catch (err) {
+      logError('[Vision] Error fetching household key:', err);
+    }
+  }
+  
   if (!apiKey) {
     return null;
   }
@@ -87,9 +110,10 @@ async function getGeminiModel() {
 
 async function extractWithGemini(
   imageBuffer: Buffer,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  householdId?: string | null
 ): Promise<VisionExtractionResponse | null> {
-  const model = await getGeminiModel();
+  const model = await getGeminiModel(householdId);
   
   if (!model) {
     log.info('[Vision] Gemini not available, skipping');
@@ -196,10 +220,11 @@ async function extractWithOpenAI(
 
 async function extractEvents(
   imageBuffer: Buffer,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  householdId?: string | null
 ): Promise<VisionExtractionResponse> {
   // Try Gemini first (free/cheap)
-  const geminiResult = await extractWithGemini(imageBuffer, mimeType);
+  const geminiResult = await extractWithGemini(imageBuffer, mimeType, householdId);
   if (geminiResult) {
     return geminiResult;
   }
@@ -222,7 +247,7 @@ export async function processVisionMessage(
 
   try {
     // Extract events using AI vision
-    const extraction = await extractEvents(imageBuffer, mimeType);
+    const extraction = await extractEvents(imageBuffer, mimeType, householdId);
 
     if (!extraction.success || extraction.events.length === 0) {
       return {

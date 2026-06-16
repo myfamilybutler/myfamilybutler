@@ -127,6 +127,18 @@
     "leaveFamily": "Leave Family",
     "calendarSync": "Calendar Sync",
     "calendarSyncDesc": "Connect your calendar to automatically sync events",
+    "aiConfigTitle": "AI Configuration",
+    "aiConfigDesc": "Provide your own Gemini API Key to power the family butler assistant.",
+    "geminiKey": "Gemini API Key",
+    "geminiKeyPlaceholder": "Enter new key (leave empty to keep existing)",
+    "geminiKeyPlaceholderEmpty": "Enter your Gemini API key (AIzaSy...)",
+    "geminiKeyHelp": "To run for free, get a key from ",
+    "geminiKeyHelpLink": "Google AI Studio",
+    "geminiKeyStatusConfigured": "Configured",
+    "geminiKeyStatusNotConfigured": "Not configured",
+    "saveKey": "Save API Key",
+    "savingKey": "Saving Key...",
+    "onlyAdminCanEditKey": "Only family administrators can modify the AI configuration.",
     "gdprTitle": "Your Data (GDPR)",
     "gdprDesc": "Manage your personal data in accordance with GDPR",
     "exportData": "Export My Data",
@@ -274,6 +286,17 @@
         "phoneUpdated": "Phone number updated",
         "phoneUpdateFailed": "Failed to update phone number"
       }
+    },
+    "aiConfiguration": {
+      "title": "AI Configuration",
+      "description": "Manage the Gemini API Key for this family",
+      "geminiApiKey": "Gemini API Key",
+      "geminiApiKeyDesc": "Enter your free API Key from Google AI Studio here",
+      "saveKey": "Save Key",
+      "keySaved": "Gemini API Key saved successfully!",
+      "saveKeyError": "Failed to save API Key",
+      "hasKey": "Active (Your custom API Key is set)",
+      "noKey": "Not set (Using default system key)"
     }
   },
   "auth": {
@@ -340,17 +363,25 @@
     }
   },
   "onboarding": {
-    "createTitle": "Create Your Family",
-    "createDescription": "Set up your household to start managing tasks and events together.",
+    "createTitle": "Create your family",
+    "createDescription": "Set up your household to manage tasks and events together.",
     "familyName": "Family Name",
-    "familyNamePlaceholder": "e.g. The Smiths",
+    "familyNamePlaceholder": "e.g. Miller Family",
     "defaultFamilyName": "My Family",
     "creating": "Creating...",
     "submit": "Get Started",
     "familyCreated": "Family created successfully!",
     "familyExists": "You already have a family. Redirecting...",
     "createError": "Failed to create family",
-    "networkError": "Network error"
+    "networkError": "Network error",
+    "aiKeyTitle": "AI Configuration",
+    "aiKeyDescription": "To use MyFamilyButler for free, please provide your own Gemini API key.",
+    "geminiKey": "Gemini API Key",
+    "geminiKeyPlaceholder": "AIzaSy...",
+    "geminiKeyHelp": "Don't have an API key? Click here to generate one for free in 15 seconds.",
+    "geminiKeySuccess": "Gemini API Key saved successfully!",
+    "geminiKeyError": "Failed to save API Key",
+    "skip": "Set up later"
   },
   "landing": {
     "nav": {
@@ -421,18 +452,18 @@
       }
     },
     "pricing": {
-      "badge": "Launch price",
-      "amount": "€4.99",
-      "perMonth": "/month",
+      "badge": "100% Free",
+      "amount": "€0",
+      "perMonth": "forever",
       "list": {
         "item1": "Unlimited messages",
         "item2": "WhatsApp + Telegram",
         "item3": "Family calendar & dashboard",
         "item4": "Image & document analysis",
-        "item5": "Cancel anytime"
+        "item5": "Bring Your Own Gemini Key (BYOK)"
       },
-      "cta": "Try for free",
-      "footnote": "7 days free • No credit card • No registration"
+      "cta": "Start for free",
+      "footnote": "Google AI Studio provides Gemini API keys for free"
     },
     "footer": {
       "privacy": "Privacy",

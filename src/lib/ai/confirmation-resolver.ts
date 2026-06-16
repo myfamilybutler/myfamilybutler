@@ -11,6 +11,8 @@ import OpenAI from 'openai';
 import { detectLanguage } from './response-templates';
 import { isGeminiAvailable } from './providers/gemini';
 import { log, logError } from '@/lib/utils/logger';
+import { decrypt } from '@/lib/utils/encryption';
+import { getAdminClient } from '@/lib/supabase/client';
 
 export type ConfirmationIntent = 
   | 'confirm'           // User wants to save the event
@@ -57,27 +59,45 @@ function getOpenAI(): OpenAI {
   return openaiInstance;
 }
 
-async function getGemini() {
-  if (!geminiModelInstance) {
-    if (!geminiModule) {
-      geminiModule = await import('@google/generative-ai');
-    }
-    
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GOOGLE_GEMINI_API_KEY is not configured');
-    }
-    
-    const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
-    geminiModelInstance = genAI.getGenerativeModel({ 
-      model: 'gemini-3-flash-preview',
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 300,
-      },
-    });
+async function getGemini(householdId?: string | null) {
+  if (!geminiModule) {
+    geminiModule = await import('@google/generative-ai');
   }
-  return geminiModelInstance;
+  
+  let apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+  
+  if (householdId) {
+    try {
+      const admin = getAdminClient();
+      const { data } = await admin
+        .from('households')
+        .select('gemini_api_key')
+        .eq('id', householdId)
+        .maybeSingle();
+        
+      if (data?.gemini_api_key) {
+        const decrypted = decrypt(data.gemini_api_key);
+        if (decrypted) {
+          apiKey = decrypted;
+        }
+      }
+    } catch (err) {
+      logError('[ConfirmationResolver] Error fetching household key:', err);
+    }
+  }
+
+  if (!apiKey) {
+    throw new Error('GOOGLE_GEMINI_API_KEY is not configured');
+  }
+  
+  const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
+  return genAI.getGenerativeModel({ 
+    model: 'gemini-3-flash-preview',
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 300,
+    },
+  });
 }
 
 // ===========================================
@@ -91,7 +111,8 @@ async function getGemini() {
 export async function resolveConfirmationIntent(
   userMessage: string,
   draft: DraftContext,
-  conversationHistory?: { role: 'user' | 'assistant'; content: string }[]
+  conversationHistory?: { role: 'user' | 'assistant'; content: string }[],
+  householdId?: string | null
 ): Promise<ConfirmationResult> {
   const lang = detectLanguage(userMessage);
   
@@ -103,9 +124,9 @@ export async function resolveConfirmationIntent(
   }
   
   // Try Gemini first (free/fast)
-  if (isGeminiAvailable()) {
+  if (await isGeminiAvailable(householdId)) {
     try {
-      const result = await resolveWithGemini(userMessage, draft);
+      const result = await resolveWithGemini(userMessage, draft, householdId);
       if (result.intent !== 'unclear') {
         log.info(`[ConfirmationResolver] Gemini: ${result.intent}`);
         return result;
@@ -170,9 +191,10 @@ function quickIntentCheck(message: string): ConfirmationResult | null {
 
 async function resolveWithGemini(
   userMessage: string,
-  draft: DraftContext
+  draft: DraftContext,
+  householdId?: string | null
 ): Promise<ConfirmationResult> {
-  const model = await getGemini();
+  const model = await getGemini(householdId);
   
   const prompt = `Analyze this user reply to a draft calendar event.
 

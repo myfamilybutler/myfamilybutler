@@ -44,10 +44,13 @@ export async function GET() {
       return NextResponse.json({ error: 'User or family not found' }, { status: 404 });
     }
     
-    const [members, pendingInvites] = await Promise.all([
+    const [members, pendingInvites, householdResult] = await Promise.all([
       getFamilyMembers(user.household_id),
-      getPendingInvites(user.household_id)
+      getPendingInvites(user.household_id),
+      admin.from('households').select('gemini_api_key').eq('id', user.household_id).maybeSingle()
     ]);
+    
+    const hasGeminiKey = !!householdResult?.data?.gemini_api_key;
     
     return NextResponse.json({
       success: true,
@@ -56,7 +59,8 @@ export async function GET() {
         isHouseholdAdmin: user.is_household_admin ?? false,  // Household admin, not super admin
         users: members.users,
         familyMembers: members.familyMembers,
-        pendingInvites: pendingInvites
+        pendingInvites: pendingInvites,
+        hasGeminiKey
       }
     });
   } catch (error) {
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
     
     const { userId } = session;
-    const { action, phoneNumber, email, name, memberId, color, inviteId } = await request.json();
+    const { action, phoneNumber, email, name, memberId, color, inviteId, geminiApiKey } = await request.json();
     
     if (!action) {
       return NextResponse.json({ error: 'Missing action' }, { status: 400 });
@@ -302,6 +306,26 @@ export async function POST(request: NextRequest) {
 
       if (!success) {
         return NextResponse.json({ error: 'Failed to revoke invite' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true });
+    }
+    if (action === 'updateGeminiKey') {
+      if (!user.is_household_admin) {
+        return NextResponse.json({ error: 'Only household admin can update the API key' }, { status: 403 });
+      }
+
+      const { encrypt } = await import('@/lib/utils/encryption');
+      const encryptedKey = geminiApiKey ? encrypt(geminiApiKey.trim()) : null;
+
+      const { error: updateError } = await admin
+        .from('households')
+        .update({ gemini_api_key: encryptedKey })
+        .eq('id', user.household_id);
+
+      if (updateError) {
+        log.error('Update Gemini key error:', updateError);
+        return NextResponse.json({ error: 'Failed to update API key' }, { status: 500 });
       }
 
       return NextResponse.json({ success: true });
