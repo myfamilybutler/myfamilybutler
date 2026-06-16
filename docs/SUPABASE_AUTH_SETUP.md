@@ -35,7 +35,7 @@ In **Authentication → Providers → Email**:
   - **Recommended for production**: Enable **Confirm email**.
   - For faster local testing, you can disable it.
 
-## 4. Configure OAuth providers
+## 4. Configure Google OAuth
 
 ### Google
 
@@ -45,13 +45,6 @@ In **Authentication → Providers → Email**:
 4. Set the authorized redirect URI in Google Cloud Console to:
    `https://<your-project-ref>.supabase.co/auth/v1/callback`
 5. Add your production and local domains to **Authorized JavaScript origins**.
-
-### Apple
-
-1. Go to **Authentication → Providers → Apple**.
-2. Enable it.
-3. Add your Apple Services ID, Team ID, Key ID, and private key.
-4. Configure the redirect URI in Apple Developer Console.
 
 ## 5. (Optional but recommended) Use a custom SMTP provider
 
@@ -101,5 +94,5 @@ For local development, add them to `.env.local`.
 2. Visit `http://localhost:3000/register`.
 3. Sign up with email and password.
 4. Check that a `public.users` row is created with `id` matching `auth.users.id`.
-5. Test Google/Apple OAuth sign-in.
+5. Test Google OAuth sign-in.
 6. If email confirmation is enabled, click the verification link and confirm `email_verified` becomes `true`.
