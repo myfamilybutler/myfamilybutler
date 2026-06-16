@@ -313,6 +313,8 @@
       "title": "Dashboard Login",
       "description": "Sign in with your email and password or Google",
       "invalidOrExpired": "Authentication failed. Please try again.",
+      "pkceError": "Security cookie missing. Please enable cookies and try again.",
+      "verificationFailed": "Account verification failed. Please try again.",
       "loginFailed": "Login failed. Please try again.",
       "emailLabel": "Email address",
       "emailPlaceholder": "you@email.com",

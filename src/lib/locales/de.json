@@ -313,6 +313,8 @@
       "title": "Dashboard Login",
       "description": "Melde dich mit Email und Passwort oder Google an",
       "invalidOrExpired": "Authentifizierung fehlgeschlagen. Bitte erneut versuchen.",
+      "pkceError": "Sicherheits-Cookie fehlt. Bitte Cookies aktivieren und erneut versuchen.",
+      "verificationFailed": "Kontobestaetigung fehlgeschlagen. Bitte erneut versuchen.",
       "loginFailed": "Login fehlgeschlagen. Bitte erneut versuchen.",
       "emailLabel": "Email-Adresse",
       "emailPlaceholder": "deine@email.com",

@@ -69,6 +69,18 @@ function LoginContent() {
 
   const urlError = searchParams.get('error');
 
+  const getUrlErrorMessage = (code: string) => {
+    switch (code) {
+      case 'pkce_error':
+        return t('auth.login.pkceError');
+      case 'verification_failed':
+        return t('auth.login.verificationFailed');
+      case 'invalid_or_expired':
+      default:
+        return t('auth.login.invalidOrExpired');
+    }
+  };
+
   useEffect(() => {
     if (!authLoading && user) {
       const returnUrl = searchParams.get('returnUrl');
@@ -141,9 +153,7 @@ function LoginContent() {
               {urlError && (
                 <div className="p-3 bg-destructive/10 border border-destructive/25 rounded-lg flex items-center gap-2 text-destructive text-sm">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  {urlError === 'invalid_or_expired'
-                    ? t('auth.login.invalidOrExpired')
-                    : t('auth.login.loginFailed')}
+                  {getUrlErrorMessage(urlError)}
                 </div>
               )}
 
