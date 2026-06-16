@@ -1,0 +1,549 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { 
+  Users, 
+  Trash2, 
+  LogOut, 
+  Download, 
+  UserMinus,
+  Plus,
+  Calendar,
+  User,
+  Shield,
+  Bell,
+} from 'lucide-react';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AddMemberDialog } from '@/components/dashboard/add-member-dialog';
+import { AccountSecurityCard } from '@/components/settings/account-security-card';
+import { GoogleCalendarConnectButton } from '@/components/settings/google-calendar-connect';
+import { AIConfigurationCard } from '@/components/settings/ai-configuration-card';
+import { ColorPicker } from '@/components/settings/color-picker';
+import { useAuthStore, type DbUser } from '@/stores/auth-store';
+import { DEFAULT_MEMBER_COLOR } from '@/lib/utils/ui-helpers';
+import type { FamilyMember } from '@/stores/family-store';
+import { FamilyMembersList } from '@/components/dashboard/family-members-list';
+import { useFamilyData, useFamilyActions } from '@/stores/family-store';
+import { logError } from '@/lib/utils/logger';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
+import { seedAuthFamilyStores, type InitialFamilyPayload } from '@/lib/client/seed-auth-family';
+
+interface SettingsClientProps {
+  authUser: SupabaseUser;
+  initialDbUser: DbUser;
+  initialFamily: InitialFamilyPayload;
+}
+
+export function SettingsClient({ authUser, initialDbUser, initialFamily }: SettingsClientProps) {
+  // Seed Zustand stores synchronously on first render so the settings UI is
+  // interactive immediately and does not flash a loading state.
+  useState(() => {
+    seedAuthFamilyStores(authUser, initialDbUser, initialFamily);
+    return true;
+  });
+
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { dbUser, signOut } = useAuthStore();
+  const refreshDbUser = useAuthStore((state) => state.refreshDbUser);
+  const { reset: resetFamily } = useFamilyActions();
+  const { users, profileMembers, hasHousehold, isHouseholdAdmin, hasGeminiKey, loading: familyLoading, refetch: refetchFamily } = useFamilyData();
+
+  // Dialog states
+  const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
+  const [deleteFamilyDialog, setDeleteFamilyDialog] = useState(false);
+  const [leaveFamilyDialog, setLeaveFamilyDialog] = useState(false);
+  const [addMemberDialog, setAddMemberDialog] = useState(false);
+  const [deleteMemberDialog, setDeleteMemberDialog] = useState(false);
+  const [editMemberDialog, setEditMemberDialog] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+  const [editMemberName, setEditMemberName] = useState('');
+  const [editMemberColor, setEditMemberColor] = useState(DEFAULT_MEMBER_COLOR);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Settings only needs auth and family state; do not pull dashboard events here.
+  const handleDataUpdate = useCallback(async () => {
+    await Promise.all([
+      refreshDbUser(),
+      refetchFamily()
+    ]);
+  }, [refreshDbUser, refetchFamily]);
+
+  // Handle logout
+  const handleLogout = async () => {
+    await signOut();
+    router.push('/login');
+  };
+  
+  // Handle data export (GDPR: Right to portability)
+  const handleExportData = async () => {
+    try {
+      const res = await fetchWithTimeout('/api/account/export');
+      const data = await res.json();
+      
+      // Download as JSON
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'familybutler-data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      logError('Export error:', error);
+      toast.error(t('settings.exportError'));
+    }
+  };
+  
+  // Handle account deletion (GDPR: Right to erasure)
+  const handleDeleteAccount = async () => {
+    setActionLoading(true);
+    try {
+      const res = await fetchWithTimeout('/api/account', {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        await signOut();
+        router.push('/');
+      } else {
+        toast.error(t('settings.deleteAccountError'));
+      }
+    } catch (error) {
+      logError('Delete error:', error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  
+  // Handle family deletion (admin only)
+  const handleDeleteFamily = async () => {
+    setActionLoading(true);
+    try {
+      const res = await fetchWithTimeout('/api/family', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteFamily' })
+      });
+      
+      if (res.ok) {
+        resetFamily();
+        await refreshDbUser();
+        router.push('/onboarding');
+      } else {
+        toast.error(t('settings.deleteFamilyError'));
+      }
+    } catch (error) {
+      logError('Delete family error:', error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  
+  // Handle leaving family (non-admin)
+  const handleLeaveFamily = async () => {
+    setActionLoading(true);
+    try {
+      const res = await fetchWithTimeout('/api/family', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'leave' })
+      });
+      
+      if (res.ok) {
+        resetFamily();
+        await refreshDbUser();
+        router.push('/onboarding');
+      } else {
+        toast.error(t('settings.leaveFamilyError'));
+      }
+    } catch (error) {
+      logError('Leave error:', error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle edit family member
+  const handleEditMember = async () => {
+    if (!selectedMember || !editMemberName.trim()) return;
+    
+    setActionLoading(true);
+    try {
+      const res = await fetchWithTimeout('/api/family', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'edit', 
+          memberId: selectedMember.id, 
+          name: editMemberName.trim(),
+          color: editMemberColor,
+        })
+      });
+      
+      if (res.ok) {
+        toast.success(t('settings.memberUpdated'));
+        setEditMemberDialog(false);
+        setSelectedMember(null);
+        setEditMemberName('');
+        setEditMemberColor(DEFAULT_MEMBER_COLOR);
+        refetchFamily();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || t('settings.updateMemberError'));
+      }
+    } catch (error) {
+      logError('Edit member error:', error);
+      toast.error(t('settings.updateMemberError'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle delete family member
+  const handleDeleteMember = async () => {
+    if (!selectedMember) return;
+    
+    setActionLoading(true);
+    try {
+      // Check if this is a user (account holder) or a profile member
+      // profileMembers data has 'color', users (account holders) don't have it in the list
+      const isUser = users.some(u => u.id === selectedMember.id);
+      
+      const res = await fetchWithTimeout('/api/family', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: isUser ? 'removeUser' : 'deleteMember', 
+          memberId: selectedMember.id 
+        })
+      });
+      
+      if (res.ok) {
+        toast.success(isUser ? t('settings.userRemoved') : t('settings.memberDeleted'));
+        setDeleteMemberDialog(false);
+        setSelectedMember(null);
+        refetchFamily();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || t('settings.deleteMemberError'));
+      }
+    } catch (error) {
+      logError('Delete member error:', error);
+      toast.error(t('settings.deleteMemberError'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Open edit dialog
+  const openEditDialog = (member: FamilyMember) => {
+    setSelectedMember(member);
+    setEditMemberName(member.name);
+    setEditMemberColor(member.color || DEFAULT_MEMBER_COLOR);
+    setEditMemberDialog(true);
+  };
+
+  // Open delete dialog
+  const openDeleteDialog = (member: FamilyMember) => {
+    setSelectedMember(member);
+    setDeleteMemberDialog(true);
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-foreground">{t('settings.title')}</h1>
+          <p className="text-muted-foreground">{t('settings.description')}</p>
+        </div>
+        
+        <Tabs defaultValue="profile" className="space-y-6">
+          <TabsList className="grid h-auto w-full grid-cols-3">
+            <TabsTrigger value="profile" className="flex min-h-10 items-center gap-2">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('settings.profileTab')}</span>
+              <span className="sm:hidden">{t('settings.profileTabShort')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="family" className="flex min-h-10 items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('settings.familyTab')}</span>
+              <span className="sm:hidden">{t('settings.familyTabShort')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="privacy" className="flex min-h-10 items-center gap-2">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('settings.privacyTab')}</span>
+              <span className="sm:hidden">{t('settings.privacyTabShort')}</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Profile Tab */}
+          <TabsContent value="profile" className="space-y-6">
+            {/* Account & Security Section */}
+            <AccountSecurityCard 
+              dbUser={dbUser} 
+              loading={familyLoading} 
+              onUpdate={handleDataUpdate} 
+            />
+            
+            {/* AI Configuration Section */}
+            <AIConfigurationCard
+              isHouseholdAdmin={isHouseholdAdmin}
+              hasGeminiKey={hasGeminiKey}
+              onUpdate={handleDataUpdate}
+            />
+            
+            {/* Calendar Integrations */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  {t('settings.calendarSync')}
+                </CardTitle>
+                <CardDescription>
+                  {t('settings.calendarSyncDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <GoogleCalendarConnectButton />
+              </CardContent>
+            </Card>
+            
+            {/* Logout - in profile tab */}
+            <Button
+              variant="outline"
+              size="touch"
+              className="w-full"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              {t('settings.signOut')}
+            </Button>
+          </TabsContent>
+
+          {/* Family Tab */}
+          <TabsContent value="family" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    {t('settings.familyMembers')}
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    {isHouseholdAdmin ? t('settings.adminRole') : t('settings.memberRole')}
+                  </CardDescription>
+                </div>
+                {hasHousehold ? (
+                  <Button size="touch" className="w-full sm:w-auto" onClick={() => setAddMemberDialog(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t('settings.addMember')}
+                  </Button>
+                ) : (
+                  <Button size="touch" className="w-full sm:w-auto" onClick={() => router.push('/onboarding')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t('settings.createFamily')}
+                  </Button>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {familyLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-10 bg-muted rounded"></div>
+                    <div className="h-10 bg-muted rounded"></div>
+                  </div>
+                ) : (
+                  <FamilyMembersList
+                    users={users}
+                    familyMembers={profileMembers}
+                    isAdmin={isHouseholdAdmin}
+                    showActions={true}
+                    onEditMember={openEditDialog}
+                    onDeleteMember={openDeleteDialog}
+                  />
+                )}
+                
+                {!isHouseholdAdmin && (
+                  <Button
+                    variant="warningOutline"
+                    size="touch"
+                    className="w-full mt-4"
+                    onClick={() => setLeaveFamilyDialog(true)}
+                  >
+                    <UserMinus className="w-4 h-4 mr-2" />
+                    {t('settings.leaveFamily')}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Privacy Tab */}
+          <TabsContent value="privacy" className="space-y-6">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  {t('settings.gdprTitle')}
+                </CardTitle>
+                <CardDescription>
+                  {t('settings.gdprDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  variant="outline"
+                  size="touch"
+                  className="w-full justify-start"
+                  onClick={handleExportData}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {t('settings.exportData')}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Danger Zone */}
+            <Card className="border-destructive/25">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <Bell className="w-5 h-5" />
+                  {t('settings.dangerZone')}
+                </CardTitle>
+                <CardDescription>
+                  {t('settings.dangerZoneDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {isHouseholdAdmin && (
+                  <Button
+                    variant="destructiveOutline"
+                    size="touch"
+                    className="w-full justify-start"
+                    onClick={() => setDeleteFamilyDialog(true)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t('settings.deleteFamily')}
+                  </Button>
+                )}
+                
+                <Button
+                  variant="destructiveOutline"
+                  size="touch"
+                  className="w-full justify-start"
+                  onClick={() => setDeleteAccountDialog(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {t('settings.deleteAccount')}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+      
+      {/* Add Member Dialog - Reusing Component */}
+      <AddMemberDialog 
+        open={addMemberDialog} 
+        onOpenChange={setAddMemberDialog}
+        onSuccess={refetchFamily}
+      />
+      
+      {/* Delete Account Dialog */}
+      <ConfirmDialog
+        open={deleteAccountDialog}
+        onOpenChange={setDeleteAccountDialog}
+        title={t('settings.deleteAccountTitle')}
+        description={t('settings.deleteAccountDesc')}
+        confirmText={t('common.delete')}
+        onConfirm={handleDeleteAccount}
+        loading={actionLoading}
+      />
+      
+      {/* Delete Family Dialog */}
+      <ConfirmDialog
+        open={deleteFamilyDialog}
+        onOpenChange={setDeleteFamilyDialog}
+        title={t('settings.deleteFamilyTitle')}
+        description={t('settings.deleteFamilyDesc')}
+        confirmText={t('common.delete')}
+        onConfirm={handleDeleteFamily}
+        loading={actionLoading}
+      />
+      
+      {/* Leave Family Dialog */}
+      <ConfirmDialog
+        open={leaveFamilyDialog}
+        onOpenChange={setLeaveFamilyDialog}
+        title={t('settings.leaveFamilyTitle')}
+        description={t('settings.leaveFamilyDesc')}
+        onConfirm={handleLeaveFamily}
+        loading={actionLoading}
+      />
+      
+      {/* Edit Member Dialog */}
+      <ConfirmDialog
+        open={editMemberDialog}
+        onOpenChange={(open) => {
+          setEditMemberDialog(open);
+          if (!open) {
+            setSelectedMember(null);
+            setEditMemberName('');
+            setEditMemberColor(DEFAULT_MEMBER_COLOR);
+          }
+        }}
+        title={t('settings.editMemberTitle')}
+        description={
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {t('settings.editMemberDesc')}
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="memberName">{t('settings.memberName')}</Label>
+              <Input
+                id="memberName"
+                value={editMemberName}
+                onChange={(e) => setEditMemberName(e.target.value)}
+                placeholder={t('settings.enterName')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('settings.memberColor')}</Label>
+              <ColorPicker
+                value={editMemberColor}
+                onChange={setEditMemberColor}
+              />
+            </div>
+          </div>
+        }
+        onConfirm={handleEditMember}
+        loading={actionLoading}
+        variant="default"
+      />
+      
+      {/* Delete Member Dialog */}
+      <ConfirmDialog
+        open={deleteMemberDialog}
+        onOpenChange={(open) => {
+          setDeleteMemberDialog(open);
+          if (!open) setSelectedMember(null);
+        }}
+        title={t('settings.deleteMemberTitle')}
+        description={t('settings.deleteMemberDesc', { name: selectedMember?.name })}
+        confirmText={t('common.delete')}
+        onConfirm={handleDeleteMember}
+        loading={actionLoading}
+      />
+    </DashboardLayout>
+  );
+}

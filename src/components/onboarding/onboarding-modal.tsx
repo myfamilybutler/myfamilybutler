@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import { X, User, Users, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +44,7 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
         setError('');
 
         try {
-            const res = await fetch('/api/auth/complete-onboarding-modal', {
+            const res = await fetchWithTimeout('/api/auth/complete-onboarding-modal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -69,7 +70,7 @@ export function OnboardingModal({ isOpen, onComplete, onSkip }: OnboardingModalP
     const handleSkip = async () => {
         // Mark modal as shown even when skipping
         try {
-            await fetch('/api/auth/complete-onboarding-modal', {
+            await fetchWithTimeout('/api/auth/complete-onboarding-modal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ skipped: true }),

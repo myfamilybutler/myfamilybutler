@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useFamilyActions } from '@/stores/family-store';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import { Users, ArrowRight, Loader2, Sparkles, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +48,7 @@ export default function OnboardingPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/family', {
+      const res = await fetchWithTimeout('/api/family', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -86,7 +87,7 @@ export default function OnboardingPage() {
     setSavingKey(true);
 
     try {
-      const res = await fetch('/api/family', {
+      const res = await fetchWithTimeout('/api/family', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

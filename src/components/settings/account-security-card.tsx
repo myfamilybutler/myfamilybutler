@@ -11,6 +11,7 @@ import {
   User
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,7 +64,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
   const handleSaveDisplayName = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/account', {
+      const res = await fetchWithTimeout('/api/account', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName: newName }),
@@ -92,7 +93,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
     
     setResendingVerification(true);
     try {
-      const res = await fetch('/api/account/update-email', {
+      const res = await fetchWithTimeout('/api/account/update-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -130,7 +131,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
 
     setSaving(true);
     try {
-      const res = await fetch('/api/account/update-email', {
+      const res = await fetchWithTimeout('/api/account/update-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: newEmail }),
@@ -163,7 +164,7 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
 
     setSaving(true);
     try {
-      const res = await fetch('/api/account', {
+      const res = await fetchWithTimeout('/api/account', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: newPhone }),

@@ -12,6 +12,7 @@ import { addHours, addDays, setHours, setMinutes } from 'date-fns';
 import { Bell, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -69,7 +70,7 @@ export function EventReminderSection({
 
       setIsLoadingReminders(true);
       try {
-        const response = await fetch(
+        const response = await fetchWithTimeout(
           `/api/reminders?eventId=${encodeURIComponent(eventId)}`,
           { signal }
         );
@@ -128,7 +129,7 @@ export function EventReminderSection({
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/events', {
+      const response = await fetchWithTimeout('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -160,7 +161,7 @@ export function EventReminderSection({
   const handleDeleteReminder = async (reminderId: string) => {
     setDeletingReminderId(reminderId);
     try {
-      const response = await fetch(`/api/reminders?id=${encodeURIComponent(reminderId)}`, {
+      const response = await fetchWithTimeout(`/api/reminders?id=${encodeURIComponent(reminderId)}`, {
         method: 'DELETE',
       });
       const result = await response.json();

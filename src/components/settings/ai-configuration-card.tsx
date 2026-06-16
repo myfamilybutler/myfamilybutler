@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { logError } from '@/lib/utils/logger';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 
 interface AIConfigurationCardProps {
   isHouseholdAdmin: boolean;
@@ -38,7 +39,7 @@ export function AIConfigurationCard({
 
     setLoading(true);
     try {
-      const res = await fetch('/api/family', {
+      const res = await fetchWithTimeout('/api/family', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

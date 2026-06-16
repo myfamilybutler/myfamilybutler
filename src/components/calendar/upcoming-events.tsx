@@ -6,6 +6,7 @@ import { Clock, Pencil, Trash2, Loader2, ChevronDown, ChevronUp, Hand } from 'lu
 import { motion, useMotionValue, useTransform, animate, PanInfo, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { formatTime } from '@/lib/utils';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import type { CalendarEvent } from '@/types/calendar';
 import { EditEventDialog } from './edit-event-dialog';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ interface UpcomingEventsProps {
   onEventsChanged?: () => void;
   hideHeader?: boolean;
   excludeTodayAndTomorrow?: boolean;
+  isLoading?: boolean;
 }
 
 interface ProcessedEvent extends CalendarEvent {
@@ -210,6 +212,7 @@ export function UpcomingEvents({
   onEventsChanged,
   hideHeader = false,
   excludeTodayAndTomorrow = false,
+  isLoading = false,
 }: UpcomingEventsProps) {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -260,7 +263,7 @@ export function UpcomingEvents({
         params.set('occurrenceDate', event.recurrence_instance_date);
       }
 
-      const response = await fetch(`/api/events?${params.toString()}`, {
+      const response = await fetchWithTimeout(`/api/events?${params.toString()}`, {
         method: 'DELETE',
       });
 
@@ -381,6 +384,15 @@ export function UpcomingEvents({
   const handleShowLess = () => {
     setVisibleCount(pageSize);
   };
+
+  if (isLoading && allUpcomingEvents.length === 0) {
+    return (
+      <UpcomingEventsSkeleton
+        hideHeader={hideHeader}
+        excludeTodayAndTomorrow={excludeTodayAndTomorrow}
+      />
+    );
+  }
 
   if (allUpcomingEvents.length === 0 && !hasActiveFilters) {
     return (
@@ -521,5 +533,49 @@ export function UpcomingEvents({
         onEventDeleted={onEventsChanged}
       />
     </>
+  );
+}
+
+interface UpcomingEventsSkeletonProps {
+  hideHeader?: boolean;
+  excludeTodayAndTomorrow?: boolean;
+}
+
+function UpcomingEventsSkeleton({
+  hideHeader,
+  excludeTodayAndTomorrow,
+}: UpcomingEventsSkeletonProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="space-y-3" aria-busy="true">
+      {!hideHeader && (
+        <div className="flex items-center justify-between">
+          <div className="h-5 w-32 rounded bg-muted animate-pulse" />
+          <div className="h-4 w-8 rounded bg-muted animate-pulse" />
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-16 rounded-xl bg-muted animate-pulse" />
+            <div className="h-16 rounded-xl bg-muted animate-pulse" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-16 rounded-xl bg-muted animate-pulse" />
+          </div>
+        </div>
+      </div>
+
+      {/* Hidden label keeps the heading in the accessibility tree during load. */}
+      <span className="sr-only">
+        {excludeTodayAndTomorrow ? t('dashboard.laterEvents') : t('calendar.upcomingEvents')}
+      </span>
+    </div>
   );
 }

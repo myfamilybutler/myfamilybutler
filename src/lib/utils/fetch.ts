@@ -6,7 +6,10 @@
 
 /**
  * Fetch with timeout wrapper
- * Prevents hanging requests
+ *
+ * Prevents hanging requests by aborting after `timeoutMs`. If the caller passes
+ * an external AbortSignal, both the external signal and the timeout signal are
+ * linked so an abort from either side cancels the request.
  */
 export async function fetchWithTimeout(
   url: string,
@@ -14,6 +17,14 @@ export async function fetchWithTimeout(
   timeoutMs: number = 30000
 ): Promise<Response> {
   const controller = new AbortController();
+  const externalSignal = options?.signal;
+
+  let onExternalAbort: (() => void) | null = null;
+  if (externalSignal) {
+    onExternalAbort = () => controller.abort();
+    externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+  }
+
   const id = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
@@ -24,6 +35,9 @@ export async function fetchWithTimeout(
     return response;
   } finally {
     clearTimeout(id);
+    if (externalSignal && onExternalAbort) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
   }
 }
 

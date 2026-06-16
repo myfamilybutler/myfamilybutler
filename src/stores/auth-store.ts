@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getSupabase } from '@/lib/supabase';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { logError } from '@/lib/utils/logger';
 
@@ -47,6 +48,8 @@ interface AuthStore {
   reset: () => void;
 }
 
+let refreshDbUserPromise: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   dbUser: null,
@@ -61,23 +64,33 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setAuthState: (state) => set((current) => ({ ...current, ...state })),
 
   refreshDbUser: async () => {
-    set({ dbUserLoading: true });
-    try {
-      const response = await fetch('/api/user/me', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        logError('[AuthStore] refreshDbUser failed:', await response.text());
-        set({ dbUserLoading: false });
-        return;
-      }
-      const result = await response.json();
-      set({ dbUser: result.user as DbUser | null, dbUserLoading: false });
-    } catch (error) {
-      logError('[AuthStore] refreshDbUser error:', error);
-      set({ dbUserLoading: false });
+    if (refreshDbUserPromise) {
+      return refreshDbUserPromise;
     }
+
+    refreshDbUserPromise = (async () => {
+      set({ dbUserLoading: true });
+      try {
+        const response = await fetchWithTimeout('/api/user/me', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          logError('[AuthStore] refreshDbUser failed:', await response.text());
+          set({ dbUserLoading: false });
+          return;
+        }
+        const result = await response.json();
+        set({ dbUser: result.user as DbUser | null, dbUserLoading: false });
+      } catch (error) {
+        logError('[AuthStore] refreshDbUser error:', error);
+        set({ dbUserLoading: false });
+      } finally {
+        refreshDbUserPromise = null;
+      }
+    })();
+
+    return refreshDbUserPromise;
   },
 
   signOut: async () => {

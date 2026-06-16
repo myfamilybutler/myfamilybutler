@@ -12,13 +12,13 @@ import {
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useFilterStore } from '@/stores/filter-store';
-import { useFamilyMembers } from '@/hooks/use-family-members';
+import { useFamilyStore } from '@/stores/family-store';
 import { useState } from 'react';
 
 export function FamilyFilter() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const { members } = useFamilyMembers();
+  const members = useFamilyStore((state) => state.members);
   const selectedMembers = useFilterStore((state) => state.selectedMembers);
   const { toggleMember, clearFilters } = useFilterStore((state) => state.actions);
 

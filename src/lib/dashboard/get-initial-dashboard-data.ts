@@ -4,20 +4,13 @@
  */
 
 import { getAdminClient } from '@/lib/supabase/client';
-import { ensureUserFromAuth } from '@/lib/supabase/db-users';
-import {
-  getEventsForHousehold,
-  hydrateEventsWithFamilyMembers,
-} from '@/lib/supabase/db-events';
+import { getDashboardUser } from '@/lib/supabase/db-users';
+import { getEventsForHousehold } from '@/lib/supabase/db-events';
 import { getFamilyMembers } from '@/lib/supabase/db-families';
-import { log } from '@/lib/utils/logger';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import type { CalendarEvent } from '@/types/calendar';
 import type { FamilyMember } from '@/stores/family-store';
 import type { DbUser } from '@/stores/auth-store';
-
-export const DASHBOARD_USER_COLUMNS =
-  'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin';
 
 export interface InitialDashboardData {
   user: DbUser;
@@ -34,38 +27,17 @@ export interface InitialDashboardData {
 export async function getInitialDashboardData(
   authUser: SupabaseUser
 ): Promise<InitialDashboardData | null> {
-  const supabase = getAdminClient();
-
-  let { data: user } = await supabase
-    .from('users')
-    .select(DASHBOARD_USER_COLUMNS)
-    .eq('id', authUser.id)
-    .single();
-
+  const user = await getDashboardUser(authUser.id, authUser);
   if (!user) {
-    log.warn('[Dashboard SSR] User row missing, creating from auth session:', authUser.id);
-    const created = await ensureUserFromAuth(authUser);
-    if (!created) {
-      log.error('[Dashboard SSR] Failed to create missing user row:', authUser.id);
-      return null;
-    }
-
-    const { data: refetched } = await supabase
-      .from('users')
-      .select(DASHBOARD_USER_COLUMNS)
-      .eq('id', authUser.id)
-      .single();
-
-    if (!refetched) {
-      log.error('[Dashboard SSR] Failed to refetch created user row:', authUser.id);
-      return null;
-    }
-    user = refetched;
+    return null;
   }
 
-  let events: CalendarEvent[] = [];
   const householdId = user.household_id as string | null | undefined;
 
+  // Load family data first so the member list can be reused for event hydration.
+  const family = await getInitialFamilyData(authUser.id, householdId);
+
+  let events: CalendarEvent[] = [];
   if (householdId) {
     const today = new Date();
     const startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1)
@@ -75,11 +47,8 @@ export async function getInitialDashboardData(
       .toISOString()
       .split('T')[0];
 
-    const rawEvents = await getEventsForHousehold(householdId, startDate, endDate);
-    events = (await hydrateEventsWithFamilyMembers(rawEvents, householdId)) as CalendarEvent[];
+    events = (await getEventsForHousehold(householdId, startDate, endDate)) as CalendarEvent[];
   }
-
-  const family = await getInitialFamilyData(authUser.id, householdId);
 
   return { user: user as DbUser, events, family };
 }
