@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Send, Terminal, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 import { logError } from '@/lib/utils/logger';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 
 export function BroadcastClient() {
   const [message, setMessage] = useState('');
@@ -31,7 +32,7 @@ export function BroadcastClient() {
     setResult(null);
 
     try {
-      const response = await fetch('/api/admin/broadcast', {
+      const response = await fetchWithTimeout('/api/admin/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, channel, testOnly }),

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/supabase';
-import { ensureUserFromAuth } from '@/lib/supabase/db-users';
-import { getEventsForHousehold, hydrateEventsWithFamilyMembers } from '@/lib/supabase/db-events';
+import { getDashboardUser } from '@/lib/supabase/db-users';
+import { getEventsForHousehold } from '@/lib/supabase/db-events';
 import { validateSession } from '@/lib/auth/helpers';
 import { log } from '@/lib/utils/logger';
 
@@ -23,50 +22,12 @@ export async function GET() {
     }
 
     const { userId } = session;
-    const supabase = getAdminClient();
 
-    // 1. Fetch User Profile
-    // SECURITY: explicit minimal column list; avoid SELECT *.
-    let { data: user } = await supabase
-      .from('users')
-      .select(
-        'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin'
-      )
-      .eq('id', userId)
-      .single();
-
+    // 1. Fetch User Profile (create row from auth if missing)
+    const user = await getDashboardUser(userId);
     if (!user) {
-      log.warn('[API/dashboard] User row missing, creating from auth session:', userId);
-
-      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
-      if (authError || !authUser?.user) {
-        log.error('[API/dashboard] Auth user not found:', authError);
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-
-      const created = await ensureUserFromAuth(authUser.user);
-
-      if (!created) {
-        log.error('[API/dashboard] Failed to create missing user row:', userId);
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-
-      // Re-fetch with the explicit minimal column list so the returned payload
-      // matches the shape consumed by the dashboard UI.
-      const { data: refetched } = await supabase
-        .from('users')
-        .select(
-          'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin'
-        )
-        .eq('id', userId)
-        .single();
-
-      if (!refetched) {
-        log.error('[API/dashboard] Failed to refetch created user row:', userId);
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-
-      user = refetched;
+      log.error('[API/dashboard] User not found:', userId);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // 2. Fetch Events (if user has household)
@@ -81,8 +42,7 @@ export async function GET() {
         .toISOString()
         .split('T')[0];
 
-      const rawEvents = await getEventsForHousehold(user.household_id, startDate, endDate);
-      events = await hydrateEventsWithFamilyMembers(rawEvents, user.household_id);
+      events = await getEventsForHousehold(user.household_id, startDate, endDate);
     }
 
     return NextResponse.json({

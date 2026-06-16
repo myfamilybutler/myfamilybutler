@@ -296,9 +296,11 @@ export async function getEventsForHousehold(
 ): Promise<Event[]> {
   const admin = getAdminClient();
 
+  // Join family member display names in a single query instead of hydrating
+  // events with a second round-trip later.
   const { data, error } = await admin
     .from('events')
-    .select('*')
+    .select('*, family_members(name)')
     .eq('household_id', householdId)
     .gte('event_date', startDate)
     .lte('event_date', endDate)
@@ -309,52 +311,12 @@ export async function getEventsForHousehold(
     return [];
   }
 
-  return (data ?? []) as Event[];
-}
-
-/**
- * Hydrate a list of events with the display names of their linked family members.
- * This centralizes the member-id -> name lookup used by dashboard and events APIs.
- */
-export async function hydrateEventsWithFamilyMembers(
-  rawEvents: Event[],
-  householdId: string
-): Promise<Event[]> {
-  if (rawEvents.length === 0) {
-    return rawEvents;
-  }
-
-  const memberIds = Array.from(
-    new Set(
-      rawEvents
-        .map((event) => event.family_member_id as string | null | undefined)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0)
-    )
+  return ((data ?? []) as Array<Event & { family_members?: { name: string } | null }>).map(
+    (event) => ({
+      ...event,
+      family_member: event.family_members?.name ?? event.family_member,
+    })
   );
-
-  if (memberIds.length === 0) {
-    return rawEvents;
-  }
-
-  const admin = getAdminClient();
-  const { data: memberRows, error: membersError } = await admin
-    .from('family_members')
-    .select('id, name')
-    .eq('household_id', householdId)
-    .in('id', memberIds);
-
-  if (membersError) {
-    logError('Failed to fetch family member labels:', membersError);
-    return rawEvents;
-  }
-
-  const nameById = new Map((memberRows || []).map((member) => [member.id, member.name]));
-  return rawEvents.map((event) => ({
-    ...event,
-    family_member: event.family_member_id
-      ? nameById.get(event.family_member_id) || event.family_member
-      : event.family_member,
-  }));
 }
 
 /**

@@ -14,46 +14,15 @@ import { EventDetailDialog } from '@/components/calendar/event-detail-dialog';
 import { TodayWidget } from '@/components/dashboard/today-widget';
 import { Card, CardContent } from '@/components/ui/card';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
-import { useAuthStore, type DbUser } from '@/stores/auth-store';
-import { useFamilyStore, type FamilyMember } from '@/stores/family-store';
+import { type DbUser } from '@/stores/auth-store';
+import { seedAuthFamilyStores, type InitialFamilyPayload } from '@/lib/client/seed-auth-family';
 import type { CalendarEvent } from '@/types/calendar';
 
 interface DashboardClientProps {
   authUser: SupabaseUser;
   dbUser: DbUser;
   initialEvents: CalendarEvent[];
-  initialFamily: {
-    members: FamilyMember[];
-    users: FamilyMember[];
-    profileMembers: FamilyMember[];
-    isHouseholdAdmin: boolean;
-    hasGeminiKey: boolean;
-  };
-}
-
-function seedStores(
-  authUser: SupabaseUser,
-  dbUser: DbUser,
-  initialFamily: DashboardClientProps['initialFamily']
-) {
-  useAuthStore.setState({
-    user: authUser,
-    dbUser,
-    loading: false,
-    dbUserLoading: false,
-  });
-
-  useFamilyStore.setState({
-    members: initialFamily.members,
-    users: initialFamily.users,
-    profileMembers: initialFamily.profileMembers,
-    isHouseholdAdmin: initialFamily.isHouseholdAdmin,
-    hasGeminiKey: initialFamily.hasGeminiKey,
-    loading: false,
-    error: null,
-    lastFetchTime: Date.now(),
-    isFetching: false,
-  });
+  initialFamily: InitialFamilyPayload;
 }
 
 export function DashboardClient({
@@ -66,11 +35,11 @@ export function DashboardClient({
   // components see the server-fetched auth/family state immediately and the
   // hydrated DOM matches the server-rendered HTML.
   useState(() => {
-    seedStores(authUser, dbUser, initialFamily);
+    seedAuthFamilyStores(authUser, dbUser, initialFamily);
     return true;
   });
 
-  const { allEvents, refresh, dbUser: storeDbUser, isSyncing } = useDashboardData({
+  const { allEvents, refresh, dbUser: storeDbUser, isSyncing, loading } = useDashboardData({
     initialEvents,
   });
 
@@ -116,6 +85,7 @@ export function DashboardClient({
             events={allEvents}
             onEventClick={handleEventClick}
             onAddEvent={() => setQuickAddOpen(true)}
+            isLoading={loading}
           />
 
           <CollapsibleCalendar events={allEvents} onEventsChanged={refresh} />
@@ -127,6 +97,7 @@ export function DashboardClient({
                 pageSize={10}
                 excludeTodayAndTomorrow
                 onEventsChanged={refresh}
+                isLoading={loading}
               />
             </CardContent>
           </Card>

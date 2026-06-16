@@ -10,6 +10,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { Pencil, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import {
   Dialog,
   DialogContent,
@@ -92,7 +93,7 @@ export function EditEventDialog({
       const recurrence = buildRecurrenceFromForm(formData);
       const shouldApplySingleOccurrence = isRecurringInstance && editScope === 'single';
 
-      const response = await fetch('/api/events', {
+      const response = await fetchWithTimeout('/api/events', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -155,7 +156,7 @@ export function EditEventDialog({
         }
       }
 
-      const response = await fetch(`/api/events?${params.toString()}`, {
+      const response = await fetchWithTimeout(`/api/events?${params.toString()}`, {
         method: 'DELETE',
       });
 

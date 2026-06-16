@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { I18nProvider } from "@/components/providers/i18n-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from '@/components/layout/theme-provider';
 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon.svg", sizes: "any" },
     ],
     apple: [
       { url: "/icons/icon.svg", sizes: "180x180" },
@@ -49,9 +50,11 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <I18nProvider>
-              <AuthProvider>
-                  {children}
-              </AuthProvider>
+              <QueryProvider>
+                <AuthProvider>
+                    {children}
+                </AuthProvider>
+              </QueryProvider>
             </I18nProvider>
           </ThemeProvider>
         </PostHogProvider>

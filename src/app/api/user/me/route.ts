@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/supabase';
-import { ensureUserFromAuth } from '@/lib/supabase/db-users';
+import { getDashboardUser } from '@/lib/supabase/db-users';
 import { validateSession } from '@/lib/auth/helpers';
 import { logError } from '@/lib/utils/logger';
 
@@ -18,48 +17,13 @@ export async function POST() {
     }
 
     const { userId } = session;
-    const supabase = getAdminClient();
 
-    // SECURITY: explicit minimal column list; avoid SELECT *.
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select(
-        'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin'
-      )
-      .eq('id', userId)
-      .single();
-
-    if (existingUser) {
-      return NextResponse.json({ success: true, user: existingUser });
+    const user = await getDashboardUser(userId);
+    if (user) {
+      return NextResponse.json({ success: true, user });
     }
 
-    logError('[API/user/me] User not found, attempting to create from auth:', userId);
-
-    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
-    if (authError || !authUser?.user) {
-      logError('[API/user/me] Auth user not found:', authError);
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    const created = await ensureUserFromAuth(authUser.user);
-    if (!created) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Re-fetch with the explicit minimal column list so the returned payload
-    // matches the shape consumed by the UI and avoids exposing internal fields.
-    const { data: newUser } = await supabase
-      .from('users')
-      .select(
-        'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin'
-      )
-      .eq('id', userId)
-      .single();
-
-    if (newUser) {
-      return NextResponse.json({ success: true, user: newUser });
-    }
-
+    logError('[API/user/me] User not found:', userId);
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   } catch (error) {
     logError('[API] /api/user/me error:', error);

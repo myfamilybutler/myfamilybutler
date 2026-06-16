@@ -3,6 +3,7 @@ import { UserPlus } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,7 +49,7 @@ export function AddMemberDialog({
     qrPromiseRef.current = (async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/family/qr', { method: 'POST' });
+        const res = await fetchWithTimeout('/api/family/qr', { method: 'POST' });
         const data = await res.json();
 
         if (res.ok && data.token) {
@@ -96,7 +97,7 @@ export function AddMemberDialog({
             payload.name = memberName;
         }
         
-      const res = await fetch('/api/family', {
+      const res = await fetchWithTimeout('/api/family', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

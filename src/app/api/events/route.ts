@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient, updateEvent, deleteEvent, createEventReminder, createEvent } from '@/lib/supabase';
-import { getEventsForHousehold, hydrateEventsWithFamilyMembers } from '@/lib/supabase/db-events';
+import { getEventsForHousehold } from '@/lib/supabase/db-events';
 import { ensureAndResolveFamilyMemberIds } from '@/lib/supabase/family-member-sync';
 import { familyMemberNameKey, normalizeFamilyMemberName } from '@/lib/utils/family-members';
 import { validateSession } from '@/lib/auth/helpers';
@@ -68,10 +68,9 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate') || defaultStart;
     const endDate = searchParams.get('endDate') || defaultEnd;
 
-    const rawEvents = await getEventsForHousehold(user.household_id, startDate, endDate);
-    const hydratedEvents = await hydrateEventsWithFamilyMembers(rawEvents, user.household_id);
+    const events = await getEventsForHousehold(user.household_id, startDate, endDate);
 
-    return NextResponse.json({ success: true, data: hydratedEvents });
+    return NextResponse.json({ success: true, data: events });
 
   } catch (error) {
     logError('[API/events] Internal error:', error);

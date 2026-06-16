@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 import { useFamilyDataSync, useFamilyStore } from '@/stores/family-store';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { logError } from '@/lib/utils/logger';
 
@@ -13,7 +14,7 @@ interface AuthProviderProps {
 
 async function fetchDbUser(): Promise<import('@/stores/auth-store').DbUser | null> {
   try {
-    const response = await fetch('/api/user/me', {
+    const response = await fetchWithTimeout('/api/user/me', {
       method: 'POST',
       credentials: 'include',
     });

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useFamilyActions } from '@/stores/family-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import { logError } from '@/lib/utils/logger';
 
 interface AutoJoinerProps {
@@ -74,7 +75,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
             setResolveData(null);
             setShowSwitchConfirm(false);
             try {
-                const res = await fetch(`/api/invite/resolve?token=${encodeURIComponent(effectiveToken)}`);
+                const res = await fetchWithTimeout(`/api/invite/resolve?token=${encodeURIComponent(effectiveToken)}`);
                 const data = await res.json();
 
                 if (!isMounted) return;
@@ -111,7 +112,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
         setProcessing('accept');
         setError('');
         try {
-            const res = await fetch('/api/auth/invite-claim', {
+            const res = await fetchWithTimeout('/api/auth/invite-claim', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: effectiveToken, forceSwitch }),
@@ -141,7 +142,7 @@ export function AutoJoiner({ token, inviteId, isLoggedIn }: AutoJoinerProps) {
         setProcessing('decline');
         setError('');
         try {
-            const res = await fetch('/api/auth/invite-decline', {
+            const res = await fetchWithTimeout('/api/auth/invite-decline', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: effectiveToken }),

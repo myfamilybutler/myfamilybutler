@@ -5,8 +5,16 @@
  * Users are created when they first message us.
  */
 import type { User, MessageChannel } from '@/types';
+import type { DbUser } from '@/stores/auth-store';
 import { getAdminClient } from './client';
 import { logError } from '@/lib/utils/logger';
+
+/**
+ * Columns returned by dashboard and user-profile endpoints.
+ * Keep this list in sync with the UI's DbUser shape.
+ */
+export const DASHBOARD_USER_COLUMNS =
+  'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin';
 
 /**
  * Result of findOrCreateUser operation
@@ -144,6 +152,57 @@ export async function ensureUserFromAuth(authUser: {
   }
 
   return newUser as User;
+}
+
+/**
+ * Fetch a dashboard-ready users row, creating it from auth metadata if it is
+ * missing. This is the single place both server-rendered pages and API routes
+ * should use so the lookup/creation logic is not duplicated.
+ */
+export async function getDashboardUser(
+  userId: string,
+  authUser?: {
+    id: string;
+    email?: string | null;
+    email_confirmed_at?: string | null;
+    user_metadata?: { full_name?: string; name?: string };
+  }
+): Promise<DbUser | null> {
+  const admin = getAdminClient();
+
+  const { data: existing } = await admin
+    .from('users')
+    .select(DASHBOARD_USER_COLUMNS)
+    .eq('id', userId)
+    .single();
+
+  if (existing) {
+    return existing as DbUser;
+  }
+
+  let sourceUser = authUser;
+  if (!sourceUser) {
+    const { data: authUserData, error } = await admin.auth.admin.getUserById(userId);
+    if (error || !authUserData?.user) {
+      logError('[db-users] Auth user not found:', error);
+      return null;
+    }
+    sourceUser = authUserData.user;
+  }
+
+  const created = await ensureUserFromAuth(sourceUser);
+  if (!created) {
+    logError('[db-users] Failed to create missing user row:', userId);
+    return null;
+  }
+
+  const { data: refetched } = await admin
+    .from('users')
+    .select(DASHBOARD_USER_COLUMNS)
+    .eq('id', userId)
+    .single();
+
+  return (refetched as DbUser | null) ?? null;
 }
 
 /**

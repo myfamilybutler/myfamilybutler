@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar, Check, Loader2, Link2Off } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import { useTranslation } from 'react-i18next';
 import { logError } from '@/lib/utils/logger';
 
@@ -69,7 +70,7 @@ export function GoogleCalendarConnectButton({
 
   const checkConnectionStatus = useCallback(async () => {
     try {
-      const response = await fetch(`/api/auth/google/status?t=${Date.now()}`);
+      const response = await fetchWithTimeout(`/api/auth/google/status?t=${Date.now()}`);
       const data = await response.json();
       if (!mountedRef.current) return;
 
@@ -99,7 +100,7 @@ export function GoogleCalendarConnectButton({
     
     setIsLoadingCalendars(true);
     try {
-      const response = await fetch('/api/auth/google/calendars');
+      const response = await fetchWithTimeout('/api/auth/google/calendars');
       const data = await response.json();
       if (!mountedRef.current) return;
       
@@ -132,7 +133,7 @@ export function GoogleCalendarConnectButton({
     setIsConnecting(true);
     try {
       // Get the OAuth URL from our API
-      const response = await fetch('/api/auth/google/connect');
+      const response = await fetchWithTimeout('/api/auth/google/connect');
       const data = await response.json();
 
       if (data.url) {
@@ -152,7 +153,7 @@ export function GoogleCalendarConnectButton({
   const handleDisconnect = async () => {
     setIsConnecting(true);
     try {
-      const response = await fetch('/api/auth/google/disconnect', {
+      const response = await fetchWithTimeout('/api/auth/google/disconnect', {
         method: 'POST',
       });
 
@@ -183,7 +184,7 @@ export function GoogleCalendarConnectButton({
 
     setIsSavingCalendar(true);
     try {
-      const response = await fetch('/api/auth/google/calendar', {
+      const response = await fetchWithTimeout('/api/auth/google/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

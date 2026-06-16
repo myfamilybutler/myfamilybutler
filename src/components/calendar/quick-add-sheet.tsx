@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
 import {
   Dialog,
   DialogContent,
@@ -64,7 +65,7 @@ export function QuickAddSheet({
     setIsLoading(true);
     try {
       const recurrence = buildRecurrenceFromForm(formData);
-      const response = await fetch('/api/events', {
+      const response = await fetchWithTimeout('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

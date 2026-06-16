@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Family Data Store (Zustand)
+ * Family Data Store (Zustand & TanStack Query Bridge)
  * 
  * Unified source of truth for family member data.
  * Replaces the React Context pattern for project compliance.
@@ -13,10 +13,11 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { log } from '@/lib/utils/logger';
 import { useAuthStore } from './auth-store';
-import { useEffect, useMemo, useCallback, useRef } from 'react';
+import { fetchWithTimeout } from '@/lib/utils/fetch';
+import { useEffect, useMemo, useCallback } from 'react';
 import { DEFAULT_MEMBER_COLOR, getStableMemberColorHex } from '@/lib/utils/ui-helpers';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export interface FamilyMember {
   id: string;
@@ -43,24 +44,15 @@ interface FamilyStore {
   loading: boolean;
   /** Error state */
   error: Error | null;
-  /** Last fetch timestamp for debouncing */
-  lastFetchTime: number;
-  /** Whether a fetch is in progress */
-  isFetching: boolean;
   
   // Actions
   actions: {
-    fetchFamilyMembers: (householdId: string | null) => Promise<void>;
-    /** Mark cached data as stale so the next fetch reloads from the server. */
-    invalidate: () => void;
     reset: () => void;
   };
 }
 
-const STALE_TIME_MS = 5000; // 5 seconds before allowing refetch
-
 export const useFamilyStore = create<FamilyStore>()(
-  immer((set, get) => ({
+  immer((set) => ({
     members: [],
     users: [],
     profileMembers: [],
@@ -68,106 +60,8 @@ export const useFamilyStore = create<FamilyStore>()(
     hasGeminiKey: false,
     loading: true,
     error: null,
-    lastFetchTime: 0,
-    isFetching: false,
     
     actions: {
-      fetchFamilyMembers: async (householdId: string | null) => {
-        const state = get();
-        const now = Date.now();
-        
-        // Debounce: skip if fetched recently
-        if (now - state.lastFetchTime < STALE_TIME_MS) {
-          return;
-        }
-        
-        // Skip if already fetching
-        if (state.isFetching) {
-          return;
-        }
-        
-        // Skip if no household
-        if (!householdId) {
-          set((s) => {
-            s.members = [];
-            s.users = [];
-            s.profileMembers = [];
-            s.isHouseholdAdmin = false;
-            s.loading = false;
-          });
-          return;
-        }
-        
-        set((s) => {
-          s.isFetching = true;
-          s.loading = true;
-        });
-        
-        try {
-          const response = await fetch('/api/family');
-          const result = await response.json();
-          
-          if (response.ok && result.success && result.data) {
-            const fetchedUsers: FamilyMember[] = [];
-            const fetchedProfiles: FamilyMember[] = [];
-            
-            if (result.data.users) {
-              for (const user of result.data.users) {
-                const name = user.display_name || user.phone_number;
-                if (name) fetchedUsers.push({ 
-                  id: user.id, 
-                  name,
-                  display_name: user.display_name,
-                  phone_number: user.phone_number,
-                  linked_email: user.linked_email,
-                  is_household_admin: user.is_household_admin
-                });
-              }
-            }
-            
-            if (result.data.familyMembers) {
-              for (const member of result.data.familyMembers) {
-                fetchedProfiles.push({ id: member.id, name: member.name, color: member.color });
-              }
-            }
-            
-            set((s) => {
-              s.users = fetchedUsers;
-              s.profileMembers = fetchedProfiles;
-              s.members = [...fetchedUsers, ...fetchedProfiles];
-              s.isHouseholdAdmin = result.data.isHouseholdAdmin || false;
-              s.hasGeminiKey = result.data.hasGeminiKey || false;
-              s.error = null;
-              s.lastFetchTime = Date.now();
-              s.loading = false;
-              s.isFetching = false;
-            });
-          } else {
-            if (!response.ok) {
-              log.warn('Family members fetch failed:', response.status, result.error);
-            }
-            set((s) => {
-              s.error = new Error(result.error || 'Failed to fetch family members');
-              s.loading = false;
-              s.isFetching = false;
-            });
-          }
-        } catch (err) {
-          log.error('Family members fetch error:', err);
-          set((s) => {
-            s.error = err instanceof Error ? err : new Error('Failed to fetch family members');
-            s.loading = false;
-            s.isFetching = false;
-          });
-        }
-      },
-      
-      invalidate: () => {
-        set((s) => {
-          s.lastFetchTime = 0;
-        });
-      },
-
       reset: () => {
         set((s) => {
           s.members = [];
@@ -177,17 +71,11 @@ export const useFamilyStore = create<FamilyStore>()(
           s.hasGeminiKey = false;
           s.loading = true;
           s.error = null;
-          s.lastFetchTime = 0;
-          s.isFetching = false;
         });
       },
     },
   }))
 );
-
-// ============================================
-// Derived Selectors
-// ============================================
 
 // ============================================
 // Derived Selectors & Hooks
@@ -216,8 +104,8 @@ export const useMemberColors = () => {
       // Treat default/empty profile colors as "not explicitly assigned" so
       // pre-load and post-load rendering use the same stable member color.
       colorMap.set(
-        member.name,
-        isUnassignedDefault ? getStableMemberColorHex(member.name) : normalizedStoredColor
+          member.name,
+          isUnassignedDefault ? getStableMemberColorHex(member.name) : normalizedStoredColor
       );
     }
     return colorMap;
@@ -241,32 +129,129 @@ export const useHasHousehold = () => {
   return !!householdId || memberCount > 0;
 };
 
-/** Get actions separately for stable reference */
-export const useFamilyActions = () => useFamilyStore((state) => state.actions);
+// ============================================
+// TanStack Query Actions Hook
+// ============================================
+
+/** Get actions powered by TanStack Query for caching and invalidation */
+export function useFamilyActions() {
+  const queryClient = useQueryClient();
+  const resetStore = useFamilyStore((state) => state.actions.reset);
+  
+  const invalidate = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['family'] });
+  }, [queryClient]);
+  
+  const reset = useCallback(() => {
+    resetStore();
+    void queryClient.resetQueries({ queryKey: ['family'] });
+  }, [queryClient, resetStore]);
+
+  const fetchFamilyMembers = useCallback(async (householdId: string | null) => {
+    if (householdId) {
+      void queryClient.invalidateQueries({ queryKey: ['family'] });
+    }
+  }, [queryClient]);
+
+  return useMemo(() => ({
+    invalidate,
+    reset,
+    fetchFamilyMembers,
+  }), [invalidate, reset, fetchFamilyMembers]);
+}
 
 // ============================================
-// Auto-fetch Hook
+// Auto-fetch Hook (Bridge between TanStack Query and Zustand)
 // ============================================
 
 /**
  * Hook that auto-fetches family data when household changes.
  */
 export function useFamilyDataSync() {
-  // Select ONLY household_id to prevent re-runs on other auth changes
   const householdId = useAuthStore((state) => state.dbUser?.household_id);
-  const { fetchFamilyMembers } = useFamilyActions();
-  
-  // Use a ref to track if we've already fetched for this ID
-  // This prevents double-fetching on mount if strict mode is on
-  const fetchedIdRef = useRef<string | null | undefined>(undefined);
-  
+
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['family', householdId],
+    queryFn: async () => {
+      const response = await fetchWithTimeout('/api/family');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to fetch family members');
+      }
+      const result = await response.json();
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to fetch family members');
+      }
+      return result.data;
+    },
+    enabled: !!householdId,
+    staleTime: 5000,
+  });
+
   useEffect(() => {
-    // Only fetch if ID changed
-    if (fetchedIdRef.current !== householdId) {
-      fetchedIdRef.current = householdId;
-      fetchFamilyMembers(householdId ?? null);
+    if (!householdId) {
+      useFamilyStore.setState({
+        members: [],
+        users: [],
+        profileMembers: [],
+        isHouseholdAdmin: false,
+        hasGeminiKey: false,
+        loading: false,
+        error: null,
+      });
+      return;
     }
-  }, [householdId, fetchFamilyMembers]);
+
+    if (error) {
+      useFamilyStore.setState({
+        error: error instanceof Error ? error : new Error('Failed to fetch family members'),
+        loading: false,
+      });
+      return;
+    }
+
+    if (data) {
+      const fetchedUsers: FamilyMember[] = [];
+      const fetchedProfiles: FamilyMember[] = [];
+      
+      if (data.users) {
+        for (const user of data.users) {
+          const name = user.display_name || user.phone_number;
+          if (name) fetchedUsers.push({ 
+            id: user.id, 
+            name,
+            display_name: user.display_name,
+            phone_number: user.phone_number,
+            linked_email: user.linked_email,
+            is_household_admin: user.is_household_admin
+          });
+        }
+      }
+      
+      if (data.familyMembers) {
+        for (const member of data.familyMembers) {
+          fetchedProfiles.push({ id: member.id, name: member.name, color: member.color });
+        }
+      }
+      
+      useFamilyStore.setState({
+        users: fetchedUsers,
+        profileMembers: fetchedProfiles,
+        members: [...fetchedUsers, ...fetchedProfiles],
+        isHouseholdAdmin: data.isHouseholdAdmin || false,
+        hasGeminiKey: data.hasGeminiKey || false,
+        loading: isLoading,
+        error: null,
+      });
+    } else {
+      // Avoid flashing the family loading skeleton when the store was already
+      // seeded from SSR while the background query refreshes.
+      const hasExistingMembers = useFamilyStore.getState().members.length > 0;
+      useFamilyStore.setState({
+        loading: isLoading && !hasExistingMembers,
+      });
+    }
+  }, [data, error, isLoading, householdId]);
 }
 
 // ============================================
@@ -277,6 +262,7 @@ export function useFamilyDataSync() {
  * @deprecated Use individual selectors instead for better performance.
  */
 export function useFamilyData() {
+  const queryClient = useQueryClient();
   const members = useFamilyStore((state) => state.members);
   const users = useFamilyStore((state) => state.users);
   const profileMembers = useFamilyStore((state) => state.profileMembers);
@@ -284,7 +270,6 @@ export function useFamilyData() {
   const hasGeminiKey = useFamilyStore((state) => state.hasGeminiKey);
   const loading = useFamilyStore((state) => state.loading);
   const error = useFamilyStore((state) => state.error);
-  const { fetchFamilyMembers, invalidate } = useFamilyActions();
   
   // Derived state (these use useMemo internally now)
   const hasHousehold = useHasHousehold();
@@ -298,11 +283,9 @@ export function useFamilyData() {
   }, [memberColors]);
 
   // Stable refetch function - forces a fresh fetch regardless of debounce.
-  const refetch = useCallback(() => {
-    const dbUser = useAuthStore.getState().dbUser;
-    invalidate();
-    return fetchFamilyMembers(dbUser?.household_id ?? null);
-  }, [fetchFamilyMembers, invalidate]);
+  const refetch = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['family'] });
+  }, [queryClient]);
 
   // Stable return object
   return useMemo(() => ({

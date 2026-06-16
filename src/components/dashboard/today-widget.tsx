@@ -24,6 +24,7 @@ interface TodayWidgetProps {
   events: CalendarEvent[];
   onEventClick?: (event: CalendarEvent) => void;
   onAddEvent?: () => void;
+  isLoading?: boolean;
 }
 
 interface DaySection {
@@ -33,7 +34,7 @@ interface DaySection {
   isToday: boolean;
 }
 
-export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetProps) {
+export function TodayWidget({ events, onEventClick, onAddEvent, isLoading }: TodayWidgetProps) {
   const { t } = useTranslation();
   const { memberColors } = useFamilyData();
 
@@ -82,6 +83,10 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
     };
   }, [events, t]);
 
+  if (isLoading) {
+    return <TodayWidgetSkeleton />;
+  }
+
   // Show only if there are events today or tomorrow
   if (todaySection.events.length === 0 && tomorrowSection.events.length === 0) {
     return null;
@@ -126,6 +131,50 @@ export function TodayWidget({ events, onEventClick, onAddEvent }: TodayWidgetPro
             />
           </>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TodayWidgetSkeleton() {
+  return (
+    <Card className="border-border shadow-sm overflow-hidden" aria-busy="true">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-muted animate-pulse" />
+            <div className="h-5 w-40 rounded bg-muted animate-pulse" />
+          </div>
+          <div className="h-7 w-20 rounded bg-muted animate-pulse" />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-5 w-14 rounded bg-muted animate-pulse" />
+              <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-5 w-8 rounded bg-muted animate-pulse" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-14 rounded-lg bg-muted animate-pulse" />
+            <div className="h-14 rounded-lg bg-muted animate-pulse" />
+          </div>
+        </div>
+        <div className="border-t border-border" />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-5 w-16 rounded bg-muted animate-pulse" />
+              <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-5 w-8 rounded bg-muted animate-pulse" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-14 rounded-lg bg-muted animate-pulse" />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
