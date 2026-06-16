@@ -35,7 +35,6 @@ import type { FamilyMember } from '@/stores/family-store';
 
 import { FamilyMembersList } from '@/components/dashboard/family-members-list';
 
-import { useDashboardData } from '@/hooks/use-dashboard-data';
 import { useFamilyData, useFamilyActions } from '@/stores/family-store';
 import { logError } from '@/lib/utils/logger';
 
@@ -45,9 +44,8 @@ export default function SettingsPage() {
   const { dbUser, signOut } = useAuthStore();
   const refreshDbUser = useAuthStore((state) => state.refreshDbUser);
   const { reset: resetFamily } = useFamilyActions();
-  const { refresh: refreshDashboard } = useDashboardData();
   const { users, profileMembers, hasHousehold, isHouseholdAdmin, hasGeminiKey, loading: familyLoading, refetch: refetchFamily } = useFamilyData();
-  
+
   // Dialog states
   const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
   const [deleteFamilyDialog, setDeleteFamilyDialog] = useState(false);
@@ -60,14 +58,13 @@ export default function SettingsPage() {
   const [editMemberColor, setEditMemberColor] = useState(DEFAULT_MEMBER_COLOR);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Combined update handler
+  // Settings only needs auth and family state; do not pull dashboard events here.
   const handleDataUpdate = useCallback(async () => {
     await Promise.all([
       refreshDbUser(),
-      refreshDashboard(),
       refetchFamily()
     ]);
-  }, [refreshDbUser, refreshDashboard, refetchFamily]);
+  }, [refreshDbUser, refetchFamily]);
 
   // Handle logout
   const handleLogout = async () => {

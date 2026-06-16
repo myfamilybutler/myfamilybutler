@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Loader2, ArrowLeft, UserPlus, AlertCircle } from 'lucide-react';
@@ -13,17 +13,27 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth-store';
 
-function OAuthButtons({ disabled }: { disabled?: boolean }) {
+interface OAuthButtonsProps {
+  disabled?: boolean;
+  returnUrl?: string;
+}
+
+function OAuthButtons({ disabled, returnUrl }: OAuthButtonsProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
   const handleGoogle = async () => {
     setLoading(true);
     try {
+      const nextPath = returnUrl ? safeReturnUrl(returnUrl) : undefined;
+      const redirectTo = nextPath
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+        : `${window.location.origin}/auth/callback`;
+
       const { error } = await getSupabase().auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         },
       });
       if (error) throw error;
@@ -57,27 +67,28 @@ function OAuthButtons({ disabled }: { disabled?: boolean }) {
   );
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const { t } = useTranslation();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') ?? undefined;
+
   const { user, dbUser, loading: authLoading, dbUserLoading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const returnUrl = searchParams?.get('returnUrl') ?? null;
+  const [verificationSent, setVerificationSent] = useState(false);
 
   useEffect(() => {
     if (authLoading || dbUserLoading) return;
 
     if (user) {
       if (dbUser?.household_id) {
-        router.replace(safeReturnUrl(returnUrl ?? undefined, '/dashboard'));
+        router.replace(safeReturnUrl(returnUrl, '/dashboard'));
       } else {
-        router.replace(safeReturnUrl(returnUrl ?? undefined, '/onboarding'));
+        router.replace(safeReturnUrl(returnUrl, '/onboarding'));
       }
     }
   }, [user, dbUser, authLoading, dbUserLoading, router, returnUrl]);
@@ -99,11 +110,12 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const { error: signUpError } = await getSupabase().auth.signUp({
+      const nextPath = safeReturnUrl(returnUrl, '/onboarding');
+      const { data, error: signUpError } = await getSupabase().auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
         },
       });
 
@@ -111,8 +123,11 @@ export default function RegisterPage() {
         throw signUpError;
       }
 
-      const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
-      router.push(safeReturnUrl(returnUrl, '/onboarding'));
+      if (data.session) {
+        router.push(nextPath);
+      } else {
+        setVerificationSent(true);
+      }
     } catch (err) {
       let errorMessage = t('auth.register.createFailed');
       if (err instanceof Error) {
@@ -155,130 +170,162 @@ export default function RegisterPage() {
           className="w-full max-w-md"
         >
           <Card className="border-border shadow-lg">
-            <CardHeader className="text-center pb-2">
-              <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <UserPlus className="w-8 h-8 text-primary" />
-              </div>
-              <CardTitle className="text-2xl font-bold text-foreground">
-                {t('auth.register.title')}
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">
-                {t('auth.register.description')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <OAuthButtons disabled={loading} />
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
-                    {t('auth.register.or')}
-                  </span>
-                </div>
-              </div>
-
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium text-foreground">
-                    {t('auth.register.emailLabel')}
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder={t('auth.register.emailPlaceholder')}
-                      value={email}
-                      onChange={(e) => { setEmail(e.target.value); setError(''); }}
-                      className="pl-11 h-12"
-                      disabled={loading}
-                      required
-                    />
+            {verificationSent ? (
+              <>
+                <CardHeader className="text-center pb-2">
+                  <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Mail className="w-8 h-8 text-emerald-600 animate-pulse" />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium text-foreground">
-                    {t('auth.register.passwordLabel')}
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder={t('auth.register.passwordPlaceholder')}
-                      value={password}
-                      onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                      className="pl-11 h-12"
-                      disabled={loading}
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
-                    {t('auth.register.confirmPasswordLabel')}
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      placeholder={t('auth.register.confirmPasswordPlaceholder')}
-                      value={confirmPassword}
-                      onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
-                      className="pl-11 h-12"
-                      disabled={loading}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center gap-2 text-sm text-destructive"
+                  <CardTitle className="text-2xl font-bold text-foreground">
+                    {t('auth.register.verificationSentTitle')}
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground pt-2 text-base leading-relaxed">
+                    {t('auth.register.verificationSentDesc', { email })}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6 text-center">
+                  <Button
+                    asChild
+                    variant="brand"
+                    className="w-full h-12 text-base font-semibold"
                   >
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    {error}
-                  </motion.div>
-                )}
+                    <Link href={`/login${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`}>
+                      {t('auth.register.backToLogin')}
+                    </Link>
+                  </Button>
+                </CardContent>
+              </>
+            ) : (
+              <>
+                <CardHeader className="text-center pb-2">
+                  <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <UserPlus className="w-8 h-8 text-primary" />
+                  </div>
+                  <CardTitle className="text-2xl font-bold text-foreground">
+                    {t('auth.register.title')}
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground">
+                    {t('auth.register.description')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4">
+                  <OAuthButtons disabled={loading} returnUrl={returnUrl} />
 
-                <Button
-                  type="submit"
-                  variant="brand"
-                  disabled={loading || !email || !password || !confirmPassword}
-                  className="w-full h-12 gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {t('auth.register.submitting')}
-                    </>
-                  ) : (
-                    <>
-                      {t('auth.register.submit')}
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </Button>
-              </form>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">
+                        {t('auth.register.or')}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  {t('auth.register.alreadyHaveAccount')}{' '}
-                  <Link href="/login" className="text-primary hover:underline font-medium">
-                    {t('auth.register.signIn')}
-                  </Link>
-                </p>
-              </div>
-            </CardContent>
+                  <form onSubmit={handleRegister} className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="email" className="text-sm font-medium text-foreground">
+                        {t('auth.register.emailLabel')}
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder={t('auth.register.emailPlaceholder')}
+                          value={email}
+                          onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                          className="pl-11 h-12"
+                          disabled={loading}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="password" className="text-sm font-medium text-foreground">
+                        {t('auth.register.passwordLabel')}
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder={t('auth.register.passwordPlaceholder')}
+                          value={password}
+                          onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                          className="pl-11 h-12"
+                          disabled={loading}
+                          required
+                          minLength={6}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
+                        {t('auth.register.confirmPasswordLabel')}
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          placeholder={t('auth.register.confirmPasswordPlaceholder')}
+                          value={confirmPassword}
+                          onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
+                          className="pl-11 h-12"
+                          disabled={loading}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center gap-2 text-sm text-destructive"
+                      >
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        {error}
+                      </motion.div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      variant="brand"
+                      disabled={loading || !email || !password || !confirmPassword}
+                      className="w-full h-12 gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          {t('auth.register.submitting')}
+                        </>
+                      ) : (
+                        <>
+                          {t('auth.register.submit')}
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">
+                      {t('auth.register.alreadyHaveAccount')}{' '}
+                      <Link
+                        href={`/login${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        {t('auth.register.signIn')}
+                      </Link>
+                    </p>
+                  </div>
+                </CardContent>
+              </>
+            )}
           </Card>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
@@ -294,5 +341,17 @@ export default function RegisterPage() {
         </motion.div>
       </main>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/50">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <RegisterContent />
+    </Suspense>
   );
 }

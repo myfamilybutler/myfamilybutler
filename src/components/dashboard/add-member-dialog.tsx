@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { UserPlus } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
@@ -39,43 +39,17 @@ export function AddMemberDialog({
   const [invitePhone, setInvitePhone] = useState('');
   const [memberName, setMemberName] = useState('');
   const [qrToken, setQrToken] = useState<string | null>(null);
+  const qrPromiseRef = useRef<Promise<void> | null>(null);
 
   const fetchQrToken = useCallback(async () => {
     if (qrToken) return;
+    if (qrPromiseRef.current) return qrPromiseRef.current;
 
-    setLoading(true);
-    try {
-      const res = await fetch('/api/family/qr', { method: 'POST' });
-      const data = await res.json();
-
-      if (res.ok && data.token) {
-        setQrToken(data.token);
-      } else {
-        toast.error(t('settings.addMemberDialog.toast.qrFailed'));
-      }
-    } catch (error) {
-      logError('QR Fetch error:', error);
-      toast.error(t('common.networkError'));
-    } finally {
-      setLoading(false);
-    }
-  }, [qrToken, t]);
-
-  useEffect(() => {
-    if (!open) {
-      setQrToken(null);
-      return;
-    }
-
-    let isMounted = true;
-
-    const fetchToken = async () => {
+    qrPromiseRef.current = (async () => {
       setLoading(true);
       try {
         const res = await fetch('/api/family/qr', { method: 'POST' });
         const data = await res.json();
-
-        if (!isMounted) return;
 
         if (res.ok && data.token) {
           setQrToken(data.token);
@@ -84,22 +58,28 @@ export function AddMemberDialog({
         }
       } catch (error) {
         logError('QR Fetch error:', error);
-        if (isMounted) {
-          toast.error(t('common.networkError'));
-        }
+        toast.error(t('common.networkError'));
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
-    };
+    })();
 
-    void fetchToken();
+    try {
+      await qrPromiseRef.current;
+    } finally {
+      qrPromiseRef.current = null;
+    }
+  }, [qrToken, t]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [open, t]);
+  useEffect(() => {
+    if (!open) {
+      setQrToken(null);
+      qrPromiseRef.current = null;
+      return;
+    }
+
+    void fetchQrToken();
+  }, [open, fetchQrToken]);
 
   const [email, setEmail] = useState('');
 

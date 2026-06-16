@@ -40,11 +40,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const supabase = getSupabase();
     let isMounted = true;
+    const initialSessionHandledRef = { current: false };
 
-    async function handleSession(session: Session | null) {
+    async function handleSession(session: Session | null, { isInitial = false }: { isInitial?: boolean } = {}) {
       if (!isMounted) return;
 
       if (session?.user) {
+        // If SSR / another tab already seeded the store for this exact user,
+        // avoid a redundant /api/user/me round-trip on the initial load.
+        const current = useAuthStore.getState();
+        if (
+          isInitial &&
+          current.user?.id === session.user.id &&
+          current.dbUser?.id === session.user.id &&
+          !current.loading &&
+          !current.dbUserLoading
+        ) {
+          return;
+        }
+
         setAuthState({ user: session.user, dbUserLoading: true, loading: true });
         const dbUser = await fetchDbUser();
         if (!isMounted) return;
@@ -81,7 +95,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      handleSession(session);
+      initialSessionHandledRef.current = !!session?.user;
+      handleSession(session, { isInitial: true });
     }).catch((err) => {
       if (!isMounted) return;
       logError('AuthProvider: session check failed', err);
@@ -99,6 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (!isMounted) return;
 
         if (event === 'SIGNED_OUT') {
+          initialSessionHandledRef.current = false;
           setAuthState({
             user: null,
             dbUser: null,
@@ -106,6 +122,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
             loading: false,
           });
           resetFamily();
+        } else if (event === 'INITIAL_SESSION') {
+          // Supabase emits INITIAL_SESSION after subscribing. If getSession()
+          // already handled this session, do not fetch the DB user again.
+          if (initialSessionHandledRef.current) return;
+          initialSessionHandledRef.current = !!session?.user;
+          await handleSession(session, { isInitial: true });
         } else {
           await handleSession(session);
         }

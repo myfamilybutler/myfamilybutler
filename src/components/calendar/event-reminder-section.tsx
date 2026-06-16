@@ -7,7 +7,7 @@
  * Allows setting reminders for events with preset or custom timing.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { addHours, addDays, setHours, setMinutes } from 'date-fns';
 import { Bell, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -60,35 +60,22 @@ export function EventReminderSection({
   const [isLoadingReminders, setIsLoadingReminders] = useState(true);
   const [deletingReminderId, setDeletingReminderId] = useState<string | null>(null);
 
-  const loadReminders = useCallback(async () => {
-    setIsLoadingReminders(true);
-    try {
-      const response = await fetch(`/api/reminders?eventId=${encodeURIComponent(eventId)}`);
-      const result = await response.json();
+  const requestIdRef = useRef(0);
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || t('calendar.reminders.toast.loadFailed'));
-      }
+  const loadReminders = useCallback(
+    async (signal?: AbortSignal) => {
+      const requestId = ++requestIdRef.current;
+      const isCurrent = () => requestId === requestIdRef.current;
 
-      setReminders((result.data || []) as ReminderItem[]);
-    } catch (error) {
-      logError('Error loading reminders:', error);
-      toast.error(t('calendar.reminders.toast.loadFailed'));
-    } finally {
-      setIsLoadingReminders(false);
-    }
-  }, [eventId, t]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const runLoad = async () => {
       setIsLoadingReminders(true);
       try {
-        const response = await fetch(`/api/reminders?eventId=${encodeURIComponent(eventId)}`);
+        const response = await fetch(
+          `/api/reminders?eventId=${encodeURIComponent(eventId)}`,
+          { signal }
+        );
         const result = await response.json();
 
-        if (!isMounted) return;
+        if (!isCurrent() || signal?.aborted) return;
 
         if (!response.ok || !result.success) {
           throw new Error(result.error || t('calendar.reminders.toast.loadFailed'));
@@ -96,23 +83,25 @@ export function EventReminderSection({
 
         setReminders((result.data || []) as ReminderItem[]);
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
         logError('Error loading reminders:', error);
-        if (isMounted) {
+        if (isCurrent()) {
           toast.error(t('calendar.reminders.toast.loadFailed'));
         }
       } finally {
-        if (isMounted) {
+        if (isCurrent()) {
           setIsLoadingReminders(false);
         }
       }
-    };
+    },
+    [eventId, t]
+  );
 
-    void runLoad();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [eventId, t]);
+  useEffect(() => {
+    const abortController = new AbortController();
+    void loadReminders(abortController.signal);
+    return () => abortController.abort();
+  }, [loadReminders]);
 
   const handleAddReminder = async () => {
     let remindAt: Date;
