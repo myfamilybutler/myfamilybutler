@@ -1,19 +1,13 @@
-import { updateSession } from '@/lib/supabase/middleware';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// Temporarily disabled while debugging 500 errors on static assets.
+// Session refresh is handled by the auth callback and client-side auth state.
 export async function proxy(request: NextRequest) {
-  try {
-    return await updateSession(request);
-  } catch (error) {
-    console.error('[Proxy] Session update failed:', error);
-    // Return the original request unchanged so the app can still render.
-    // A missing session refresh is better than a 500 error.
-    return NextResponse.next({
-      request: {
-        headers: request.headers,
-      },
-    });
-  }
+  return NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
 }
 
 export const config = {
