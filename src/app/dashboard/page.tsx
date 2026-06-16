@@ -1,125 +1,38 @@
-'use client';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { getInitialDashboardData } from '@/lib/dashboard/get-initial-dashboard-data';
+import { DashboardClient } from './dashboard-client';
+export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { CollapsibleCalendar } from '@/components/calendar/collapsible-calendar';
-import { UpcomingEvents } from '@/components/calendar/upcoming-events';
-import { DesktopCalendarGrid } from '@/components/calendar/desktop-calendar-grid';
-import { ProtectedRoute } from '@/components/auth/protected-route';
-import { OnboardingModal } from '@/components/onboarding/onboarding-modal';
-import { QuickAddFab } from '@/components/calendar/quick-add-fab';
-import { QuickAddSheet } from '@/components/calendar/quick-add-sheet';
-import { EditEventDialog } from '@/components/calendar/edit-event-dialog';
-import { EventDetailDialog } from '@/components/calendar/event-detail-dialog';
-import { TodayWidget } from '@/components/dashboard/today-widget';
-import { Card, CardContent } from '@/components/ui/card';
-import { useDashboardData } from '@/hooks';
-import type { CalendarEvent } from '@/types/calendar';
+export default async function DashboardPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-export default function DashboardPage() {
-  const { 
-    allEvents, 
-    refresh, 
-    dbUser,
-  } = useDashboardData();
-  
-  const [modalDismissed, setModalDismissed] = useState(false);
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [eventDetailOpen, setEventDetailOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  if (error || !user) {
+    redirect('/login');
+  }
 
-  // Progressive onboarding: only show modal after user has created 3+ events
-  // This ensures they've seen value before we ask for profile details
-  const hasEnoughEvents = allEvents.length >= 3;
-  const showOnboardingModal = dbUser?.onboarding_modal_shown === false && !modalDismissed && hasEnoughEvents;
+  const initialData = await getInitialDashboardData(user);
 
-  const handleEventClick = (event: CalendarEvent) => {
-    setSelectedEvent(event);
-    setEventDetailOpen(true);
-  };
+  if (!initialData) {
+    redirect('/login');
+  }
+
+  const { user: dbUser } = initialData;
+
+  if (!dbUser.household_id) {
+    redirect('/onboarding');
+  }
 
   return (
-    <ProtectedRoute>
-      <DashboardLayout>
-        <OnboardingModal
-          isOpen={showOnboardingModal}
-          onComplete={() => {
-            setModalDismissed(true);
-            refresh();
-          }}
-          onSkip={() => setModalDismissed(true)}
-        />
-
-        {/* Mobile Layout (Google Calendar style) */}
-        <div className="lg:hidden space-y-4">
-          {/* Today Widget - Quick glance at today's events */}
-          <TodayWidget 
-            events={allEvents}
-            onEventClick={handleEventClick}
-            onAddEvent={() => setQuickAddOpen(true)}
-          />
-          
-          {/* Collapsible Calendar Header */}
-          <CollapsibleCalendar
-            events={allEvents}
-            onEventsChanged={refresh}
-          />
-          
-          {/* Upcoming Events (full width) */}
-          <Card className="border-border shadow-sm bg-card">
-            <CardContent className="pt-6">
-              <UpcomingEvents
-                events={allEvents}
-                pageSize={10}
-                excludeTodayAndTomorrow
-                onEventsChanged={refresh}
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Desktop Layout (full-width Google Calendar style grid) */}
-        <div className="hidden lg:block">
-          <DesktopCalendarGrid
-            events={allEvents}
-            onEventsChanged={refresh}
-          />
-        </div>
-
-        {/* Quick Add FAB (mobile only - desktop uses grid click) */}
-        <div className="lg:hidden">
-          <QuickAddFab onClick={() => setQuickAddOpen(true)} />
-        </div>
-        
-        {/* Quick Add Bottom Sheet (mobile only) */}
-        <QuickAddSheet
-          open={quickAddOpen}
-          onOpenChange={setQuickAddOpen}
-          onEventCreated={refresh}
-        />
-
-        <EventDetailDialog
-          event={selectedEvent}
-          open={eventDetailOpen}
-          onOpenChange={setEventDetailOpen}
-          onEdit={(event) => {
-            setEventDetailOpen(false);
-            setEditingEvent(event);
-            setEditDialogOpen(true);
-          }}
-        />
-
-        {/* Edit Event Dialog */}
-        <EditEventDialog
-          event={editingEvent}
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          onEventUpdated={refresh}
-          onEventDeleted={refresh}
-        />
-      </DashboardLayout>
-    </ProtectedRoute>
+    <DashboardClient
+      authUser={user}
+      dbUser={dbUser}
+      initialEvents={initialData.events}
+      initialFamily={initialData.family}
+    />
   );
 }

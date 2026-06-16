@@ -13,17 +13,27 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth-store';
 
-function OAuthButtons({ disabled }: { disabled?: boolean }) {
+interface OAuthButtonsProps {
+  disabled?: boolean;
+  returnUrl?: string;
+}
+
+function OAuthButtons({ disabled, returnUrl }: OAuthButtonsProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
   const handleGoogle = async () => {
     setLoading(true);
     try {
+      const nextPath = returnUrl ? safeReturnUrl(returnUrl) : undefined;
+      const redirectTo = nextPath
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+        : `${window.location.origin}/auth/callback`;
+
       const { error } = await getSupabase().auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         },
       });
       if (error) throw error;
@@ -161,7 +171,7 @@ function LoginContent() {
                 </div>
               )}
 
-              <OAuthButtons disabled={loading} />
+              <OAuthButtons disabled={loading} returnUrl={returnUrl ?? undefined} />
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -247,7 +257,7 @@ function LoginContent() {
                 <p className="text-sm text-muted-foreground">
                   {t('auth.login.noAccount')}{' '}
                   <Link
-                    href={`/register${searchParams.get('returnUrl') ? `?returnUrl=${searchParams.get('returnUrl')}` : ''}`}
+                    href={`/register${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`}
                     className="text-primary hover:underline font-medium"
                   >
                     {t('auth.login.registerWithEmail')}
