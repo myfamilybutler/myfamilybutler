@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateEmailLoginToken } from '@/lib/supabase';
 import { sendLoginEmail } from '@/lib/email/send-email';
+import { logError } from '@/lib/utils/logger';
 
 // Rate limit: 5 requests per minute per IP (with cleanup to prevent memory leak)
 const ipRateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Email Login API] Error:', error);
+        logError('[Email Login API] Error:', error);
         return NextResponse.json(
             { success: false, error: 'Internal server error' },
             { status: 500 }

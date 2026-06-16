@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getAdminClient } from '@/lib/supabase';
+import { log, logError } from '@/lib/utils/logger';
 
 interface OnboardingModalRequest {
     displayName?: string;
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
             .eq('id', userId);
 
         if (updateError) {
-            console.error('[Onboarding Modal] Update error:', updateError);
+            logError('[Onboarding Modal] Update error:', updateError);
             return NextResponse.json(
                 { success: false, error: 'Failed to update profile' },
                 { status: 500 }
@@ -131,11 +132,11 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        console.log(`[Onboarding Modal] Completed for user: ${userId}`);
+        log.info(`[Onboarding Modal] Completed for user: ${userId}`);
         return NextResponse.json({ success: true });
 
     } catch (error) {
-        console.error('[Onboarding Modal] Error:', error);
+        logError('[Onboarding Modal] Error:', error);
         return NextResponse.json(
             { success: false, error: 'Internal server error' },
             { status: 500 }

@@ -11,6 +11,7 @@ import { generateEventFingerprint } from '../sync/event-fingerprint';
 import { pushCreateToGoogle, pushUpdateToGoogle, pushDeleteToGoogle } from '../sync/google-sync-service';
 import { ensureAndResolveFamilyMemberIds } from './family-member-sync';
 import { familyMemberNameKey, normalizeFamilyMemberName } from '@/lib/utils/family-members';
+import { log, logError, logWarn } from '@/lib/utils/logger';
 
 function isMissingFamilyMemberIdColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
@@ -97,7 +98,7 @@ export async function createEvent(
     .single();
 
   if (isMissingFamilyMemberIdColumnError(error)) {
-    console.warn('[Event] family_member_id column missing; retrying insert without FK linkage');
+    logWarn('[Event] family_member_id column missing; retrying insert without FK linkage');
     const fallbackPayload = { ...insertPayload };
     delete (fallbackPayload as { family_member_id?: string | null }).family_member_id;
 
@@ -113,7 +114,7 @@ export async function createEvent(
   // Handle duplicate (unique constraint violation)
   if (error?.code === '23505') {
     // Unique violation - fetch existing event
-    console.log(`[Event] Duplicate detected via constraint: "${eventData.title}"`);
+    log.info(`[Event] Duplicate detected via constraint: "${eventData.title}"`);
     const { data: existing } = await admin
       .from('events')
       .select('*')
@@ -138,7 +139,7 @@ export async function createEvent(
   }
   
   if (error) {
-    console.error('Error creating event:', error);
+    logError('Error creating event:', error);
     return null;
   }
   
@@ -147,7 +148,7 @@ export async function createEvent(
   // Sync to Google Calendar (non-blocking)
   if (createdBy) {
     pushCreateToGoogle(createdBy, event).catch((syncError) => {
-      console.log('[GoogleSync] Sync skipped or failed:', syncError);
+      log.info('[GoogleSync] Sync skipped or failed:', syncError);
     });
   }
   
@@ -235,7 +236,7 @@ export async function createEventsBulk(
     .select('*');
 
   if (isMissingFamilyMemberIdColumnError(error)) {
-    console.warn('[Event] family_member_id column missing; retrying bulk upsert without FK linkage');
+    logWarn('[Event] family_member_id column missing; retrying bulk upsert without FK linkage');
     const fallbackRows = rows.map((row) => {
       const next = { ...row };
       delete (next as { family_member_id?: string | null }).family_member_id;
@@ -256,7 +257,7 @@ export async function createEventsBulk(
 
   if (error) {
     if (error.code === '42P10') {
-      console.warn('[Event] Missing unique constraint for bulk upsert; falling back to row inserts');
+      logWarn('[Event] Missing unique constraint for bulk upsert; falling back to row inserts');
       const created: Event[] = [];
 
       for (const eventData of events) {
@@ -269,7 +270,7 @@ export async function createEventsBulk(
       return created;
     }
 
-    console.error('Error creating events in bulk:', error);
+    logError('Error creating events in bulk:', error);
     return [];
   }
 
@@ -311,7 +312,7 @@ export async function getEventsForHousehold(
   const { data, error } = await query;
   
   if (error) {
-    console.error('Error fetching events:', error);
+    logError('Error fetching events:', error);
     return [];
   }
   
@@ -369,7 +370,7 @@ export async function updateEvent(
     .single();
   
   if (fetchError || !current) {
-    console.error('Error fetching event for update:', fetchError);
+    logError('Error fetching event for update:', fetchError);
     return null;
   }
   
@@ -378,7 +379,7 @@ export async function updateEvent(
   
   // Check version for optimistic locking
   if (expectedVersion !== undefined && currentVersion !== expectedVersion) {
-    console.error(`[Event] Version conflict: expected ${expectedVersion}, got ${currentVersion}`);
+    logError(`[Event] Version conflict: expected ${expectedVersion}, got ${currentVersion}`);
     throw new Error('EVENT_VERSION_CONFLICT');
   }
   
@@ -434,7 +435,7 @@ export async function updateEvent(
   let { data, error } = await versionQuery.select().single();
 
   if (isMissingFamilyMemberIdColumnError(error) && 'family_member_id' in updateData) {
-    console.warn('[Event] family_member_id column missing; retrying update without FK linkage');
+    logWarn('[Event] family_member_id column missing; retrying update without FK linkage');
     const fallbackUpdateData = { ...updateData };
     delete (fallbackUpdateData as { family_member_id?: string | null }).family_member_id;
 
@@ -448,13 +449,13 @@ export async function updateEvent(
   }
   
   if (error) {
-    console.error('Error updating event:', error);
+    logError('Error updating event:', error);
     return null;
   }
   
   // If no data returned, the version check failed (event was modified by another process)
   if (!data) {
-    console.error(`[Event] Update failed: version mismatch for event ${eventId}. Expected version ${current.version}`);
+    logError(`[Event] Update failed: version mismatch for event ${eventId}. Expected version ${current.version}`);
     throw new Error('EVENT_VERSION_CONFLICT');
   }
   
@@ -463,7 +464,7 @@ export async function updateEvent(
   // Sync to Google Calendar (non-blocking)
   if (userId) {
     pushUpdateToGoogle(userId, event).catch((syncError) => {
-      console.log('[GoogleSync] Update sync skipped or failed:', syncError);
+      log.info('[GoogleSync] Update sync skipped or failed:', syncError);
     });
   }
   
@@ -500,14 +501,14 @@ export async function deleteEvent(
     .eq('household_id', householdId);
   
   if (error) {
-    console.error('Error deleting event:', error);
+    logError('Error deleting event:', error);
     return false;
   }
   
   // Sync deletion to Google Calendar (non-blocking)
   if (userId && googleEventId) {
     pushDeleteToGoogle(userId, googleEventId).catch(() => {
-      console.log('[GoogleSync] Delete sync skipped or failed');
+      log.info('[GoogleSync] Delete sync skipped or failed');
     });
   }
   
@@ -555,14 +556,14 @@ export async function createEventReminder(
         .single();
       
       if (fallbackError) {
-        console.error('Error creating event reminder (fallback):', fallbackError);
+        logError('Error creating event reminder (fallback):', fallbackError);
         return null;
       }
       
       return fallbackData as Reminder;
     }
     
-    console.error('Error creating event reminder:', error);
+    logError('Error creating event reminder:', error);
     return null;
   }
   
@@ -648,7 +649,7 @@ export async function createDraftBundle(
       .single();
 
     if (bundleError || !bundle?.id) {
-      console.error('[DraftBundle] Failed to create bundle:', bundleError);
+      logError('[DraftBundle] Failed to create bundle:', bundleError);
       const fallback = await createDraftEvent(householdId, createdBy, events[0]!);
       return fallback ? { bundleId: fallback.id, eventCount: 1 } : null;
     }
@@ -675,7 +676,7 @@ export async function createDraftBundle(
       .insert(rows);
 
     if (eventError) {
-      console.error('[DraftBundle] Failed to create draft events:', eventError);
+      logError('[DraftBundle] Failed to create draft events:', eventError);
       await admin.from('draft_bundles').delete().eq('id', bundle.id);
 
       const fallback = await createDraftEvent(householdId, createdBy, events[0]!);
@@ -684,7 +685,7 @@ export async function createDraftBundle(
 
     return { bundleId: bundle.id, eventCount: events.length };
   } catch (err) {
-    console.error('[DraftBundle] Unexpected error:', err);
+    logError('[DraftBundle] Unexpected error:', err);
     const fallback = await createDraftEvent(householdId, createdBy, events[0]!);
     return fallback ? { bundleId: fallback.id, eventCount: 1 } : null;
   }
@@ -730,7 +731,7 @@ export async function getDraftBundle(
       events: events as DraftBundleEvent[],
     };
   } catch (err) {
-    console.error('[DraftBundle] Error fetching bundle:', err);
+    logError('[DraftBundle] Error fetching bundle:', err);
     return null;
   }
 }
@@ -773,7 +774,7 @@ export async function getLatestPendingDraftBundle(
 
     return { bundleId: bundle.id, eventCount: count };
   } catch (err) {
-    console.error('[DraftBundle] Error recovering latest pending bundle:', err);
+    logError('[DraftBundle] Error recovering latest pending bundle:', err);
     return null;
   }
 }
@@ -805,7 +806,7 @@ export async function getLatestPendingDraftEvent(
 
     return { draftId: data.id };
   } catch (err) {
-    console.error('[DraftEvent] Error recovering latest pending draft:', err);
+    logError('[DraftEvent] Error recovering latest pending draft:', err);
     return null;
   }
 }
@@ -884,7 +885,7 @@ export async function rejectDraftBundle(
       .eq('status', 'pending');
 
     if (eventError) {
-      console.error('[DraftBundle] Error rejecting draft events:', eventError);
+      logError('[DraftBundle] Error rejecting draft events:', eventError);
       return false;
     }
 
@@ -895,13 +896,13 @@ export async function rejectDraftBundle(
       .eq('household_id', householdId);
 
     if (bundleError) {
-      console.error('[DraftBundle] Error rejecting bundle:', bundleError);
+      logError('[DraftBundle] Error rejecting bundle:', bundleError);
       return false;
     }
 
     return true;
   } catch (err) {
-    console.error('[DraftBundle] Unexpected reject error:', err);
+    logError('[DraftBundle] Unexpected reject error:', err);
     return false;
   }
 }
@@ -1055,7 +1056,7 @@ export async function applyDraftBundleModifications(
         .eq('status', 'pending');
 
       if (error) {
-        console.error('[DraftBundle] Failed to update draft event:', error);
+        logError('[DraftBundle] Failed to update draft event:', error);
       }
     }
   }
@@ -1120,7 +1121,7 @@ export async function applyDraftEventModifications(
     .eq('status', 'pending');
 
   if (error) {
-    console.error('[DraftEvent] Failed to update draft event:', error);
+    logError('[DraftEvent] Failed to update draft event:', error);
     return null;
   }
 
@@ -1171,7 +1172,7 @@ export async function createDraftEvent(
     
     if (error) {
       // Table might not exist yet - log and return null
-      console.log('[DraftEvent] draft_events table may not exist, skipping draft:', error.message);
+      log.info('[DraftEvent] draft_events table may not exist, skipping draft:', error.message);
       
       // Fallback: Create regular event but add a note in description
       const fallbackEvent = await createEvent(householdId, createdBy, {
@@ -1188,11 +1189,11 @@ export async function createDraftEvent(
       return fallbackEvent ? { id: fallbackEvent.id } : null;
     }
     
-    console.log(`[DraftEvent] Created draft: "${draftData.title}" (${Math.round(draftData.confidence * 100)}% confidence)`);
+    log.info(`[DraftEvent] Created draft: "${draftData.title}" (${Math.round(draftData.confidence * 100)}% confidence)`);
     return data as { id: string };
     
   } catch (err) {
-    console.error('[DraftEvent] Error creating draft:', err);
+    logError('[DraftEvent] Error creating draft:', err);
     return null;
   }
 }
@@ -1217,7 +1218,7 @@ export async function confirmDraftEvent(
       .single();
     
     if (fetchError || !draft) {
-      console.error('[DraftEvent] Draft not found:', fetchError);
+      logError('[DraftEvent] Draft not found:', fetchError);
       return null;
     }
     
@@ -1243,11 +1244,11 @@ export async function confirmDraftEvent(
       .delete()
       .eq('id', draftId);
     
-    console.log(`[DraftEvent] Confirmed draft: "${draft.title}"`);
+    log.info(`[DraftEvent] Confirmed draft: "${draft.title}"`);
     return event;
     
   } catch (err) {
-    console.error('[DraftEvent] Error confirming draft:', err);
+    logError('[DraftEvent] Error confirming draft:', err);
     return null;
   }
 }
@@ -1268,7 +1269,7 @@ export async function rejectDraftEvent(
     .eq('household_id', householdId);
   
   if (error) {
-    console.error('[DraftEvent] Error rejecting draft:', error);
+    logError('[DraftEvent] Error rejecting draft:', error);
     return false;
   }
   
@@ -1305,7 +1306,7 @@ export async function getDraftEvent(
       .single();
     
     if (error || !data) {
-      console.log('[DraftEvent] Draft not found:', error?.message);
+      log.info('[DraftEvent] Draft not found:', error?.message);
       return null;
     }
     
@@ -1323,7 +1324,7 @@ export async function getDraftEvent(
       reason: string;
     };
   } catch (err) {
-    console.error('[DraftEvent] Error fetching draft:', err);
+    logError('[DraftEvent] Error fetching draft:', err);
     return null;
   }
 }
@@ -1351,7 +1352,7 @@ export async function getDraftEvents(householdId: string): Promise<Array<{
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.log('[DraftEvent] Could not fetch drafts:', error.message);
+      log.info('[DraftEvent] Could not fetch drafts:', error.message);
       return [];
     }
     

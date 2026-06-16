@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { logError } from '@/lib/utils/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Session creation error:', error);
+    logError('Session creation error:', error);
     return NextResponse.json({ success: false, error: 'Failed to create session' }, { status: 500 });
   }
 }

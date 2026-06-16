@@ -3,6 +3,7 @@ import { validateSession } from '@/lib/auth/helpers';
 import { getGoogleOAuthUrl } from '@/lib/sync/google';
 import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * GET /api/auth/google/connect
@@ -48,7 +49,7 @@ export async function GET() {
     return NextResponse.json({ url });
 
   } catch (error) {
-    console.error('[Google OAuth] Connect error:', error);
+    logError('[Google OAuth] Connect error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

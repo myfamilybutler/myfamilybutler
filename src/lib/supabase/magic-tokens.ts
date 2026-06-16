@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import type { User } from '@/types';
 import { getAdminClient } from './client';
 import { normalizePhone, findUserByIdentifier } from './identity';
+import { logError } from '@/lib/utils/logger';
 
 async function createMagicTokenForUser(
   userId: string,
@@ -45,7 +46,7 @@ async function createMagicTokenForUser(
 
     return { success: true, link: `${baseUrl}/api/auth/magic?token=${token}` };
   } catch (error) {
-    console.error('[Dashboard Link] Error:', error);
+    logError('[Dashboard Link] Error:', error);
     return { success: false, error: 'Failed to create link.' };
   }
 }
@@ -72,7 +73,7 @@ export async function generateDashboardLink(
     // 2. Create Token
     return createMagicTokenForUser(user.id, channel);
   } catch (error) {
-    console.error('[Dashboard Link] Error:', error);
+    logError('[Dashboard Link] Error:', error);
     return { success: false, error: 'Failed to create link.' };
   }
 }

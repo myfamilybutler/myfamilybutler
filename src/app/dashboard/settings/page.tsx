@@ -36,6 +36,7 @@ import { FamilyMembersList } from '@/components/dashboard/family-members-list';
 
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 import { useFamilyData } from '@/stores/family-store';
+import { logError } from '@/lib/utils/logger';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -85,7 +86,7 @@ export default function SettingsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Export error:', error);
+      logError('Export error:', error);
       toast.error(t('settings.exportError'));
     }
   };
@@ -105,7 +106,7 @@ export default function SettingsPage() {
         toast.error(t('settings.deleteAccountError'));
       }
     } catch (error) {
-      console.error('Delete error:', error);
+      logError('Delete error:', error);
     } finally {
       setActionLoading(false);
     }
@@ -127,7 +128,7 @@ export default function SettingsPage() {
         toast.error(t('settings.deleteFamilyError'));
       }
     } catch (error) {
-      console.error('Delete family error:', error);
+      logError('Delete family error:', error);
     } finally {
       setActionLoading(false);
     }
@@ -149,7 +150,7 @@ export default function SettingsPage() {
         toast.error(t('settings.leaveFamilyError'));
       }
     } catch (error) {
-      console.error('Leave error:', error);
+      logError('Leave error:', error);
     } finally {
       setActionLoading(false);
     }
@@ -184,7 +185,7 @@ export default function SettingsPage() {
         toast.error(data.error || t('settings.updateMemberError'));
       }
     } catch (error) {
-      console.error('Edit member error:', error);
+      logError('Edit member error:', error);
       toast.error(t('settings.updateMemberError'));
     } finally {
       setActionLoading(false);
@@ -220,7 +221,7 @@ export default function SettingsPage() {
         toast.error(data.error || t('settings.deleteMemberError'));
       }
     } catch (error) {
-      console.error('Delete member error:', error);
+      logError('Delete member error:', error);
       toast.error(t('settings.deleteMemberError'));
     } finally {
       setActionLoading(false);

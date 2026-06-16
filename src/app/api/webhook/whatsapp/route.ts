@@ -7,6 +7,7 @@ import { gateway } from '@/lib/core';
 import { whatsappAdapter } from '@/lib/channels/whatsapp/adapter';
 import { enqueueMessage } from '@/inngest/process-message';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
+import { log, logError } from '@/lib/utils/logger';
 
 let whatsappAdapterRegistered = false;
 function ensureWhatsAppAdapter() {
@@ -28,17 +29,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
 
-  console.log('[Webhook] GET verification request:', { mode, token: token?.slice(0, 10) + '...', challenge });
+  log.info('[Webhook] GET verification request:', { mode, token: token?.slice(0, 10) + '...', challenge });
 
   if (mode === 'subscribe' && token === verifyToken) {
-    console.log('[Webhook] Verification successful!');
+    log.info('[Webhook] Verification successful!');
     return new NextResponse(challenge, {
       status: 200,
       headers: { 'Content-Type': 'text/plain' },
     });
   }
 
-  console.log('[Webhook] Verification failed - token mismatch');
+  log.info('[Webhook] Verification failed - token mismatch');
   return NextResponse.json({ error: 'Verification failed' }, { status: 403 });
 }
 
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // Provider on/off switch - return 200 but don't process if disabled
   if (!isProviderEnabled('whatsapp_business')) {
-    console.log('[WhatsApp Webhook] Provider disabled, ignoring webhook');
+    log.info('[WhatsApp Webhook] Provider disabled, ignoring webhook');
     return NextResponse.json({ success: true });
   }
 
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Webhook] POST error:', error);
+    logError('[Webhook] POST error:', error);
     return NextResponse.json({ success: true, error: 'Processing error' });
   }
 }

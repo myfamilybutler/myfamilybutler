@@ -3,6 +3,7 @@ import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 import { sendWhatsAppMessage } from '@/lib/channels/whatsapp/send';
 import { sendTelegramMessage } from '@/lib/channels/telegram/send';
+import { logError } from '@/lib/utils/logger';
 
 // Increase timeout for long running broadcasts
 export const maxDuration = 60; 
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
           else failed++;
         } catch (e) {
           failed++;
-          console.error('Broadcast send error', e);
+          logError('Broadcast send error', e);
         }
       }));
       
@@ -83,7 +84,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, sent, failed });
 
   } catch (error) {
-    console.error('Broadcast error:', error);
+    logError('Broadcast error:', error);
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
   }
 }

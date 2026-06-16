@@ -5,6 +5,7 @@
 
 import { fetchWithTimeout } from '../../utils/fetch';
 import { maskChatId, truncateMessage, MAX_MESSAGE_LENGTH } from '../../utils/security';
+import { log, logError } from '@/lib/utils/logger';
 
 const BASE_URL = 'https://api.telegram.org';
 
@@ -22,11 +23,11 @@ export async function sendTelegramMessage(
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
   if (!botToken) {
-    console.error('Missing TELEGRAM_BOT_TOKEN environment variable');
+    logError('Missing TELEGRAM_BOT_TOKEN environment variable');
     return { success: false, error: 'Missing Telegram bot configuration' };
   }
 
-  console.log(`[Telegram] Sending message to ${maskChatId(chatId)}`);
+  log.info(`[Telegram] Sending message to ${maskChatId(chatId)}`);
   
   // Truncate message to prevent API errors
   const truncatedText = truncateMessage(text, MAX_MESSAGE_LENGTH);
@@ -51,20 +52,20 @@ export async function sendTelegramMessage(
     const data = await response.json();
 
     if (!response.ok || !data.ok) {
-      console.error('[Telegram] API Error:', JSON.stringify(data, null, 2));
+      logError('[Telegram] API Error:', JSON.stringify(data, null, 2));
       return {
         success: false,
         error: data?.description || 'Failed to send message',
       };
     }
 
-    console.log('[Telegram] Message sent successfully:', data?.result?.message_id);
+    log.info('[Telegram] Message sent successfully:', data?.result?.message_id);
     return {
       success: true,
       messageId: data?.result?.message_id,
     };
   } catch (error) {
-    console.error('[Telegram] Send error:', error);
+    logError('[Telegram] Send error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -96,11 +97,11 @@ export async function sendTelegramMessageWithUrlButton(
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
   if (!botToken) {
-    console.error('Missing TELEGRAM_BOT_TOKEN environment variable');
+    logError('Missing TELEGRAM_BOT_TOKEN environment variable');
     return { success: false, error: 'Missing Telegram bot configuration' };
   }
 
-  console.log(`[Telegram] Sending URL button message to ${maskChatId(chatId)}`);
+  log.info(`[Telegram] Sending URL button message to ${maskChatId(chatId)}`);
   
   const truncatedText = truncateMessage(text, MAX_MESSAGE_LENGTH);
 
@@ -128,18 +129,18 @@ export async function sendTelegramMessageWithUrlButton(
     const data = await response.json();
 
     if (!response.ok || !data.ok) {
-      console.error('[Telegram] URL button API Error:', JSON.stringify(data, null, 2));
+      logError('[Telegram] URL button API Error:', JSON.stringify(data, null, 2));
       // Fallback to text message with link
       return sendTelegramMessage(chatId, `${text}\n\n🔗 ${button.url}`, options);
     }
 
-    console.log('[Telegram] URL button message sent:', data?.result?.message_id);
+    log.info('[Telegram] URL button message sent:', data?.result?.message_id);
     return {
       success: true,
       messageId: data?.result?.message_id,
     };
   } catch (error) {
-    console.error('[Telegram] URL button send error:', error);
+    logError('[Telegram] URL button send error:', error);
     // Fallback to text message with link
     return sendTelegramMessage(chatId, `${text}\n\n🔗 ${button.url}`);
   }
@@ -229,7 +230,7 @@ export async function removeKeyboard(
     );
   } catch (error) {
     // Keyboard removal is non-critical, log for debugging only
-    console.debug('[Telegram] Keyboard removal failed:', error);
+    log.debug('[Telegram] Keyboard removal failed:', error);
   }
 }
 
@@ -270,7 +271,7 @@ export async function setTelegramWebhook(
       return { success: false, error: data?.description };
     }
 
-    console.log('[Telegram] Webhook set successfully', webhookSecret ? '(with secret_token)' : '');
+    log.info('[Telegram] Webhook set successfully', webhookSecret ? '(with secret_token)' : '');
     return { success: true };
   } catch (error) {
     return {
@@ -310,7 +311,7 @@ export async function getTelegramWebhookInfo(): Promise<{
 
     return null;
   } catch (error) {
-    console.debug('[Telegram] getWebhookInfo failed:', error);
+    log.debug('[Telegram] getWebhookInfo failed:', error);
     return null;
   }
 }
@@ -323,7 +324,7 @@ export async function downloadTelegramFile(fileId: string): Promise<Buffer | nul
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
   if (!botToken) {
-    console.error('[Telegram] Missing TELEGRAM_BOT_TOKEN');
+    logError('[Telegram] Missing TELEGRAM_BOT_TOKEN');
     return null;
   }
 
@@ -341,7 +342,7 @@ export async function downloadTelegramFile(fileId: string): Promise<Buffer | nul
     const fileInfo = await fileInfoResponse.json();
 
     if (!fileInfo.ok || !fileInfo.result?.file_path) {
-      console.error('[Telegram] Failed to get file info:', fileInfo);
+      logError('[Telegram] Failed to get file info:', fileInfo);
       return null;
     }
 
@@ -354,7 +355,7 @@ export async function downloadTelegramFile(fileId: string): Promise<Buffer | nul
     );
 
     if (!fileResponse.ok) {
-      console.error('[Telegram] Failed to download file:', fileResponse.status);
+      logError('[Telegram] Failed to download file:', fileResponse.status);
       return null;
     }
 
@@ -362,7 +363,7 @@ export async function downloadTelegramFile(fileId: string): Promise<Buffer | nul
     return Buffer.from(arrayBuffer);
 
   } catch (error) {
-    console.error('[Telegram] Error downloading file:', error);
+    logError('[Telegram] Error downloading file:', error);
     return null;
   }
 }

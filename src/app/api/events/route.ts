@@ -4,6 +4,7 @@ import { getAdminClient, updateEvent, deleteEvent, createEventReminder, createEv
 import { validateSession } from '@/lib/auth/helpers';
 import { addDays, differenceInCalendarDays, format, isValid, parseISO } from 'date-fns';
 import { RECURRENCE_CANCELLED_MARKER } from '@/lib/recurrence/constants';
+import { log, logError } from '@/lib/utils/logger';
 
 interface EventUpdatesPayload {
   title?: string;
@@ -27,12 +28,12 @@ export async function GET() {
     try {
       session = await validateSession();
     } catch (error) {
-      console.error('[API/events] Auth failed:', error);
+      logError('[API/events] Auth failed:', error);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { userId } = session;
-    console.log(`[API/events] Fetching for verified user: ${userId}`);
+    log.info(`[API/events] Fetching for verified user: ${userId}`);
 
     const supabase = getAdminClient();
 
@@ -44,7 +45,7 @@ export async function GET() {
       .single();
 
     if (userError || !user) {
-      console.error('[API/events] User not found:', userError);
+      logError('[API/events] User not found:', userError);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -61,7 +62,7 @@ export async function GET() {
       .order('event_time', { ascending: true });
 
     if (eventsError) {
-      console.error('[API/events] Failed to fetch events:', eventsError);
+      logError('[API/events] Failed to fetch events:', eventsError);
       return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
     }
 
@@ -85,7 +86,7 @@ export async function GET() {
       .in('id', memberIds);
 
     if (membersError) {
-      console.error('[API/events] Failed to fetch family member labels:', membersError);
+      logError('[API/events] Failed to fetch family member labels:', membersError);
       return NextResponse.json({ success: true, data: rawEvents });
     }
 
@@ -100,7 +101,7 @@ export async function GET() {
     return NextResponse.json({ success: true, data: hydratedEvents });
 
   } catch (error) {
-    console.error('[API/events] Internal error:', error);
+    logError('[API/events] Internal error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -114,7 +115,7 @@ export async function PUT(request: NextRequest) {
     try {
       session = await validateSession();
     } catch (error) {
-      console.error('[API/events] PUT Auth failed:', error);
+      logError('[API/events] PUT Auth failed:', error);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -222,7 +223,7 @@ export async function PUT(request: NextRequest) {
           return NextResponse.json({ error: 'Failed to update occurrence' }, { status: 500 });
         }
 
-        console.log(`[API/events] Recurring exception ${existingException.id} updated by user ${userId}`);
+        log.info(`[API/events] Recurring exception ${existingException.id} updated by user ${userId}`);
         return NextResponse.json({ success: true, data: updatedException });
       }
 
@@ -240,7 +241,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create occurrence exception' }, { status: 500 });
       }
 
-      console.log(`[API/events] Recurring exception created for parent ${eventId} by user ${userId}`);
+      log.info(`[API/events] Recurring exception created for parent ${eventId} by user ${userId}`);
       return NextResponse.json({ success: true, data: insertedException });
     }
 
@@ -259,7 +260,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to update event' }, { status: 500 });
       }
 
-      console.log(`[API/events] Event ${eventId} updated by user ${userId}`);
+      log.info(`[API/events] Event ${eventId} updated by user ${userId}`);
       return NextResponse.json({ success: true, data: updatedEvent });
     } catch (error) {
       if (error instanceof Error && error.message === 'EVENT_VERSION_CONFLICT') {
@@ -271,7 +272,7 @@ export async function PUT(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('[API/events] PUT Internal error:', error);
+    logError('[API/events] PUT Internal error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -285,7 +286,7 @@ export async function DELETE(request: NextRequest) {
     try {
       session = await validateSession();
     } catch (error) {
-      console.error('[API/events] DELETE Auth failed:', error);
+      logError('[API/events] DELETE Auth failed:', error);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -377,7 +378,7 @@ export async function DELETE(request: NextRequest) {
         }
       }
 
-      console.log(`[API/events] Recurring occurrence ${occurrenceDate} cancelled for parent ${eventId}`);
+      log.info(`[API/events] Recurring occurrence ${occurrenceDate} cancelled for parent ${eventId}`);
       return NextResponse.json({ success: true });
     }
 
@@ -388,11 +389,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to delete event' }, { status: 500 });
     }
 
-    console.log(`[API/events] Event ${eventId} deleted by user ${userId}`);
+    log.info(`[API/events] Event ${eventId} deleted by user ${userId}`);
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('[API/events] DELETE Internal error:', error);
+    logError('[API/events] DELETE Internal error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -411,7 +412,7 @@ export async function POST(request: NextRequest) {
     try {
       session = await validateSession();
     } catch (error) {
-      console.error('[API/events] POST Auth failed:', error);
+      logError('[API/events] POST Auth failed:', error);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -477,7 +478,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });
       }
 
-      console.log(`[API/events] Event created by user ${userId}: "${title}"`);
+      log.info(`[API/events] Event created by user ${userId}: "${title}"`);
       return NextResponse.json({ success: true, data: event });
     }
 
@@ -516,14 +517,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create reminder' }, { status: 500 });
       }
 
-      console.log(`[API/events] Reminder created for event ${eventId} by user ${userId}`);
+      log.info(`[API/events] Reminder created for event ${eventId} by user ${userId}`);
       return NextResponse.json({ success: true, data: reminder });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
   } catch (error) {
-    console.error('[API/events] POST Internal error:', error);
+    logError('[API/events] POST Internal error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

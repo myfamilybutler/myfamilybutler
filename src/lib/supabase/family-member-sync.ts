@@ -1,4 +1,5 @@
 import { getAdminClient } from './client';
+import { logError } from '@/lib/utils/logger';
 import {
   collectAutoCreatableFamilyMemberNames,
   familyMemberNameKey,
@@ -33,7 +34,7 @@ export async function ensureAndResolveFamilyMemberIds(
   const existingUserKeys = new Set<string>();
 
   if (membersResult.error) {
-    console.error('[FamilyMemberSync] Failed reading family_members:', membersResult.error);
+    logError('[FamilyMemberSync] Failed reading family_members:', membersResult.error);
   } else {
     for (const row of membersResult.data ?? []) {
       if (!row.name) continue;
@@ -42,7 +43,7 @@ export async function ensureAndResolveFamilyMemberIds(
   }
 
   if (usersError) {
-    console.error('[FamilyMemberSync] Failed reading household users:', usersError);
+    logError('[FamilyMemberSync] Failed reading household users:', usersError);
   } else {
     for (const row of usersData ?? []) {
       if (!row.display_name) continue;
@@ -66,7 +67,7 @@ export async function ensureAndResolveFamilyMemberIds(
 
     // Unique violations are expected in race windows and can be ignored.
     if (error && error.code !== '23505') {
-      console.error('[FamilyMemberSync] Failed inserting family member:', error);
+      logError('[FamilyMemberSync] Failed inserting family member:', error);
     }
   }
 
@@ -77,7 +78,7 @@ export async function ensureAndResolveFamilyMemberIds(
     .eq('household_id', householdId);
 
   if (membersResult.error) {
-    console.error('[FamilyMemberSync] Failed reading family_members after sync:', membersResult.error);
+    logError('[FamilyMemberSync] Failed reading family_members after sync:', membersResult.error);
     return new Map();
   }
 

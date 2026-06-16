@@ -4,6 +4,7 @@
 // Webhook verification, data masking, and input validation
 
 import { createHmac, timingSafeEqual } from 'crypto';
+import { logWarn } from '@/lib/utils/logger';
 
 // ===========================================
 // Webhook Signature Verification
@@ -20,14 +21,14 @@ export function verifyWhatsAppSignature(
   appSecret: string
 ): boolean {
   if (!signature || !appSecret) {
-    console.warn('[Security] Missing signature or app secret for WhatsApp verification');
+    logWarn('[Security] Missing signature or app secret for WhatsApp verification');
     return false;
   }
 
   // Signature format: sha256=<hash>
   const expectedPrefix = 'sha256=';
   if (!signature.startsWith(expectedPrefix)) {
-    console.warn('[Security] Invalid WhatsApp signature format');
+    logWarn('[Security] Invalid WhatsApp signature format');
     return false;
   }
 
@@ -53,7 +54,7 @@ export function verifyTelegramSecretToken(
   expectedToken: string
 ): boolean {
   if (!receivedToken || !expectedToken) {
-    console.warn('[Security] Missing token for Telegram verification');
+    logWarn('[Security] Missing token for Telegram verification');
     return false;
   }
 

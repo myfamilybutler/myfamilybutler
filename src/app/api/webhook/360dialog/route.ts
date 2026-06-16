@@ -6,6 +6,7 @@ import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { enqueueMessage } from '@/inngest/process-message';
 import { gateway } from '@/lib/core';
 import { dialog360Adapter } from '@/lib/channels/360dialog/adapter';
+import { log, logError } from '@/lib/utils/logger';
 
 let dialog360AdapterRegistered = false;
 function ensure360DialogAdapter() {
@@ -17,7 +18,7 @@ function ensure360DialogAdapter() {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!isProviderEnabled('360dialog')) {
-    console.log('[360dialog] Provider disabled, ignoring webhook');
+    log.info('[360dialog] Provider disabled, ignoring webhook');
     return NextResponse.json({ success: true });
   }
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[360dialog] Webhook error:', error);
+    logError('[360dialog] Webhook error:', error);
     return NextResponse.json({ success: true, error: 'Processing error' });
   }
 }

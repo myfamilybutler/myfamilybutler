@@ -6,6 +6,7 @@
 
 import { storeGoogleToken, type GoogleToken } from '../auth/vault';
 import { getAdminClient } from '../supabase/client';
+import { log, logError } from '@/lib/utils/logger';
 
 // ===========================================
 // Types
@@ -59,7 +60,7 @@ export async function exchangeCodeForTokens(
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
-    console.error('[GoogleOAuth] Missing Google OAuth credentials');
+    logError('[GoogleOAuth] Missing Google OAuth credentials');
     return null;
   }
 
@@ -80,7 +81,7 @@ export async function exchangeCodeForTokens(
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('[GoogleOAuth] Failed to exchange code:', errorData);
+      logError('[GoogleOAuth] Failed to exchange code:', errorData);
       return null;
     }
 
@@ -100,7 +101,7 @@ export async function exchangeCodeForTokens(
       scope: data.scope,
     };
   } catch (error) {
-    console.error('[GoogleOAuth] Error exchanging code:', error);
+    logError('[GoogleOAuth] Error exchanging code:', error);
     return null;
   }
 }
@@ -153,19 +154,19 @@ export async function fetchAndUpdateProfile(
     );
 
     if (!response.ok) {
-      console.error('[GoogleOAuth] Failed to fetch user info');
+      logError('[GoogleOAuth] Failed to fetch user info');
       return null;
     }
 
     const userInfo = await response.json() as GoogleUserInfo;
-    console.log(`[GoogleOAuth] Got Google user info for: ${userInfo.email}`);
+    log.info(`[GoogleOAuth] Got Google user info for: ${userInfo.email}`);
 
     // Update the user profile in our database
     await updateProfileFromGoogle(userId, userInfo);
 
     return userInfo;
   } catch (error) {
-    console.error('[GoogleOAuth] Error fetching user info:', error);
+    logError('[GoogleOAuth] Error fetching user info:', error);
     return null;
   }
 }
@@ -187,7 +188,7 @@ async function updateProfileFromGoogle(
     .single();
 
   if (fetchError || !user) {
-    console.error('[GoogleOAuth] Failed to fetch user for profile update');
+    logError('[GoogleOAuth] Failed to fetch user for profile update');
     return;
   }
 
@@ -199,9 +200,9 @@ async function updateProfileFromGoogle(
       .eq('id', userId);
 
     if (updateError) {
-      console.error('[GoogleOAuth] Failed to update display_name:', updateError);
+      logError('[GoogleOAuth] Failed to update display_name:', updateError);
     } else {
-      console.log(`[GoogleOAuth] Updated display_name for user ${userId}`);
+      log.info(`[GoogleOAuth] Updated display_name for user ${userId}`);
     }
   }
 }

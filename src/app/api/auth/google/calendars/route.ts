@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
 import { getGoogleToken } from '@/lib/auth/vault';
+import { logError } from '@/lib/utils/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,7 @@ export async function GET() {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('[Google] Failed to fetch calendars:', errorData);
+      logError('[Google] Failed to fetch calendars:', errorData);
       return NextResponse.json(
         { error: 'Failed to fetch calendars' },
         { status: 500 }
@@ -76,7 +77,7 @@ export async function GET() {
     return NextResponse.json({ calendars: writableCalendars });
 
   } catch (error) {
-    console.error('[Google OAuth] Calendar list error:', error);
+    logError('[Google OAuth] Calendar list error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch calendars' },
       { status: 500 }

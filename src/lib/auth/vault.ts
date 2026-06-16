@@ -6,6 +6,7 @@
  */
 
 import { getAdminClient } from '../supabase/client';
+import { log, logError } from '@/lib/utils/logger';
 
 // ===========================================
 // Types
@@ -60,14 +61,14 @@ export async function storeGoogleToken(
       });
 
     if (error) {
-      console.error('[OAuth] Error storing Google token:', error);
+      logError('[OAuth] Error storing Google token:', error);
       return false;
     }
 
-    console.log(`[OAuth] Successfully stored Google token for user ${userId}`);
+    log.info(`[OAuth] Successfully stored Google token for user ${userId}`);
     return true;
   } catch (error) {
-    console.error('[OAuth] Unexpected error storing token:', error);
+    logError('[OAuth] Unexpected error storing token:', error);
     return false;
   }
 }
@@ -93,7 +94,7 @@ export async function getGoogleToken(
       if (error.code === 'PGRST116') {
         return null;
       }
-      console.error('[OAuth] Error reading Google token:', error);
+      logError('[OAuth] Error reading Google token:', error);
       return null;
     }
 
@@ -110,7 +111,7 @@ export async function getGoogleToken(
       scope: row.scope,
     };
   } catch (error) {
-    console.error('[OAuth] Unexpected error reading token:', error);
+    logError('[OAuth] Unexpected error reading token:', error);
     return null;
   }
 }
@@ -129,14 +130,14 @@ export async function deleteGoogleToken(userId: string): Promise<boolean> {
       .eq('provider', 'google');
 
     if (error) {
-      console.error('[OAuth] Error deleting Google token:', error);
+      logError('[OAuth] Error deleting Google token:', error);
       return false;
     }
 
-    console.log(`[OAuth] Successfully deleted Google token for user ${userId}`);
+    log.info(`[OAuth] Successfully deleted Google token for user ${userId}`);
     return true;
   } catch (error) {
-    console.error('[OAuth] Unexpected error deleting token:', error);
+    logError('[OAuth] Unexpected error deleting token:', error);
     return false;
   }
 }
@@ -170,7 +171,7 @@ export async function refreshGoogleToken(
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.error('[OAuth] Missing Google OAuth credentials');
+    logError('[OAuth] Missing Google OAuth credentials');
     return null;
   }
 
@@ -190,7 +191,7 @@ export async function refreshGoogleToken(
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('[OAuth] Failed to refresh Google token:', errorData);
+      logError('[OAuth] Failed to refresh Google token:', errorData);
       return null;
     }
 
@@ -214,7 +215,7 @@ export async function refreshGoogleToken(
 
     return newToken;
   } catch (error) {
-    console.error('[OAuth] Error refreshing Google token:', error);
+    logError('[OAuth] Error refreshing Google token:', error);
     return null;
   }
 }
@@ -239,12 +240,12 @@ export async function getValidGoogleToken(
   }
 
   if (isTokenExpired(token)) {
-    console.log(`[OAuth] Token expired for user ${userId}, refreshing...`);
+    log.info(`[OAuth] Token expired for user ${userId}, refreshing...`);
     
     // Check if refresh is already in progress for this user
     const existingRefresh = refreshInFlight.get(userId);
     if (existingRefresh) {
-      console.log(`[OAuth] Waiting for existing refresh for user ${userId}`);
+      log.info(`[OAuth] Waiting for existing refresh for user ${userId}`);
       token = await existingRefresh;
     } else {
       // Start new refresh and track it
@@ -291,13 +292,13 @@ export async function storeSyncToken(
       .eq('provider', 'google');
 
     if (error) {
-      console.error('[OAuth] Error storing sync token:', error);
+      logError('[OAuth] Error storing sync token:', error);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('[OAuth] Unexpected error storing sync token:', error);
+    logError('[OAuth] Unexpected error storing sync token:', error);
     return false;
   }
 }
@@ -322,7 +323,7 @@ export async function getSyncToken(userId: string): Promise<string | null> {
 
     return (data as { sync_token: string | null }).sync_token;
   } catch (error) {
-    console.error('[OAuth] Error getting sync token:', error);
+    logError('[OAuth] Error getting sync token:', error);
     return null;
   }
 }
@@ -363,7 +364,7 @@ export async function getSelectedCalendar(
       calendarName: row.calendar_name,
     };
   } catch (error) {
-    console.error('[OAuth] Error getting selected calendar:', error);
+    logError('[OAuth] Error getting selected calendar:', error);
     return { calendarId: 'primary', calendarName: null };
   }
 }
@@ -391,14 +392,14 @@ export async function setSelectedCalendar(
       .eq('provider', 'google');
 
     if (error) {
-      console.error('[OAuth] Error setting selected calendar:', error);
+      logError('[OAuth] Error setting selected calendar:', error);
       return false;
     }
 
-    console.log(`[OAuth] Set calendar for user ${userId}: ${calendarName} (${calendarId})`);
+    log.info(`[OAuth] Set calendar for user ${userId}: ${calendarName} (${calendarId})`);
     return true;
   } catch (error) {
-    console.error('[OAuth] Unexpected error setting calendar:', error);
+    logError('[OAuth] Unexpected error setting calendar:', error);
     return false;
   }
 }

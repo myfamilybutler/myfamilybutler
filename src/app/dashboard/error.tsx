@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { logError } from '@/lib/utils/logger';
 
 export default function DashboardError({
   error,
@@ -14,7 +15,7 @@ export default function DashboardError({
 }) {
   useEffect(() => {
     // Start logging to error reporting service here if available
-    console.error('Dashboard Error:', error);
+    logError('Dashboard Error:', error);
   }, [error]);
 
   return (

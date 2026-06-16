@@ -19,6 +19,7 @@ import {
 import { Calendar, Check, Loader2, Link2Off } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { logError } from '@/lib/utils/logger';
 
 interface GoogleCalendar {
   id: string;
@@ -85,7 +86,7 @@ export function GoogleCalendarConnectButton({
         onConnectedRef.current?.();
       }
     } catch (error) {
-      console.error('Error checking Google connection:', error);
+      logError('Error checking Google connection:', error);
     } finally {
       if (mountedRef.current) {
         setIsLoading(false);
@@ -106,7 +107,7 @@ export function GoogleCalendarConnectButton({
         setCalendars(data.calendars);
       }
     } catch (error) {
-      console.error('Error fetching calendars:', error);
+      logError('Error fetching calendars:', error);
       toast.error(t('settings.googleCalendar.toast.loadCalendarsFailed'));
     } finally {
       if (mountedRef.current) {
@@ -141,7 +142,7 @@ export function GoogleCalendarConnectButton({
         toast.error(t('settings.googleCalendar.toast.connectStartFailed'));
       }
     } catch (error) {
-      console.error('Error connecting to Google:', error);
+      logError('Error connecting to Google:', error);
       toast.error(t('settings.googleCalendar.toast.connectFailed'));
     } finally {
       setIsConnecting(false);
@@ -167,7 +168,7 @@ export function GoogleCalendarConnectButton({
         toast.error(t('settings.googleCalendar.toast.disconnectFailed'));
       }
     } catch (error) {
-      console.error('Error disconnecting Google:', error);
+      logError('Error disconnecting Google:', error);
       toast.error(t('settings.googleCalendar.toast.disconnectFailed'));
     } finally {
       if (mountedRef.current) {
@@ -200,7 +201,7 @@ export function GoogleCalendarConnectButton({
         toast.error(t('settings.googleCalendar.toast.saveSelectionFailed'));
       }
     } catch (error) {
-      console.error('Error saving calendar:', error);
+      logError('Error saving calendar:', error);
       toast.error(t('settings.googleCalendar.toast.saveSelectionFailed'));
     } finally {
       if (mountedRef.current) {

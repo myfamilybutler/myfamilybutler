@@ -11,6 +11,7 @@ import {
   parseEventWithClarification, 
   generateAIResponse as generateOpenAIResponse,
 } from './providers/openai';
+import { log, logError } from '@/lib/utils/logger';
 import { 
   parseEventWithGemini, 
   generateGeminiResponse,
@@ -54,7 +55,7 @@ export async function parseEventWithFallback(
   if (isGeminiAvailable()) {
     for (let attempt = 0; attempt <= AI_CONFIG.maxRetries; attempt++) {
       try {
-        console.log('[AI] Parsing with Gemini (primary)');
+        log.info('[AI] Parsing with Gemini (primary)');
         const result = await Promise.race([
           parseEventWithGemini(message, conversationHistory, familyMembers),
           new Promise<never>((_, reject) => 
@@ -80,7 +81,7 @@ export async function parseEventWithFallback(
           await new Promise(r => setTimeout(r, 1000 * (2 ** attempt)));
           continue;
         }
-        console.error('[AI] Gemini error:', error);
+        logError('[AI] Gemini error:', error);
       }
     }
   }
@@ -88,7 +89,7 @@ export async function parseEventWithFallback(
   // Fallback to OpenAI (GPT-4o-mini - cheapest)
   if (AI_CONFIG.enableFallback) {
     try {
-      console.log('[AI] Falling back to OpenAI GPT-4o-mini');
+      log.info('[AI] Falling back to OpenAI GPT-4o-mini');
       const result = await parseEventWithClarification(message, conversationHistory, familyMembers);
       return {
         ...result,
@@ -99,7 +100,7 @@ export async function parseEventWithFallback(
         },
       };
     } catch (error) {
-      console.error('[AI] OpenAI fallback failed:', error);
+      logError('[AI] OpenAI fallback failed:', error);
     }
   }
   
@@ -130,20 +131,20 @@ export async function generateResponseWithFallback(
   // Try Gemini first (free/cheap)
   if (isGeminiAvailable()) {
     try {
-      console.log('[AI] Generating response with Gemini (primary)');
+      log.info('[AI] Generating response with Gemini (primary)');
       return await generateGeminiResponse(history, newMessage);
     } catch (error) {
-      console.error('[AI] Gemini response failed:', error);
+      logError('[AI] Gemini response failed:', error);
     }
   }
   
   // Fallback to OpenAI (GPT-4o-mini - cheapest)
   if (AI_CONFIG.enableFallback) {
     try {
-      console.log('[AI] Falling back to OpenAI GPT-4o-mini for response');
+      log.info('[AI] Falling back to OpenAI GPT-4o-mini for response');
       return await generateOpenAIResponse(history, newMessage);
     } catch (error) {
-      console.error('[AI] OpenAI fallback failed:', error);
+      logError('[AI] OpenAI fallback failed:', error);
     }
   }
   

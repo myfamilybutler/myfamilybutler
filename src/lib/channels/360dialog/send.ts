@@ -6,6 +6,7 @@
 
 import { fetchWithTimeout } from '../../utils/fetch';
 import { maskPhone, truncateMessage, MAX_MESSAGE_LENGTH } from '../../utils/security';
+import { log, logError } from '@/lib/utils/logger';
 
 const DEFAULT_BASE_URL = 'https://waba.360dialog.io';
 
@@ -68,7 +69,7 @@ export async function send360DialogMessage(
   const baseUrl = process.env.D360_BASE_URL || DEFAULT_BASE_URL;
 
   if (!apiKey) {
-    console.error('[360dialog] Missing D360_API_KEY configuration');
+    logError('[360dialog] Missing D360_API_KEY configuration');
     return { success: false, error: 'Missing 360dialog configuration' };
   }
 
@@ -78,7 +79,7 @@ export async function send360DialogMessage(
   // Truncate message to prevent API errors
   const truncatedText = truncateMessage(text, MAX_MESSAGE_LENGTH);
 
-  console.log(`[360dialog] Sending message to ${maskPhone(normalizedTo)}`);
+  log.info(`[360dialog] Sending message to ${maskPhone(normalizedTo)}`);
 
   try {
     const response = await fetchWithTimeout(
@@ -102,20 +103,20 @@ export async function send360DialogMessage(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[360dialog] API Error:', JSON.stringify(data, null, 2));
+      logError('[360dialog] API Error:', JSON.stringify(data, null, 2));
       return {
         success: false,
         error: data?.error?.message || data?.message || 'Failed to send message',
       };
     }
 
-    console.log('[360dialog] Message sent successfully:', data?.messages?.[0]?.id);
+    log.info('[360dialog] Message sent successfully:', data?.messages?.[0]?.id);
     return {
       success: true,
       messageId: data?.messages?.[0]?.id,
     };
   } catch (error) {
-    console.error('[360dialog] Send error:', error);
+    logError('[360dialog] Send error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -153,7 +154,7 @@ export async function mark360DialogMessageAsRead(messageId: string): Promise<boo
 
     return response.ok;
   } catch (error) {
-    console.error('[360dialog] Mark read error:', error);
+    logError('[360dialog] Mark read error:', error);
     return false;
   }
 }
@@ -178,7 +179,7 @@ export async function send360DialogInteractiveMessage(
   const baseUrl = process.env.D360_BASE_URL || DEFAULT_BASE_URL;
 
   if (!apiKey) {
-    console.error('[360dialog] Missing D360_API_KEY configuration');
+    logError('[360dialog] Missing D360_API_KEY configuration');
     return { success: false, error: 'Missing 360dialog configuration' };
   }
 
@@ -191,7 +192,7 @@ export async function send360DialogInteractiveMessage(
   // Truncate body text
   const truncatedBody = truncateMessage(bodyText, MAX_MESSAGE_LENGTH);
 
-  console.log(`[360dialog] Sending interactive message to ${maskPhone(normalizedTo)}`);
+  log.info(`[360dialog] Sending interactive message to ${maskPhone(normalizedTo)}`);
 
   try {
     const response = await fetchWithTimeout(
@@ -224,18 +225,18 @@ export async function send360DialogInteractiveMessage(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[360dialog] Interactive API Error:', JSON.stringify(data, null, 2));
+      logError('[360dialog] Interactive API Error:', JSON.stringify(data, null, 2));
       // Fallback to text message if interactive fails
       return send360DialogMessage(to, bodyText);
     }
 
-    console.log('[360dialog] Interactive message sent:', data?.messages?.[0]?.id);
+    log.info('[360dialog] Interactive message sent:', data?.messages?.[0]?.id);
     return {
       success: true,
       messageId: data?.messages?.[0]?.id,
     };
   } catch (error) {
-    console.error('[360dialog] Interactive send error:', error);
+    logError('[360dialog] Interactive send error:', error);
     // Fallback to text message
     return send360DialogMessage(to, bodyText);
   }
@@ -262,14 +263,14 @@ export async function send360DialogMessageWithUrlButton(
   const baseUrl = process.env.D360_BASE_URL || DEFAULT_BASE_URL;
 
   if (!apiKey) {
-    console.error('[360dialog] Missing D360_API_KEY configuration');
+    logError('[360dialog] Missing D360_API_KEY configuration');
     return { success: false, error: 'Missing 360dialog configuration' };
   }
 
   const normalizedTo = to.replace(/\D/g, '');
   const truncatedBody = truncateMessage(bodyText, MAX_MESSAGE_LENGTH);
 
-  console.log(`[360dialog] Sending CTA URL message to ${maskPhone(normalizedTo)}`);
+  log.info(`[360dialog] Sending CTA URL message to ${maskPhone(normalizedTo)}`);
 
   try {
     const response = await fetchWithTimeout(
@@ -303,18 +304,18 @@ export async function send360DialogMessageWithUrlButton(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[360dialog] CTA URL API Error:', JSON.stringify(data, null, 2));
+      logError('[360dialog] CTA URL API Error:', JSON.stringify(data, null, 2));
       // Fallback to text message with link
       return send360DialogMessage(to, `${bodyText}\n\n🔗 ${button.url}`);
     }
 
-    console.log('[360dialog] CTA URL message sent:', data?.messages?.[0]?.id);
+    log.info('[360dialog] CTA URL message sent:', data?.messages?.[0]?.id);
     return {
       success: true,
       messageId: data?.messages?.[0]?.id,
     };
   } catch (error) {
-    console.error('[360dialog] CTA URL send error:', error);
+    logError('[360dialog] CTA URL send error:', error);
     // Fallback to text message with link
     return send360DialogMessage(to, `${bodyText}\n\n🔗 ${button.url}`);
   }

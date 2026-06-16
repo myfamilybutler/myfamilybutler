@@ -8,6 +8,7 @@
  */
 import 'server-only';
 import type { PostHog } from 'posthog-node';
+import { logError } from '@/lib/utils/logger';
 
 // Initialize PostHog client for server-side tracking
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
@@ -73,7 +74,7 @@ export function trackUserSignup(
         },
       },
     });
-  }).catch(console.error);
+  }).catch(logError);
 }
 
 /**
@@ -98,7 +99,7 @@ export function trackMessage(
         is_first_message: isFirst,
       },
     });
-  }).catch(console.error);
+  }).catch(logError);
 }
 
 /**
@@ -121,7 +122,7 @@ export function trackEventCreated(
         source,
       },
     });
-  }).catch(console.error);
+  }).catch(logError);
 }
 
 /**
@@ -139,7 +140,7 @@ export function identifyUser(
       distinctId: userId,
       properties,
     });
-  }).catch(console.error);
+  }).catch(logError);
 }
 
 /**
@@ -162,7 +163,7 @@ export function trackFeatureUsed(
         ...additionalProps,
       },
     });
-  }).catch(console.error);
+  }).catch(logError);
 }
 
 // ===========================================
@@ -202,7 +203,7 @@ export function trackIdentityLinked(
         $set: { last_identity_linked: new Date().toISOString() },
       },
     });
-  }).catch(console.error);
+  }).catch(logError);
 }
 
 /**
@@ -229,7 +230,7 @@ export function trackUserCreated(
         created_at: new Date().toISOString(),
       },
     });
-  }).catch(console.error);
+  }).catch(logError);
 }
 
 /**
@@ -251,7 +252,7 @@ export function trackDuplicatePrevented(
         source,
       },
     });
-  }).catch(console.error);
+  }).catch(logError);
 }
 
 /**

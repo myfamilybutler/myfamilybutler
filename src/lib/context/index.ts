@@ -9,6 +9,7 @@ import { getAdminClient } from '@/lib/supabase/client';
 import { getFamilyMembers } from '@/lib/supabase';
 import type { Event, User } from '@/types';
 import { APP_CONFIG } from '@/lib/config';
+import { log, logError } from '@/lib/utils/logger';
 
 // ===========================================
 // Types
@@ -157,7 +158,7 @@ export async function getFamilyContext(householdId: string): Promise<FamilyConte
     return context;
     
   } catch (err) {
-    console.error('[Context] Error building family context:', err);
+    logError('[Context] Error building family context:', err);
     return null;
   }
 }
@@ -253,7 +254,7 @@ export async function buildPromptContext(
  */
 export function invalidateContextCache(householdId: string): void {
   contextCache.delete(householdId);
-  console.log(`[Context] Cache invalidated for household: ${householdId.slice(0, 8)}...`);
+  log.info(`[Context] Cache invalidated for household: ${householdId.slice(0, 8)}...`);
 }
 
 /**

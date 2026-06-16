@@ -10,6 +10,7 @@
 import OpenAI from 'openai';
 import { detectLanguage } from './response-templates';
 import { isGeminiAvailable } from './providers/gemini';
+import { log, logError } from '@/lib/utils/logger';
 
 export type ConfirmationIntent = 
   | 'confirm'           // User wants to save the event
@@ -97,7 +98,7 @@ export async function resolveConfirmationIntent(
   // Quick win: Check for very short, obvious responses first (< 15 chars)
   const quickResult = quickIntentCheck(userMessage);
   if (quickResult) {
-    console.log(`[ConfirmationResolver] Quick match: ${quickResult.intent}`);
+    log.info(`[ConfirmationResolver] Quick match: ${quickResult.intent}`);
     return quickResult;
   }
   
@@ -106,11 +107,11 @@ export async function resolveConfirmationIntent(
     try {
       const result = await resolveWithGemini(userMessage, draft);
       if (result.intent !== 'unclear') {
-        console.log(`[ConfirmationResolver] Gemini: ${result.intent}`);
+        log.info(`[ConfirmationResolver] Gemini: ${result.intent}`);
         return result;
       }
     } catch (error) {
-      console.error('[ConfirmationResolver] Gemini error:', error);
+      logError('[ConfirmationResolver] Gemini error:', error);
     }
   }
   
@@ -118,10 +119,10 @@ export async function resolveConfirmationIntent(
   if (process.env.OPENAI_API_KEY) {
     try {
       const result = await resolveWithOpenAI(userMessage, draft, conversationHistory);
-      console.log(`[ConfirmationResolver] OpenAI: ${result.intent}`);
+      log.info(`[ConfirmationResolver] OpenAI: ${result.intent}`);
       return result;
     } catch (error) {
-      console.error('[ConfirmationResolver] OpenAI error:', error);
+      logError('[ConfirmationResolver] OpenAI error:', error);
     }
   }
   
@@ -213,7 +214,7 @@ Output ONLY JSON:
       };
     }
   } catch (error) {
-    console.error('[ConfirmationResolver] Gemini parse error:', error);
+    logError('[ConfirmationResolver] Gemini parse error:', error);
   }
   
   return { intent: 'unclear', confidence: 0.3 };

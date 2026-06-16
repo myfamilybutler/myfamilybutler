@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { declineInvite, getAdminClient, getInviteByToken, normalizePhone } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * POST /api/auth/invite-decline
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Invite decline error:', error);
+    logError('Invite decline error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

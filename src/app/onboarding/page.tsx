@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { logError } from '@/lib/utils/logger';
 
 export default function OnboardingPage() {
   const { t } = useTranslation();
@@ -55,7 +56,7 @@ export default function OnboardingPage() {
         toast.error(data.error || t('onboarding.createError'));
       }
     } catch (error) {
-      console.error('Create family error:', error);
+      logError('Create family error:', error);
       toast.error(t('onboarding.networkError'));
     } finally {
       setLoading(false);

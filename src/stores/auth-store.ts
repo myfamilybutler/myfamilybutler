@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getSupabase } from '@/lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { logError } from '@/lib/utils/logger';
 
 // Raw database user (from our users table)
 export interface DbUser {
@@ -46,7 +47,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       await getSupabase().auth.signOut();
       set({ user: null, dbUser: null, loading: false });
     } catch (error) {
-      console.error('Error signing out:', error);
+      logError('Error signing out:', error);
     }
   },
 

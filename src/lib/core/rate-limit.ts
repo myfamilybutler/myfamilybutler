@@ -6,6 +6,7 @@
  */
 
 import { getAdminClient } from '@/lib/supabase';
+import { logError } from '@/lib/utils/logger';
 
 const WINDOW_MS = 60 * 1000;
 const MAX_COUNT = 30;
@@ -28,7 +29,7 @@ export async function checkRateLimit(key: string): Promise<boolean> {
     });
 
     if (error) {
-      console.error('[RateLimit] RPC error:', error);
+      logError('[RateLimit] RPC error:', error);
       // Fail open - allow request if we can't check rate limit
       return true;
     }
@@ -50,7 +51,7 @@ export async function checkRateLimit(key: string): Promise<boolean> {
 
     return true;
   } catch (err) {
-    console.error('[RateLimit] Error:', err);
+    logError('[RateLimit] Error:', err);
     // Fail open on error
     return true;
   }

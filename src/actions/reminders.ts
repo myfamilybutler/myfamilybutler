@@ -3,6 +3,7 @@
 import { getAdminClient } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { logError } from '@/lib/utils/logger';
 
 // Schema for Reminder creation
 const CreateReminderSchema = z.object({
@@ -54,14 +55,14 @@ export async function createReminderAction(
       });
 
     if (error) {
-      console.error('Database error:', error);
+      logError('Database error:', error);
       return { success: false, message: 'Failed to create reminder' };
     }
 
     revalidatePath('/dashboard');
     return { success: true, message: 'Reminder created successfully' };
   } catch (error) {
-    console.error('Server action error:', error);
+    logError('Server action error:', error);
     return { success: false, message: 'Internal server error' };
   }
 }

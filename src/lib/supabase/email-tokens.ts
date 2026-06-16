@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import type { User } from '@/types';
 import { getAdminClient } from './client';
 import { findUserByIdentifier } from './identity';
+import { log, logError } from '@/lib/utils/logger';
 
 const EMAIL_TOKEN_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes (email delays)
 const EMAIL_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
@@ -33,7 +34,7 @@ export async function generateEmailLoginToken(
 
     if (!user) {
         // Improved error message with actionable suggestion
-        console.log(`[Email Token] No user found with email: ${normalizedEmail}`);
+        log.info(`[Email Token] No user found with email: ${normalizedEmail}`);
         return { 
             success: false, 
             error: 'Kein Account mit dieser Email gefunden. Starte mit WhatsApp oder verknüpfe deine Email in den Einstellungen.' 
@@ -50,7 +51,7 @@ export async function generateEmailLoginToken(
     });
 
     if (rateLimitError) {
-        console.error('[Email Token] Rate limit RPC error:', rateLimitError);
+        logError('[Email Token] Rate limit RPC error:', rateLimitError);
         return { success: false, error: 'Rate limiting unavailable. Please try again in a minute.' };
     }
 
@@ -59,7 +60,7 @@ export async function generateEmailLoginToken(
       : false;
 
     if (!allowed) {
-        console.log(`[Email Token] Rate limit exceeded for: ${normalizedEmail}`);
+        log.info(`[Email Token] Rate limit exceeded for: ${normalizedEmail}`);
         return { success: false, error: 'Too many requests. Please wait a minute.' };
     }
 
@@ -79,7 +80,7 @@ export async function generateEmailLoginToken(
         });
 
     if (insertError) {
-        console.error('[Email Token] Error storing token:', insertError);
+        logError('[Email Token] Error storing token:', insertError);
         return { success: false, error: 'Failed to create login link' };
     }
 

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
+import { logWarn } from '@/lib/utils/logger';
 
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
@@ -13,7 +14,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // 1. If auth loading is done, but we have no session -> Redirect
     if (!loading && !user && !dbUser) {
-        console.warn('AdminGuard: No user found, redirecting');
+        logWarn('AdminGuard: No user found, redirecting');
         router.replace('/dashboard'); // or login
         return;
     }
@@ -23,7 +24,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     
     // 3. If we HAVE dbUser, check Admin Status
     if (!loading && dbUser && !dbUser.is_admin) {
-      console.warn('Unauthorized access attempt to Admin Dashboard');
+      logWarn('Unauthorized access attempt to Admin Dashboard');
       router.replace('/dashboard');
     }
   }, [dbUser, user, loading, router]);

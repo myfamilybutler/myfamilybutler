@@ -9,6 +9,7 @@ import type { ChatMessage } from '@/types';
 import type { ParsedEvent, EventExtractionResult } from '../types';
 import { EventExtractorResponseSchema } from '../schemas';
 import { buildEventExtractorPrompt, getButlerPersonaPrompt } from '../prompts';
+import { logError } from '@/lib/utils/logger';
 
 // ===========================================
 // Dynamic Import for Edge Runtime Compatibility
@@ -92,7 +93,7 @@ export async function parseEventWithGemini(
     try {
       parsed = JSON.parse(content);
     } catch (parseError) {
-      console.error('[Gemini] JSON parse failed, attempting recovery:', parseError);
+      logError('[Gemini] JSON parse failed, attempting recovery:', parseError);
       // Try to extract JSON from within the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -131,10 +132,10 @@ export async function parseEventWithGemini(
     }
 
     // SMART_AI_V2: Salvage partial result instead of returning empty
-    console.error('[Gemini] Schema validation failed, attempting salvage:', validated.error);
+    logError('[Gemini] Schema validation failed, attempting salvage:', validated.error);
     return salvagePartialResult(parsed);
   } catch (error) {
-    console.error('[Gemini] Event parsing error:', error);
+    logError('[Gemini] Event parsing error:', error);
     return { events: [], needs_clarification: false, intent_type: 'unknown' };
   }
 }
@@ -246,7 +247,7 @@ export async function generateGeminiResponse(
     const response = await result.response;
     return response.text() || 'Entschuldigung, ich konnte keine Antwort generieren.';
   } catch (error) {
-    console.error('[Gemini] Response generation error:', error);
+    logError('[Gemini] Response generation error:', error);
     throw error;
   }
 }

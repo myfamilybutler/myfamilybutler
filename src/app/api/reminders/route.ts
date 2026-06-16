@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth/helpers';
 import { getAdminClient } from '@/lib/supabase';
+import { logError } from '@/lib/utils/logger';
 
 function isMissingEventIdColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
@@ -67,13 +68,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (error) {
-      console.error('[API/reminders] GET error:', error);
+      logError('[API/reminders] GET error:', error);
       return NextResponse.json({ error: 'Failed to fetch reminders' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data: data ?? [] });
   } catch (error) {
-    console.error('[API/reminders] GET internal error:', error);
+    logError('[API/reminders] GET internal error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -110,14 +111,14 @@ export async function DELETE(request: NextRequest) {
 
     if (error || !data) {
       if (error) {
-        console.error('[API/reminders] DELETE error:', error);
+        logError('[API/reminders] DELETE error:', error);
       }
       return NextResponse.json({ error: 'Reminder not found or already processed' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[API/reminders] DELETE internal error:', error);
+    logError('[API/reminders] DELETE internal error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

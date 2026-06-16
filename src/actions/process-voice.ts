@@ -11,6 +11,7 @@ import OpenAI from 'openai';
 import { toFile } from 'openai/uploads';
 import { getWhisperContextPrompt, buildDialectNormalizerPrompt } from '@/lib/ai/prompts';
 import type { VoiceProcessingResult } from '@/lib/ai/types';
+import { log, logError } from '@/lib/utils/logger';
 
 const VOICE_CONFIG = {
   normalizeDialect: true,
@@ -49,7 +50,7 @@ async function transcribe(
   
   const file = await toFile(audioBuffer, `voice.${extension}`, { type: mimeType });
   
-  console.log('[Voice] Transcribing...');
+  log.info('[Voice] Transcribing...');
   
   const transcription = await openai.audio.transcriptions.create({
     file,
@@ -59,7 +60,7 @@ async function transcribe(
     response_format: 'verbose_json',
   });
   
-  console.log(`[Voice] Transcript: "${transcription.text}"`);
+  log.info(`[Voice] Transcript: "${transcription.text}"`);
   
   return {
     transcript: transcription.text,
@@ -78,7 +79,7 @@ async function normalizeDialect(transcript: string): Promise<string> {
   
   const openai = getOpenAI();
   
-  console.log('[Voice] Normalizing dialect...');
+  log.info('[Voice] Normalizing dialect...');
   
   try {
     const completion = await openai.chat.completions.create({
@@ -94,11 +95,11 @@ async function normalizeDialect(transcript: string): Promise<string> {
     const normalized = completion.choices[0]?.message?.content?.trim();
     
     if (normalized && normalized.length > 0) {
-      console.log(`[Voice] Normalized: "${normalized}"`);
+      log.info(`[Voice] Normalized: "${normalized}"`);
       return normalized;
     }
   } catch (error) {
-    console.error('[Voice] Normalization failed:', error);
+    logError('[Voice] Normalization failed:', error);
   }
   
   return transcript;
@@ -120,7 +121,7 @@ export async function processVoiceMessage(
 ): Promise<VoiceProcessingResult> {
   const { audioBuffer, mimeType = 'audio/ogg' } = input;
   
-  console.log(`[Voice] Processing: ${audioBuffer.length} bytes`);
+  log.info(`[Voice] Processing: ${audioBuffer.length} bytes`);
   
   try {
     const { transcript, duration } = await transcribe(audioBuffer, mimeType);
@@ -144,7 +145,7 @@ export async function processVoiceMessage(
     };
     
   } catch (error) {
-    console.error('[Voice] Error:', error);
+    logError('[Voice] Error:', error);
     return {
       success: false,
       transcript: '',

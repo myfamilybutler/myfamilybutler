@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getAdminClient } from '@/lib/supabase';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * GET /api/auth/status
@@ -39,7 +40,7 @@ export async function GET() {
       authenticated: false,
     });
   } catch (error) {
-    console.error('Auth status check error:', error);
+    logError('Auth status check error:', error);
     return NextResponse.json({
       authenticated: false,
       error: 'Failed to check session',

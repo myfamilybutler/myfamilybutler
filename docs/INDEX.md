@@ -16,15 +16,28 @@ Why this split:
 ## Required Reading Order For AI Agents
 
 1. `docs/INDEX.md`
-2. `docs/AI_TOOLING_RULEBOOK.md`
-3. `docs/AI_OPERATING_MODEL.md`
-4. `docs/ARCHITECTURE.md`
-5. `docs/DEVELOPER_GUIDE.md`
-6. Domain docs only if task requires them:
-- `docs/MESSAGING_CHANNELS.md`
-- `docs/SECURITY.md`
-- `docs/ONBOARDING.md`
-- `docs/WHATSAPP_SETUP.md`
+2. `.agents/README.md` — AI agent system overview and coordination rules
+3. `.agents/INDEX.md` — Quick reference for all specialized agents
+4. `docs/AI_TOOLING_RULEBOOK.md`
+5. `docs/AI_OPERATING_MODEL.md`
+6. `docs/ARCHITECTURE.md`
+7. `docs/DEVELOPER_GUIDE.md`
+8. Domain docs only if task requires them:
+   - `docs/MESSAGING_CHANNELS.md`
+   - `docs/SECURITY.md`
+   - `docs/ONBOARDING.md`
+   - `docs/WHATSAPP_SETUP.md`
+9. Agent-specific rules (when working in a domain):
+   - `.agents/agents/frontend.md`
+   - `.agents/agents/backend.md`
+   - `.agents/agents/supabase.md`
+   - `.agents/agents/ai-systems.md`
+   - `.agents/agents/messaging.md`
+   - `.agents/agents/uxui.md`
+   - `.agents/agents/architecture.md`
+   - `.agents/agents/security.md`
+   - `.agents/agents/testing.md`
+   - `.agents/agents/devops.md`
 
 ## Source Of Truth Map
 

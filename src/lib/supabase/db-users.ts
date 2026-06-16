@@ -6,6 +6,7 @@
  */
 import type { User, MessageChannel } from '@/types';
 import { getAdminClient } from './client';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * Result of findOrCreateUser operation
@@ -65,7 +66,7 @@ export async function findOrCreateUser(
   }
 
   if (error) {
-    console.error('Error creating user:', error);
+    logError('Error creating user:', error);
     return { user: null, isNewUser: false, error: error.message };
   }
 
@@ -104,7 +105,7 @@ export async function updateUserDisplayName(
     .eq('id', userId);
 
   if (error) {
-    console.error('Error updating display name:', error);
+    logError('Error updating display name:', error);
     return false;
   }
 
@@ -159,7 +160,7 @@ export async function findOrCreateUserByEmail(
   }
 
   if (error) {
-    console.error('Error creating user by email:', error);
+    logError('Error creating user by email:', error);
     return { user: null, isNewUser: false, error: error.message };
   }
 

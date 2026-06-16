@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getInviteByToken, acceptInvite, getAdminClient, normalizePhone } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * POST /api/auth/invite-claim
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Invite claim error:', error);
+    logError('Invite claim error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

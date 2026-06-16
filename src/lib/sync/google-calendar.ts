@@ -8,6 +8,7 @@ import { getValidGoogleToken, getSelectedCalendar } from '../auth/vault';
 import { getAdminClient } from '../supabase/client';
 import type { Event } from '@/types';
 import { APP_CONFIG } from '@/lib/config';
+import { log, logError } from '@/lib/utils/logger';
 
 // ===========================================
 // Constants
@@ -150,7 +151,7 @@ async function storeGoogleEventId(
     .eq('id', eventId);
 
   if (error) {
-    console.log('[GoogleCalendar] Could not store Google event ID (column may not exist)');
+    log.info('[GoogleCalendar] Could not store Google event ID (column may not exist)');
   }
 }
 
@@ -167,7 +168,7 @@ export async function syncEventToGoogle(
 ): Promise<string | null> {
   const auth = await getGoogleAuthContext(userId);
   if (!auth) {
-    console.log(`[GoogleCalendar] No valid token for user ${userId}, skipping sync`);
+    log.info(`[GoogleCalendar] No valid token for user ${userId}, skipping sync`);
     return null;
   }
 
@@ -188,18 +189,18 @@ export async function syncEventToGoogle(
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('[GoogleCalendar] Failed to create event:', errorData);
+      logError('[GoogleCalendar] Failed to create event:', errorData);
       return null;
     }
 
     const createdEvent = await response.json() as { id: string };
-    console.log(`[GoogleCalendar] Created event: ${createdEvent.id}`);
+    log.info(`[GoogleCalendar] Created event: ${createdEvent.id}`);
 
     await storeGoogleEventId(event.id, createdEvent.id);
 
     return createdEvent.id;
   } catch (error) {
-    console.error('[GoogleCalendar] Error syncing event:', error);
+    logError('[GoogleCalendar] Error syncing event:', error);
     return null;
   }
 }
@@ -234,14 +235,14 @@ export async function updateGoogleEvent(
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('[GoogleCalendar] Failed to update event:', errorData);
+      logError('[GoogleCalendar] Failed to update event:', errorData);
       return false;
     }
 
-    console.log(`[GoogleCalendar] Updated event: ${googleEventId}`);
+    log.info(`[GoogleCalendar] Updated event: ${googleEventId}`);
     return true;
   } catch (error) {
-    console.error('[GoogleCalendar] Error updating event:', error);
+    logError('[GoogleCalendar] Error updating event:', error);
     return false;
   }
 }
@@ -271,14 +272,14 @@ export async function deleteGoogleEvent(
 
     if (!response.ok && response.status !== 404) {
       const errorData = await response.text();
-      console.error('[GoogleCalendar] Failed to delete event:', errorData);
+      logError('[GoogleCalendar] Failed to delete event:', errorData);
       return false;
     }
 
-    console.log(`[GoogleCalendar] Deleted event: ${googleEventId}`);
+    log.info(`[GoogleCalendar] Deleted event: ${googleEventId}`);
     return true;
   } catch (error) {
-    console.error('[GoogleCalendar] Error deleting event:', error);
+    logError('[GoogleCalendar] Error deleting event:', error);
     return false;
   }
 }
@@ -297,7 +298,7 @@ export async function fetchGoogleEvents(
 ): Promise<GoogleCalendarEvent[]> {
   const auth = await getGoogleAuthContext(userId);
   if (!auth) {
-    console.log(`[GoogleCalendar] No valid token for user ${userId}, cannot fetch events`);
+    log.info(`[GoogleCalendar] No valid token for user ${userId}, cannot fetch events`);
     return [];
   }
 
@@ -330,7 +331,7 @@ export async function fetchGoogleEvents(
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('[GoogleCalendar] Failed to fetch events:', errorData);
+        logError('[GoogleCalendar] Failed to fetch events:', errorData);
         // If we have partial data, maybe return it? Or just throw.
         // For now, let's break and return what we have (or empty if first page failed)
         if (allEvents.length > 0) break;
@@ -373,10 +374,10 @@ export async function fetchGoogleEvents(
 
     } while (pageToken);
 
-    console.log(`[GoogleCalendar] Fetched ${allEvents.length} events (total)`);
+    log.info(`[GoogleCalendar] Fetched ${allEvents.length} events (total)`);
     return allEvents;
   } catch (error) {
-    console.error('[GoogleCalendar] Error fetching events:', error);
+    logError('[GoogleCalendar] Error fetching events:', error);
     return [];
   }
 }
@@ -391,7 +392,7 @@ export async function fetchGoogleEventsIncremental(
 ): Promise<IncrementalSyncResult> {
   const auth = await getGoogleAuthContext(userId);
   if (!auth) {
-    console.log(`[GoogleCalendar] No valid token for user ${userId}`);
+    log.info(`[GoogleCalendar] No valid token for user ${userId}`);
     return { events: [], nextSyncToken: null, isFullSync: false };
   }
 
@@ -427,13 +428,13 @@ export async function fetchGoogleEventsIncremental(
 
     // Handle 410 Gone - syncToken expired, need full sync
     if (response.status === 410) {
-      console.log(`[GoogleCalendar] Sync token expired for user ${userId}, performing full sync`);
+      log.info(`[GoogleCalendar] Sync token expired for user ${userId}, performing full sync`);
       return fetchGoogleEventsIncremental(userId, null);
     }
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('[GoogleCalendar] Failed to fetch events:', errorData);
+      logError('[GoogleCalendar] Failed to fetch events:', errorData);
       return { events: [], nextSyncToken: syncToken, isFullSync: false };
     }
 
@@ -470,7 +471,7 @@ export async function fetchGoogleEventsIncremental(
       },
     }));
 
-    console.log(`[GoogleCalendar] Incremental sync: ${events.length} events (fullSync: ${!syncToken})`);
+    log.info(`[GoogleCalendar] Incremental sync: ${events.length} events (fullSync: ${!syncToken})`);
     
     return {
       events,
@@ -478,7 +479,7 @@ export async function fetchGoogleEventsIncremental(
       isFullSync: !syncToken,
     };
   } catch (error) {
-    console.error('[GoogleCalendar] Error in incremental sync:', error);
+    logError('[GoogleCalendar] Error in incremental sync:', error);
     return { events: [], nextSyncToken: syncToken, isFullSync: false };
   }
 }

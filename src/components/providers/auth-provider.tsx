@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 import { useFamilyDataSync } from '@/stores/family-store';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { logError } from '@/lib/utils/logger';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -57,7 +58,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               setUser(null);
             }
           })
-          .catch(err => console.error('AuthProvider: Status check failed', err))
+          .catch(err => logError('AuthProvider: Status check failed', err))
           .finally(() => {
              if (!isMounted) return;
              setLoading(false);
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }).catch((err) => {
       if (!isMounted) return;
-      console.error('AuthProvider: session check failed', err);
+      logError('AuthProvider: session check failed', err);
       setLoading(false);
     });
 

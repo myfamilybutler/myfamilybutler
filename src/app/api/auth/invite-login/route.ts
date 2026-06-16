@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getInviteByToken, findOrCreateUserByEmail } from '@/lib/supabase';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * POST /api/auth/invite-login
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
     return response;
 
   } catch (error) {
-    console.error('Invite login error:', error);
+    logError('Invite login error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

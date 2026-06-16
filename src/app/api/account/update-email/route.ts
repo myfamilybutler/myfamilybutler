@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getAdminClient } from '@/lib/supabase';
 import { validateSession } from '@/lib/auth/helpers';
 import { sendVerificationEmail } from '@/lib/email/send-email';
+import { log, logError } from '@/lib/utils/logger';
 
 const VERIFICATION_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertError) {
-      console.error('[update-email] Token insert error:', insertError);
+      logError('[update-email] Token insert error:', insertError);
       return NextResponse.json(
         { error: 'Failed to create verification token' },
         { status: 500 }
@@ -93,21 +94,21 @@ export async function POST(request: NextRequest) {
     const emailResult = await sendVerificationEmail(normalizedEmail, verifyLink);
 
     if (!emailResult.success) {
-      console.error('[update-email] Email send error:', emailResult.error);
+      logError('[update-email] Email send error:', emailResult.error);
       return NextResponse.json(
         { error: emailResult.error || 'Failed to send verification email' },
         { status: 500 }
       );
     }
 
-    console.log(`[update-email] Verification email sent to: ${normalizedEmail}`);
+    log.info(`[update-email] Verification email sent to: ${normalizedEmail}`);
 
     return NextResponse.json({
       success: true,
       message: 'Verification email sent. Please check your inbox and click the link to confirm.',
     });
   } catch (error) {
-    console.error('[update-email] Error:', error);
+    logError('[update-email] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

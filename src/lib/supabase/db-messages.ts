@@ -3,6 +3,7 @@
  */
 import type { Message } from '@/types';
 import { getAdminClient } from './client';
+import { logError } from '@/lib/utils/logger';
 
 /**
  * Log a message to the database
@@ -31,7 +32,7 @@ export async function logMessage(
     .single();
   
   if (error) {
-    console.error('Error logging message:', error);
+    logError('Error logging message:', error);
     return null;
   }
   
@@ -55,7 +56,7 @@ export async function getMessageHistory(
     .limit(limit);
   
   if (error) {
-    console.error('Error fetching message history:', error);
+    logError('Error fetching message history:', error);
     return [];
   }
   

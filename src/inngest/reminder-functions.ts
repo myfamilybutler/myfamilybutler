@@ -15,6 +15,7 @@ import { sendTelegramMessage } from '@/lib/channels/telegram/send';
 import { sendWhatsAppMessage } from '@/lib/channels/whatsapp/send';
 import { addToDeadLetterQueue } from '@/lib/core/dead-letter-queue';
 import { randomUUID } from 'crypto';
+import { log, logError } from '@/lib/utils/logger';
 
 /**
  * Cron job: Check for due reminders every 5 minutes
@@ -33,7 +34,7 @@ export const checkDueReminders = inngest.createFunction(
     // Step 1: Get all pending reminders that are due with locking
     const dueReminders = await step.run('get-due-reminders', async () => {
       const reminders = await claimDueReminders(workerId, 100);
-      console.log(`[Inngest] Claimed ${reminders.length} due reminders`);
+      log.info(`[Inngest] Claimed ${reminders.length} due reminders`);
       return reminders;
     });
 
@@ -51,7 +52,7 @@ export const checkDueReminders = inngest.createFunction(
           const user = reminder.users;
           
           if (!user) {
-            console.error(`[Inngest] No user found for reminder ${reminder.id}`);
+            logError(`[Inngest] No user found for reminder ${reminder.id}`);
             await completeClaimedReminder(reminder.id, reminder.claim_token, 'failed');
             return { success: false, error: 'No user found' };
           }
@@ -69,7 +70,7 @@ export const checkDueReminders = inngest.createFunction(
             );
             sent = result.success;
             if (sent) {
-              console.log(`[Inngest] Sent reminder via Telegram to ${user.telegram_chat_id}`);
+              log.info(`[Inngest] Sent reminder via Telegram to ${user.telegram_chat_id}`);
             }
           }
 
@@ -77,7 +78,7 @@ export const checkDueReminders = inngest.createFunction(
             const result = await sendWhatsAppMessage(user.phone_number, messageText);
             sent = result.success;
             if (sent) {
-              console.log(`[Inngest] Sent reminder via WhatsApp to ${user.phone_number}`);
+              log.info(`[Inngest] Sent reminder via WhatsApp to ${user.phone_number}`);
             }
           }
 
@@ -85,12 +86,12 @@ export const checkDueReminders = inngest.createFunction(
             await completeClaimedReminder(reminder.id, reminder.claim_token, 'sent');
             return { success: true };
           } else {
-            console.error(`[Inngest] Failed to send reminder ${reminder.id} - no delivery channel`);
+            logError(`[Inngest] Failed to send reminder ${reminder.id} - no delivery channel`);
             await completeClaimedReminder(reminder.id, reminder.claim_token, 'failed');
             return { success: false, error: 'No delivery channel available' };
           }
         } catch (error) {
-          console.error(`[Inngest] Error processing reminder ${reminder.id}:`, error);
+          logError(`[Inngest] Error processing reminder ${reminder.id}:`, error);
           
           // Add to dead letter queue for manual inspection
           await addToDeadLetterQueue(
@@ -144,7 +145,7 @@ export const sendReminder = inngest.createFunction(
         const reminder = await claimReminderById(reminderId, workerId);
 
         if (!reminder) {
-          console.log(`[Inngest] Reminder ${reminderId} already claimed/processed, skipping`);
+          log.info(`[Inngest] Reminder ${reminderId} already claimed/processed, skipping`);
           return { success: true, skipped: true };
         }
 
@@ -183,7 +184,7 @@ export const sendReminder = inngest.createFunction(
           return { success: false, error: 'Failed to send' };
         }
       } catch (error) {
-        console.error(`[Inngest] Error in send-reminder for ${reminderId}:`, error);
+        logError(`[Inngest] Error in send-reminder for ${reminderId}:`, error);
 
         if (claimedReminderId && claimedToken) {
           await completeClaimedReminder(claimedReminderId, claimedToken, 'failed');

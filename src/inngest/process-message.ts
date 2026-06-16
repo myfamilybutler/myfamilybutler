@@ -14,6 +14,7 @@ import { dialog360Adapter } from '@/lib/channels/360dialog/adapter';
 import type { Channel } from '@/lib/core/types';
 import { addToDeadLetterQueue } from '@/lib/core/dead-letter-queue';
 import { createHash } from 'crypto';
+import { log, logError } from '@/lib/utils/logger';
 
 // ===========================================
 // Register Adapters
@@ -56,7 +57,7 @@ export const processMessage = inngest.createFunction(
       idempotencyKey?: string;
     };
     
-    console.log(`[Inngest] Processing ${channel} message`);
+    log.info(`[Inngest] Processing ${channel} message`);
     
     try {
       // Process through gateway
@@ -72,14 +73,14 @@ export const processMessage = inngest.createFunction(
       
       // Log result
       if (result.processed) {
-        console.log(`[Inngest] Message processed: ${result.pipelineResult?.eventsCreated || 0} events created`);
+        log.info(`[Inngest] Message processed: ${result.pipelineResult?.eventsCreated || 0} events created`);
       } else {
-        console.log(`[Inngest] Message not processed: ${result.reason}`);
+        log.info(`[Inngest] Message not processed: ${result.reason}`);
       }
       
       return result;
     } catch (error) {
-      console.error('[Inngest] Message processing failed:', error);
+      logError('[Inngest] Message processing failed:', error);
       
       // Add to dead letter queue after all retries exhausted
       await addToDeadLetterQueue(
@@ -148,7 +149,7 @@ export async function enqueueMessage(
     
     return { queued: true, idempotencyKey };
   } catch (error) {
-    console.error('[Inngest] Failed to enqueue message:', error);
+    logError('[Inngest] Failed to enqueue message:', error);
     return { queued: false, idempotencyKey };
   }
 }
