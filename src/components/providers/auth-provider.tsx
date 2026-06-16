@@ -11,20 +11,20 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-async function fetchDbUser(userId: string) {
+async function fetchDbUser(userId: string): Promise<import('@/stores/auth-store').DbUser | null> {
   try {
-    const { data, error } = await getSupabase()
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const response = await fetch('/api/user/me', {
+      method: 'POST',
+      credentials: 'include',
+    });
 
-    if (error) {
-      logError('AuthProvider: Failed to fetch db user', error);
+    if (!response.ok) {
+      logError('AuthProvider: /api/user/me failed', await response.text());
       return null;
     }
 
-    return data as import('@/stores/auth-store').DbUser | null;
+    const result = await response.json();
+    return result.user as import('@/stores/auth-store').DbUser | null;
   } catch (error) {
     logError('AuthProvider: Unexpected error fetching db user', error);
     return null;
