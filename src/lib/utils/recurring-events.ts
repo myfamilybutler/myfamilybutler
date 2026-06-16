@@ -15,8 +15,8 @@ import { RECURRENCE_CANCELLED_MARKER } from '@/lib/recurrence/constants';
 import type { CalendarEvent } from '@/types/calendar';
 
 const DEFAULT_PAST_MONTHS = 2;
-const DEFAULT_FUTURE_MONTHS = 12;
-const DEFAULT_MAX_INSTANCES = 500;
+const DEFAULT_FUTURE_MONTHS = 6;
+const DEFAULT_MAX_INSTANCES = 200;
 
 interface ExpandOptions {
   pastMonths?: number;

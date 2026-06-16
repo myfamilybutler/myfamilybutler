@@ -54,7 +54,6 @@ export { logMessage, getMessageHistory } from './db-messages';
 // Reminders
 export {
   createReminder,
-  getPendingReminders,
   updateReminderStatus,
   claimDueReminders,
   completeClaimedReminder,

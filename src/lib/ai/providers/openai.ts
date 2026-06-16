@@ -163,16 +163,32 @@ export async function parseEventWithClarification(
     const validated = EventExtractorResponseSchema.safeParse(parsed);
 
     if (validated.success) {
-      const events: ParsedEvent[] = (validated.data.events || []).map((e) => ({
-        title: e.title,
-        event_date: e.event_date,
-        event_time: e.event_time ?? undefined,
-        end_time: e.end_time ?? undefined,
-        is_all_day: e.is_all_day,
-        family_member: e.family_member ?? undefined,
-        location: e.location ?? undefined,
-        description: e.description ?? undefined,
-      }));
+      const events: ParsedEvent[] = (validated.data.events || []).map((e) => {
+        const event: ParsedEvent = {
+          title: e.title,
+          event_date: e.event_date,
+          event_time: e.event_time ?? undefined,
+          end_time: e.end_time ?? undefined,
+          is_all_day: e.is_all_day,
+          family_member: e.family_member ?? undefined,
+          location: e.location ?? undefined,
+          description: e.description ?? undefined,
+          is_cancelled: e.is_cancelled ?? undefined,
+          requires_confirmation: e.requires_confirmation ?? undefined,
+          action_items: e.action_items ?? undefined,
+        };
+
+        if (e.recurrence?.is_recurring) {
+          event.recurrence = {
+            frequency: e.recurrence.frequency,
+            interval: e.recurrence.interval,
+            by_day: e.recurrence.by_day,
+            is_recurring: true,
+          };
+        }
+
+        return event;
+      });
 
       return {
         events,
@@ -180,6 +196,7 @@ export async function parseEventWithClarification(
         clarification_question: validated.data.clarification_question ?? undefined,
         intent_type: validated.data.intent_type,
         confidence: validated.data.confidence,
+        action_items: validated.data.action_items ?? undefined,
       };
     }
 

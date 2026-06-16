@@ -20,9 +20,12 @@ export async function POST() {
     const { userId } = session;
     const supabase = getAdminClient();
 
+    // SECURITY: explicit minimal column list; avoid SELECT *.
     const { data: existingUser } = await supabase
       .from('users')
-      .select('*')
+      .select(
+        'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin'
+      )
       .eq('id', userId)
       .single();
 
@@ -38,7 +41,21 @@ export async function POST() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const newUser = await ensureUserFromAuth(authUser.user);
+    const created = await ensureUserFromAuth(authUser.user);
+    if (!created) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Re-fetch with the explicit minimal column list so the returned payload
+    // matches the shape consumed by the UI and avoids exposing internal fields.
+    const { data: newUser } = await supabase
+      .from('users')
+      .select(
+        'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin'
+      )
+      .eq('id', userId)
+      .single();
+
     if (newUser) {
       return NextResponse.json({ success: true, user: newUser });
     }

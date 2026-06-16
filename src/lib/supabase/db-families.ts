@@ -2,12 +2,20 @@
  * Family Database Operations
  */
 import { getAdminClient } from './client';
-// Use Node's crypto for secure token generation
-import { randomUUID } from 'crypto';
+// Use Node's crypto for secure token generation and hashing
+import { randomUUID, createHash } from 'crypto';
 import { normalizeFamilyMemberName } from '@/lib/utils/family-members';
 import { ensureFamilyMembersForNames } from './family-member-sync';
 import { normalizePhone } from './identity';
-import { logError } from '@/lib/utils/logger';
+import { logError, log } from '@/lib/utils/logger';
+
+/**
+ * Hash an invite token for storage. We use SHA-256 so the database never
+ * stores usable plaintext tokens.
+ */
+function hashInviteToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 type InviteStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
 
@@ -31,44 +39,41 @@ function isInviteExpired(expiresAt?: string | null): boolean {
 }
 
 /**
- * Create a new family and set user as admin
+ * Create a new family and set user as admin.
+ * Delegates to the atomic RPC so the household and user link are created
+ * in a single transaction and cannot leave an orphan household.
  */
 export async function createFamilyForUser(
   userId: string,
   displayName?: string
 ): Promise<string | null> {
   const admin = getAdminClient();
-  
-  // Create family with auto-generated name
-  const familyName = displayName ? `${displayName}'s Family` : null;
-  
-  const { data: household, error: createError } = await admin
-    .from('households')
-    .insert({ name: familyName })
-    .select()
-    .single();
-  
-  if (createError || !household) {
-    logError('Error creating family:', createError);
+
+  const familyName = displayName ? `${displayName}'s Family` : 'Familie';
+
+  const { data: householdId, error: rpcError } = await admin.rpc(
+    'create_household_for_user',
+    {
+      p_user_id: userId,
+      p_household_name: familyName,
+    }
+  );
+
+  if (rpcError || !householdId) {
+    logError('Error creating family via RPC:', rpcError);
     return null;
   }
-  
-  // Update user to be household admin of this family
-  const { error: updateError } = await admin
-    .from('users')
-    .update({ 
-      household_id: household.id,
-      is_household_admin: true,  // Household owner, NOT super admin
-      display_name: displayName
-    })
-    .eq('id', userId);
-  
-  if (updateError) {
-    logError('Error linking user to family:', updateError);
-    return null;
+
+  // Optionally set display name outside the RPC; this is not critical for
+  // household integrity, so a failure here does not break the flow.
+  if (displayName) {
+    await admin
+      .from('users')
+      .update({ display_name: displayName })
+      .eq('id', userId);
   }
-  
-  return household.id;
+
+  return householdId as string;
 }
 
 /**
@@ -107,79 +112,29 @@ export async function checkPendingInvite(
 export async function acceptInvite(
   userId: string,
   inviteId: string,
-  familyId: string
+  familyId: string,
+  forceSwitch: boolean = false
 ): Promise<boolean> {
   const admin = getAdminClient();
   
-  // Preferred path: DB-side atomic transaction
+  // DB-side atomic transaction. The RPC validates the invite (status,
+  // expiration, household match), locks the user row, and enforces the
+  // force-switch policy. We intentionally do not provide a client-side fallback
+  // because any fallback would reintroduce the race conditions and bypasses the
+  // RPC is meant to prevent.
   const { data, error } = await admin.rpc('accept_household_invite', {
     p_user_id: userId,
     p_invite_id: inviteId,
-    p_household_id: familyId
+    p_household_id: familyId,
+    p_force_switch: forceSwitch,
   });
-  
-  if (!error) {
-    return data === true;
-  }
-  
-  // Fallback path for environments where the RPC is missing/outdated.
-  logError('Error accepting invite (RPC), falling back:', error);
 
-  const { data: pendingInvite, error: pendingInviteError } = await admin
-    .from('household_invites')
-    .select('id, expires_at')
-    .eq('id', inviteId)
-    .eq('household_id', familyId)
-    .eq('status', 'pending')
-    .maybeSingle();
-
-  if (pendingInviteError || !pendingInvite) {
-    logError('Fallback accept: pending invite not found:', pendingInviteError);
+  if (error) {
+    logError('Error accepting invite (RPC):', error);
     return false;
   }
 
-  if (isInviteExpired(pendingInvite.expires_at)) {
-    await admin
-      .from('household_invites')
-      .update({ status: 'expired' })
-      .eq('id', inviteId)
-      .eq('status', 'pending');
-    return false;
-  }
-
-  const { data: acceptedInvite, error: inviteUpdateError } = await admin
-    .from('household_invites')
-    .update({ status: 'accepted' })
-    .eq('id', inviteId)
-    .eq('household_id', familyId)
-    .eq('status', 'pending')
-    .select('id')
-    .maybeSingle();
-
-  if (inviteUpdateError || !acceptedInvite) {
-    logError('Fallback accept: invite update failed:', inviteUpdateError);
-    return false;
-  }
-
-  const { error: userUpdateError } = await admin
-    .from('users')
-    .update({
-      household_id: familyId,
-      is_household_admin: false,
-    })
-    .eq('id', userId);
-
-  if (userUpdateError) {
-    logError('Fallback accept: user update failed, rolling back invite:', userUpdateError);
-    await admin
-      .from('household_invites')
-      .update({ status: 'pending' })
-      .eq('id', inviteId)
-      .eq('status', 'accepted');
-    return false;
-  }
-
-  return true;
+  return data === true;
 }
 
 /**
@@ -193,28 +148,43 @@ export async function createOpenInvite(
 ): Promise<string | null> {
   const admin = getAdminClient();
   const token = randomUUID();
+  const tokenHash = hashInviteToken(token);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
-  const { data, error } = await admin
+  // Revoke any existing pending open invites for this household before creating
+  // a new one. This keeps the UX simple (one active open link at a time) and
+  // avoids a proliferation of unused pending tokens.
+  const { error: revokeError } = await admin
+    .from('household_invites')
+    .update({ status: 'revoked' })
+    .eq('household_id', familyId)
+    .eq('status', 'pending')
+    .is('phone_number', null)
+    .is('email', null);
+
+  if (revokeError) {
+    logError('Error revoking existing open invites:', revokeError);
+    return null;
+  }
+
+  const { error } = await admin
     .from('household_invites')
     .insert({
       household_id: familyId,
       invited_by: invitedBy,
       status: 'pending',
-      token: token,
+      token: tokenHash,
       expires_at: expiresAt.toISOString(),
       // No email or phone_number
-    })
-    .select('token')
-    .single();
+    });
 
-  if (error || !data) {
+  if (error) {
     logError('Error creating open invite:', error);
     return null;
   }
 
-  return data.token;
+  return token;
 }
 
 /**
@@ -247,42 +217,35 @@ export async function createFamilyInvite(
   
   // Generate secure token
   const token = randomUUID();
+  const tokenHash = hashInviteToken(token);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-  const { data, error } = await admin
+  const { error } = await admin
     .from('household_invites')
     .insert({
       household_id: familyId,
       phone_number: normalizedPhone,
       invited_by: invitedBy,
       status: 'pending',
-      token: token,
+      token: tokenHash,
       expires_at: expiresAt.toISOString()
-    })
-    .select('token')
-    .single();
-  
-  if (error?.code === '23505') {
-    const { data: existingInvite } = await admin
-      .from('household_invites')
-      .select('token')
-      .eq('household_id', familyId)
-      .eq('phone_number', normalizedPhone)
-      .eq('status', 'pending')
-      .single();
+    });
 
-    if (existingInvite?.token) {
-      return existingInvite.token;
-    }
+  if (error?.code === '23505') {
+    // A pending invite already exists. We cannot return the original token,
+    // so instruct the caller to create a fresh one (or implement a secure
+    // retrieval flow in the future).
+    log.info('Pending invite already exists for phone');
+    return null;
   }
 
-  if (error || !data) {
+  if (error) {
     logError('Error creating invite:', error);
     return null;
   }
-  
-  return data.token;
+
+  return token;
 }
 
 /**
@@ -399,6 +362,11 @@ export async function getFamilyMembers(
   const admin = getAdminClient();
   
   // Fetch users and event-level member labels in parallel.
+  // Only scan events from roughly the last 12 months so this does not grow
+  // unbounded for old households.
+  const memberScanSince = new Date();
+  memberScanSince.setMonth(memberScanSince.getMonth() - 12);
+
   const [usersResult, eventMembersResult] = await Promise.all([
     admin
       .from('users')
@@ -408,7 +376,8 @@ export async function getFamilyMembers(
       .from('events')
       .select('family_member')
       .eq('household_id', familyId)
-      .not('family_member', 'is', null),
+      .not('family_member', 'is', null)
+      .gte('event_date', memberScanSince.toISOString().slice(0, 10)),
   ]);
 
   if (eventMembersResult.error) {
@@ -448,20 +417,20 @@ export async function getFamilyMembers(
  */
 export async function getPendingInvites(
   familyId: string
-): Promise<Array<{ id: string; phone_number?: string | null; email?: string | null; token: string; status: InviteStatus; created_at: string; expires_at?: string | null }>> {
+): Promise<Array<{ id: string; phone_number?: string | null; email?: string | null; status: InviteStatus; created_at: string; expires_at?: string | null }>> {
   const admin = getAdminClient();
-  
+
   const { data, error } = await admin
     .from('household_invites')
-    .select('id, phone_number, email, token, status, created_at, expires_at')
+    .select('id, phone_number, email, status, created_at, expires_at')
     .eq('household_id', familyId)
     .eq('status', 'pending');
-  
+
   if (error) {
     logError('Error fetching pending invites:', error);
     return [];
   }
-  
+
   return data ?? [];
 }
 
@@ -472,11 +441,12 @@ export async function resolveInviteByToken(
   token: string
 ): Promise<ResolvedInvite | null> {
   const admin = getAdminClient();
-  
+  const tokenHash = hashInviteToken(token);
+
   const { data: invite, error } = await admin
     .from('household_invites')
     .select('id, household_id, invited_by, status, expires_at, email, phone_number')
-    .eq('token', token)
+    .eq('token', tokenHash)
     .maybeSingle();
 
   if (error || !invite) {
@@ -498,17 +468,16 @@ export async function resolveInviteByToken(
     invite.invited_by
       ? admin
           .from('users')
-          .select('display_name, linked_email, phone_number')
+          .select('display_name')
           .eq('id', invite.invited_by)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
 
+  // SECURITY: Never fall back to linked_email or phone_number for the inviter
+  // display name; expose display_name only and use a generic label otherwise.
   const inviterDisplayName =
-    inviterRes.data?.display_name ||
-    inviterRes.data?.linked_email ||
-    inviterRes.data?.phone_number ||
-    undefined;
+    inviterRes.data?.display_name || 'A family member';
 
   return {
     inviteId: invite.id,
@@ -554,51 +523,47 @@ export async function createEmailInvite(
 ): Promise<string | null> {
   const admin = getAdminClient();
   const normalizedEmail = email.toLowerCase().trim();
-  
+
+  // Do not invite an email already linked to a user in any household.
+  const { data: existingUser } = await admin
+    .from('users')
+    .select('household_id')
+    .eq('linked_email', normalizedEmail)
+    .maybeSingle();
+
+  if (existingUser?.household_id) {
+    log.info('Email invite rejected: user already belongs to a family');
+    return null;
+  }
+
   // Create secure token and expiration
   const token = randomUUID();
+  const tokenHash = hashInviteToken(token);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
-  const { data, error } = await admin
+  const { error } = await admin
     .from('household_invites')
     .insert({
       household_id: familyId,
       email: normalizedEmail,
       invited_by: invitedBy,
       status: 'pending',
-      token: token,
+      token: tokenHash,
       expires_at: expiresAt.toISOString(),
-      // Backward compatibility: store in phone_number but with email prefix, 
-      // or we can make phone_number nullable in schema update.
-      // For now, let's just make sure phone_number constraint doesn't fail if we upgraded schema
-      // but if we didn't migrate old constraints, we might need a dummy value.
-      // Based on our migration, we have a check constraint (phone OR email).
-      // So we can leave phone_number null if the migration ran.
-    })
-    .select('token')
-    .single();
-  
-  if (error?.code === '23505') {
-    const { data: existingInvite } = await admin
-      .from('household_invites')
-      .select('token')
-      .eq('household_id', familyId)
-      .eq('email', normalizedEmail)
-      .eq('status', 'pending')
-      .single();
+    });
 
-    if (existingInvite?.token) {
-      return existingInvite.token;
-    }
+  if (error?.code === '23505') {
+    log.info('Pending email invite already exists');
+    return null;
   }
 
-  if (error || !data) {
+  if (error) {
     logError('Error creating email invite:', error);
     return null;
   }
-  
-  return data.token;
+
+  return token;
 }
 
 /**

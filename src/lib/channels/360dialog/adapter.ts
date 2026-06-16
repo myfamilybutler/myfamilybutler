@@ -69,11 +69,17 @@ class Dialog360Adapter implements ChannelAdapter {
   }
 
   validateSignature(_rawBody: string, signature: string | null): boolean {
-    const apiKey = process.env.D360_API_KEY;
+    // SECURITY NOTE: 360dialog currently sends the API key as the webhook secret
+    // (d360-api-key header). The preferred setup is a dedicated D360_WEBHOOK_SECRET
+    // that is separate from D360_API_KEY. We support the dedicated secret first and
+    // fall back to the API key only for backward compatibility.
+    const webhookSecret = process.env.D360_WEBHOOK_SECRET;
+    const fallbackKey = process.env.D360_API_KEY;
+    const expectedSecret = webhookSecret || fallbackKey;
 
-    if (!apiKey) {
+    if (!expectedSecret) {
       if (process.env.NODE_ENV === 'production') {
-        logError('[360dialog] CRITICAL: D360_API_KEY not set');
+        logError('[360dialog] CRITICAL: neither D360_WEBHOOK_SECRET nor D360_API_KEY set');
         return false;
       }
       return true;
@@ -84,7 +90,7 @@ class Dialog360Adapter implements ChannelAdapter {
     }
 
     try {
-      return timingSafeEqual(Buffer.from(signature), Buffer.from(apiKey));
+      return timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSecret));
     } catch {
       return false;
     }
@@ -251,7 +257,7 @@ class Dialog360Adapter implements ChannelAdapter {
   }
 
   async downloadMedia(mediaRef: MediaReference): Promise<Buffer> {
-    return download360DialogMedia(mediaRef.id);
+    return download360DialogMedia(mediaRef.id, mediaRef.mimeType);
   }
 }
 

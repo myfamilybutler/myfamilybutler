@@ -38,8 +38,8 @@ export interface EventInstance {
 // Day Mapping
 // ===========================================
 
-const WEEKDAY_REVERSE: Record<number, Weekday> = {
-  0: 'SU', 1: 'MO', 2: 'TU', 3: 'WE', 4: 'TH', 5: 'FR', 6: 'SA',
+const WEEKDAY_TO_NUMBER: Record<Weekday, number> = {
+  'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6, 'SU': 0,
 };
 
 const GERMAN_DAYS: Record<string, Weekday> = {
@@ -151,8 +151,10 @@ export function parseGermanDay(text: string): Weekday | null {
 // ===========================================
 
 /**
- * Expand a recurring event to instances within a date range
- * 
+ * Expand a recurring event to instances within a date range.
+ *
+ * Optimized to jump directly to candidate dates instead of scanning day-by-day.
+ *
  * @param startDate - Event start date
  * @param rrule - RRULE string
  * @param rangeStart - Range start (inclusive)
@@ -168,115 +170,148 @@ export function expandRecurrence(
 ): EventInstance[] {
   const pattern = parseRRule(rrule);
   if (!pattern) return [];
-  
-  const instances: EventInstance[] = [];
-  let current = new Date(startDate);
-  let count = 0;
-  
-  // Convert until date if present
-  const untilDate = pattern.until ? new Date(pattern.until) : null;
-  
-  while (count < maxInstances) {
-    // Check termination conditions
-    if (untilDate && current > untilDate) break;
-    if (pattern.count && count >= pattern.count) break;
-    if (current > rangeEnd) break;
-    
-    // Check if current date matches the pattern
-    if (matchesPattern(current, pattern, startDate)) {
-      if (current >= rangeStart) {
-        instances.push({ date: new Date(current) });
-      }
-      count++;
-    }
-    
-    // Advance to next potential date
-    current = advanceDate(current, pattern);
-  }
-  
-  return instances;
-}
 
-/**
- * Check if a date matches the recurrence pattern
- */
-function matchesPattern(
-  date: Date,
-  pattern: RecurrencePattern,
-  startDate: Date
-): boolean {
+  const instances: EventInstance[] = [];
   const interval = pattern.interval || 1;
-  
+
+  // Hard global ceiling: 5 years from dtstart, regardless of caller options
+  const globalCeiling = new Date(startDate);
+  globalCeiling.setFullYear(globalCeiling.getFullYear() + 5);
+
+  const effectiveRangeEnd = rangeEnd < globalCeiling ? rangeEnd : globalCeiling;
+  const untilDate = pattern.until ? new Date(pattern.until) : null;
+  const instanceLimit = pattern.count ? Math.min(maxInstances, pattern.count) : maxInstances;
+
   switch (pattern.frequency) {
     case 'DAILY': {
-      const daysDiff = Math.floor((date.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-      return daysDiff >= 0 && daysDiff % interval === 0;
-    }
-    
-    case 'WEEKLY': {
-      const weeksDiff = Math.floor((date.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-      if (weeksDiff < 0 || weeksDiff % interval !== 0) return false;
-      
-      if (pattern.byDay && pattern.byDay.length > 0) {
-        const dayOfWeek = WEEKDAY_REVERSE[date.getDay()];
-        return pattern.byDay.includes(dayOfWeek);
-      }
-      
-      return date.getDay() === startDate.getDay();
-    }
-    
-    case 'MONTHLY': {
-      const monthsDiff = (date.getFullYear() - startDate.getFullYear()) * 12 + 
-                         (date.getMonth() - startDate.getMonth());
-      if (monthsDiff < 0 || monthsDiff % interval !== 0) return false;
-      
-      if (pattern.byMonthDay && pattern.byMonthDay.length > 0) {
-        return pattern.byMonthDay.includes(date.getDate());
-      }
-      
-      return date.getDate() === startDate.getDate();
-    }
-    
-    case 'YEARLY': {
-      const yearsDiff = date.getFullYear() - startDate.getFullYear();
-      if (yearsDiff < 0 || yearsDiff % interval !== 0) return false;
-      
-      if (pattern.byMonth && pattern.byMonth.length > 0) {
-        if (!pattern.byMonth.includes(date.getMonth() + 1)) return false;
-      } else if (date.getMonth() !== startDate.getMonth()) {
-        return false;
-      }
-      
-      return date.getDate() === startDate.getDate();
-    }
-    
-    default:
-      return false;
-  }
-}
+      const current = new Date(startDate);
+      let count = 0;
+      while (count < instanceLimit) {
+        if (untilDate && current > untilDate) break;
+        if (current > effectiveRangeEnd) break;
 
-/**
- * Advance date to next potential occurrence
- */
-function advanceDate(date: Date, pattern: RecurrencePattern): Date {
-  const next = new Date(date);
-  
-  switch (pattern.frequency) {
-    case 'DAILY':
-      next.setDate(next.getDate() + 1);
+        if (current >= rangeStart) {
+          instances.push({ date: new Date(current) });
+          count++;
+        }
+        current.setDate(current.getDate() + interval);
+      }
       break;
-    case 'WEEKLY':
-      next.setDate(next.getDate() + 1);
+    }
+
+    case 'WEEKLY': {
+      const startDayOfWeek = startDate.getDay();
+      const targetDays = pattern.byDay && pattern.byDay.length > 0
+        ? pattern.byDay.map(d => WEEKDAY_TO_NUMBER[d])
+        : [startDayOfWeek];
+      targetDays.sort((a, b) => a - b);
+
+      let weekIndex = 0;
+      let count = 0;
+      while (count < instanceLimit) {
+        const weekStart = new Date(startDate);
+        weekStart.setDate(startDate.getDate() + weekIndex * 7);
+
+        if (untilDate && weekStart > untilDate) break;
+        if (weekStart > effectiveRangeEnd) break;
+
+        for (const targetDay of targetDays) {
+          const offset = (targetDay - startDayOfWeek + 7) % 7;
+          const candidate = new Date(weekStart);
+          candidate.setDate(weekStart.getDate() + offset);
+
+          if (candidate < startDate) continue;
+          if (untilDate && candidate > untilDate) break;
+          if (candidate > effectiveRangeEnd) break;
+
+          if (candidate >= rangeStart) {
+            instances.push({ date: new Date(candidate) });
+            count++;
+            if (count >= instanceLimit) break;
+          }
+        }
+
+        weekIndex += interval;
+      }
       break;
-    case 'MONTHLY':
-      next.setDate(next.getDate() + 1);
+    }
+
+    case 'MONTHLY': {
+      const targetDays = pattern.byMonthDay && pattern.byMonthDay.length > 0
+        ? [...pattern.byMonthDay].sort((a, b) => a - b)
+        : [startDate.getDate()];
+
+      let monthOffset = 0;
+      let count = 0;
+      while (count < instanceLimit) {
+        const totalMonths = startDate.getMonth() + monthOffset;
+        const candidateYear = startDate.getFullYear() + Math.floor(totalMonths / 12);
+        const candidateMonth = totalMonths % 12;
+
+        for (const targetDay of targetDays) {
+          const candidate = new Date(candidateYear, candidateMonth, targetDay);
+          if (candidate.getMonth() !== candidateMonth) continue;
+
+          if (candidate < startDate) continue;
+          if (untilDate && candidate > untilDate) break;
+          if (candidate > effectiveRangeEnd) break;
+
+          if (candidate >= rangeStart) {
+            instances.push({ date: new Date(candidate) });
+            count++;
+            if (count >= instanceLimit) break;
+          }
+        }
+
+        monthOffset += interval;
+
+        const nextTotalMonths = startDate.getMonth() + monthOffset;
+        const nextYear = startDate.getFullYear() + Math.floor(nextTotalMonths / 12);
+        const nextMonth = nextTotalMonths % 12;
+        const nextMonthStart = new Date(nextYear, nextMonth, 1);
+        if (untilDate && nextMonthStart > untilDate) break;
+        if (nextMonthStart > effectiveRangeEnd) break;
+      }
       break;
-    case 'YEARLY':
-      next.setDate(next.getDate() + 1);
+    }
+
+    case 'YEARLY': {
+      const targetMonths = pattern.byMonth && pattern.byMonth.length > 0
+        ? [...pattern.byMonth].sort((a, b) => a - b)
+        : [startDate.getMonth() + 1];
+
+      let yearOffset = 0;
+      let count = 0;
+      while (count < instanceLimit) {
+        const candidateYear = startDate.getFullYear() + yearOffset;
+
+        for (const targetMonth of targetMonths) {
+          const candidate = new Date(candidateYear, targetMonth - 1, startDate.getDate());
+          if (candidate.getMonth() !== targetMonth - 1) continue;
+
+          if (candidate < startDate) continue;
+          if (untilDate && candidate > untilDate) break;
+          if (candidate > effectiveRangeEnd) break;
+
+          if (candidate >= rangeStart) {
+            instances.push({ date: new Date(candidate) });
+            count++;
+            if (count >= instanceLimit) break;
+          }
+        }
+
+        yearOffset += interval;
+
+        const nextYear = startDate.getFullYear() + yearOffset;
+        const nextYearStart = new Date(nextYear, 0, 1);
+        if (untilDate && nextYearStart > untilDate) break;
+        if (nextYearStart > effectiveRangeEnd) break;
+      }
       break;
+    }
   }
-  
-  return next;
+
+  return instances;
 }
 
 // ===========================================

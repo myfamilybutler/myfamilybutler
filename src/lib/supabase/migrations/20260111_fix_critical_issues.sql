@@ -30,7 +30,8 @@ CREATE POLICY "Service role full access" ON public.processed_messages
 CREATE OR REPLACE FUNCTION public.accept_household_invite(
     p_user_id UUID,
     p_invite_id UUID,
-    p_household_id UUID
+    p_household_id UUID,
+    p_force_switch BOOLEAN DEFAULT FALSE
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -39,6 +40,7 @@ SET search_path = public
 AS $$
 DECLARE
     v_invite_status TEXT;
+    v_existing_household_id UUID;
     v_rows_affected INT;
 BEGIN
     -- 1. Lock the invite row to prevent concurrent accepts
@@ -58,7 +60,18 @@ BEGIN
         RETURN FALSE;
     END IF;
 
-    -- 3. Atomic Update Transaction
+    -- 3. Lock the user row and check whether they already belong to a household.
+    SELECT household_id INTO v_existing_household_id
+    FROM users
+    WHERE id = p_user_id
+    FOR UPDATE;
+
+    IF v_existing_household_id IS NOT NULL AND v_existing_household_id != p_household_id AND NOT p_force_switch THEN
+        RAISE NOTICE 'User already belongs to a different household';
+        RETURN FALSE;
+    END IF;
+
+    -- 4. Atomic Update Transaction
     -- Mark invite as accepted
     UPDATE household_invites
     SET status = 'accepted'

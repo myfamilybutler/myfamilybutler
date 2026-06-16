@@ -29,7 +29,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
 
-  log.info('[Webhook] GET verification request:', { mode, token: token?.slice(0, 10) + '...', challenge });
+  log.info('[Webhook] GET verification request:', { mode });
 
   if (mode === 'subscribe' && token === verifyToken) {
     log.info('[Webhook] Verification successful!');
@@ -55,6 +55,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const rawBody = await request.text();
   const signature = request.headers.get('x-hub-signature-256');
+
+  // Verify webhook signature before enqueueing. The raw body is still passed
+  // to the adapter so it can perform its own defense-in-depth verification.
+  if (!whatsappAdapter.validateSignature(rawBody, signature)) {
+    logError('[WhatsApp Webhook] Invalid X-Hub-Signature-256');
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
+  }
 
   try {
     const body: MetaWebhookBody = JSON.parse(rawBody);

@@ -14,18 +14,29 @@ import { decrypt } from '@/lib/utils/encryption';
 import { getAdminClient } from '@/lib/supabase/client';
 
 // ===========================================
+// Gemini Model Configuration
+// ===========================================
+
+const GEMINI_MODEL = 'gemini-2.0-flash';
+
+// ===========================================
 // Dynamic Import for Edge Runtime Compatibility
 // ===========================================
 
 let geminiModule: typeof import('@google/generative-ai') | null = null;
 
-async function getGemini(householdId?: string | null) {
-  if (!geminiModule) {
-    geminiModule = await import('@google/generative-ai');
-  }
-  
-  let apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-  
+// ===========================================
+// Household / Global API Key Resolution
+// ===========================================
+
+/**
+ * Fetch the most appropriate Gemini API key for a household.
+ * Priority:
+ * 1. Household-specific key (decrypted from DB)
+ * 2. Global GOOGLE_GEMINI_API_KEY env var
+ * Returns null if no usable key is found.
+ */
+export async function getHouseholdGeminiKey(householdId?: string | null): Promise<string | null> {
   if (householdId) {
     try {
       const admin = getAdminClient();
@@ -34,11 +45,11 @@ async function getGemini(householdId?: string | null) {
         .select('gemini_api_key')
         .eq('id', householdId)
         .maybeSingle();
-        
+
       if (data?.gemini_api_key) {
         const decrypted = decrypt(data.gemini_api_key);
         if (decrypted) {
-          apiKey = decrypted;
+          return decrypted;
         }
       }
     } catch (err) {
@@ -46,13 +57,23 @@ async function getGemini(householdId?: string | null) {
     }
   }
 
+  return process.env.GOOGLE_GEMINI_API_KEY || null;
+}
+
+async function getGemini(householdId?: string | null) {
+  if (!geminiModule) {
+    geminiModule = await import('@google/generative-ai');
+  }
+
+  const apiKey = await getHouseholdGeminiKey(householdId);
+
   if (!apiKey) {
     throw new Error('Gemini API key is not configured');
   }
-  
+
   const genAI = new geminiModule.GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ 
-    model: 'gemini-3-flash-preview',
+  return genAI.getGenerativeModel({
+    model: GEMINI_MODEL,
     generationConfig: {
       temperature: 0,
       maxOutputTokens: 1000,
@@ -68,23 +89,8 @@ async function getGemini(householdId?: string | null) {
  * Check if Gemini is available (API key configured globally or for household)
  */
 export async function isGeminiAvailable(householdId?: string | null): Promise<boolean> {
-  if (process.env.GOOGLE_GEMINI_API_KEY) {
-    return true;
-  }
-  if (householdId) {
-    try {
-      const admin = getAdminClient();
-      const { data } = await admin
-        .from('households')
-        .select('gemini_api_key')
-        .eq('id', householdId)
-        .maybeSingle();
-      return !!data?.gemini_api_key;
-    } catch {
-      return false;
-    }
-  }
-  return false;
+  const key = await getHouseholdGeminiKey(householdId);
+  return !!key;
 }
 
 // ===========================================
@@ -147,16 +153,32 @@ export async function parseEventWithGemini(
     const validated = EventExtractorResponseSchema.safeParse(parsed);
 
     if (validated.success) {
-      const events: ParsedEvent[] = (validated.data.events || []).map((e) => ({
-        title: e.title,
-        event_date: e.event_date,
-        event_time: e.event_time ?? undefined,
-        end_time: e.end_time ?? undefined,
-        is_all_day: e.is_all_day,
-        family_member: e.family_member ?? undefined,
-        location: e.location ?? undefined,
-        description: e.description ?? undefined,
-      }));
+      const events: ParsedEvent[] = (validated.data.events || []).map((e) => {
+        const event: ParsedEvent = {
+          title: e.title,
+          event_date: e.event_date,
+          event_time: e.event_time ?? undefined,
+          end_time: e.end_time ?? undefined,
+          is_all_day: e.is_all_day,
+          family_member: e.family_member ?? undefined,
+          location: e.location ?? undefined,
+          description: e.description ?? undefined,
+          is_cancelled: e.is_cancelled ?? undefined,
+          requires_confirmation: e.requires_confirmation ?? undefined,
+          action_items: e.action_items ?? undefined,
+        };
+
+        if (e.recurrence?.is_recurring) {
+          event.recurrence = {
+            frequency: e.recurrence.frequency,
+            interval: e.recurrence.interval,
+            by_day: e.recurrence.by_day,
+            is_recurring: true,
+          };
+        }
+
+        return event;
+      });
 
       return {
         events,
@@ -164,6 +186,7 @@ export async function parseEventWithGemini(
         clarification_question: validated.data.clarification_question ?? undefined,
         intent_type: validated.data.intent_type,
         confidence: validated.data.confidence,
+        action_items: validated.data.action_items ?? undefined,
       };
     }
 
@@ -213,14 +236,32 @@ function salvagePartialResult(parsed: unknown): EventExtractionResult {
       if (typeof e === 'object' && e !== null) {
         const event = e as Record<string, unknown>;
         if (typeof event.title === 'string' && typeof event.event_date === 'string') {
-          events.push({
+          const parsedEvent: ParsedEvent = {
             title: event.title,
             event_date: event.event_date,
             event_time: typeof event.event_time === 'string' ? event.event_time : undefined,
             is_all_day: typeof event.is_all_day === 'boolean' ? event.is_all_day : !event.event_time,
             family_member: typeof event.family_member === 'string' ? event.family_member : undefined,
             location: typeof event.location === 'string' ? event.location : undefined,
-          });
+            description: typeof event.description === 'string' ? event.description : undefined,
+            is_cancelled: typeof event.is_cancelled === 'boolean' ? event.is_cancelled : undefined,
+            requires_confirmation: typeof event.requires_confirmation === 'boolean' ? event.requires_confirmation : undefined,
+          };
+
+          const recurrence = event.recurrence;
+          if (recurrence && typeof recurrence === 'object') {
+            const r = recurrence as Record<string, unknown>;
+            if (r.is_recurring === true && typeof r.frequency === 'string') {
+              parsedEvent.recurrence = {
+                frequency: r.frequency as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY',
+                interval: typeof r.interval === 'number' ? r.interval : undefined,
+                by_day: Array.isArray(r.by_day) ? r.by_day.map(String) : undefined,
+                is_recurring: true,
+              };
+            }
+          }
+
+          events.push(parsedEvent);
         }
       }
     }

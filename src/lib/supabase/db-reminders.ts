@@ -40,30 +40,12 @@ export async function createReminder(
 }
 
 /**
- * Get all pending reminders that are due
- */
-export async function getPendingReminders(): Promise<(Reminder & { users: User })[]> {
-  const admin = getAdminClient();
-  
-  const { data, error } = await admin
-    .from('reminders')
-    .select('*, users(*)')
-    .eq('status', 'pending')
-    .lte('remind_at', new Date().toISOString());
-  
-  if (error) {
-    logError('Error fetching pending reminders:', error);
-    return [];
-  }
-  
-  return (data ?? []) as (Reminder & { users: User })[];
-}
-
-/**
  * Update reminder status
+ * SECURITY: Always filters by user_id to prevent cross-user updates.
  */
 export async function updateReminderStatus(
   reminderId: string,
+  userId: string,
   status: 'sent' | 'failed' | 'cancelled'
 ): Promise<boolean> {
   const admin = getAdminClient();
@@ -71,7 +53,8 @@ export async function updateReminderStatus(
   const { error } = await admin
     .from('reminders')
     .update({ status })
-    .eq('id', reminderId);
+    .eq('id', reminderId)
+    .eq('user_id', userId);
   
   if (error) {
     logError('Error updating reminder status:', error);

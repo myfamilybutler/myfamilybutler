@@ -182,8 +182,15 @@ export function calculateEventPositions(
 
 /**
  * Group events by date for efficient lookup.
+ *
+ * @param range - Optional visible range. Multi-day events are clamped to this
+ *                range before expanding so long-running events do not generate
+ *                thousands of entries.
  */
-export function groupEventsByDate(events: CalendarEvent[]): Map<string, CalendarEvent[]> {
+export function groupEventsByDate(
+  events: CalendarEvent[],
+  range?: { start: Date; end: Date }
+): Map<string, CalendarEvent[]> {
   const map = new Map<string, CalendarEvent[]>();
   
   for (const event of events) {
@@ -194,8 +201,15 @@ export function groupEventsByDate(events: CalendarEvent[]): Map<string, Calendar
       continue;
     }
 
-    const rangeEnd = endDate >= startDate ? endDate : startDate;
-    const days = eachDayOfInterval({ start: startDate, end: rangeEnd });
+    const eventEnd = endDate >= startDate ? endDate : startDate;
+    const clampedStart = range && isBefore(startDate, range.start) ? range.start : startDate;
+    const clampedEnd = range && isAfter(eventEnd, range.end) ? range.end : eventEnd;
+
+    if (isAfter(clampedStart, clampedEnd)) {
+      continue;
+    }
+
+    const days = eachDayOfInterval({ start: clampedStart, end: clampedEnd });
 
     for (const day of days) {
       const dateKey = format(day, 'yyyy-MM-dd');

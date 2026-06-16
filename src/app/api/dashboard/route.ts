@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase';
 import { ensureUserFromAuth } from '@/lib/supabase/db-users';
+import { getEventsForHousehold, hydrateEventsWithFamilyMembers } from '@/lib/supabase/db-events';
 import { validateSession } from '@/lib/auth/helpers';
 import { log } from '@/lib/utils/logger';
 
@@ -25,9 +26,12 @@ export async function GET() {
     const supabase = getAdminClient();
 
     // 1. Fetch User Profile
+    // SECURITY: explicit minimal column list; avoid SELECT *.
     let { data: user } = await supabase
       .from('users')
-      .select('*')
+      .select(
+        'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin'
+      )
       .eq('id', userId)
       .single();
 
@@ -40,60 +44,45 @@ export async function GET() {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      user = await ensureUserFromAuth(authUser.user);
+      const created = await ensureUserFromAuth(authUser.user);
 
-      if (!user) {
+      if (!created) {
         log.error('[API/dashboard] Failed to create missing user row:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
+
+      // Re-fetch with the explicit minimal column list so the returned payload
+      // matches the shape consumed by the dashboard UI.
+      const { data: refetched } = await supabase
+        .from('users')
+        .select(
+          'id, display_name, phone_number, household_id, is_household_admin, onboarding_completed, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin'
+        )
+        .eq('id', userId)
+        .single();
+
+      if (!refetched) {
+        log.error('[API/dashboard] Failed to refetch created user row:', userId);
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+
+      user = refetched;
     }
 
     // 2. Fetch Events (if user has household)
+    // Bound the query to a reasonable window to avoid loading the entire history.
     let events: unknown[] = [];
     if (user.household_id) {
-      const { data: eventData, error: eventsError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('household_id', user.household_id)
-        .order('event_date', { ascending: true })
-        .order('event_time', { ascending: true });
+      const today = new Date();
+      const startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1)
+        .toISOString()
+        .split('T')[0];
+      const endDate = new Date(today.getFullYear(), today.getMonth() + 6, 0)
+        .toISOString()
+        .split('T')[0];
 
-      if (eventsError) {
-        log.error('[API/dashboard] Events fetch error:', eventsError);
-        // Don't fail the whole request, just return empty events
-      } else {
-        const rawEvents = eventData || [];
-        const memberIds = Array.from(
-          new Set(
-            rawEvents
-              .map((event) => event.family_member_id as string | null | undefined)
-              .filter((id): id is string => typeof id === 'string' && id.length > 0)
-          )
-        );
-
-        if (memberIds.length > 0) {
-          const { data: memberRows, error: membersError } = await supabase
-            .from('family_members')
-            .select('id, name')
-            .eq('household_id', user.household_id)
-            .in('id', memberIds);
-
-          if (membersError) {
-            log.error('[API/dashboard] Family member lookup failed:', membersError);
-            events = rawEvents;
-          } else {
-            const nameById = new Map((memberRows || []).map((member) => [member.id, member.name]));
-            events = rawEvents.map((event) => ({
-              ...event,
-              family_member: event.family_member_id
-                ? nameById.get(event.family_member_id) || event.family_member
-                : event.family_member,
-            }));
-          }
-        } else {
-          events = rawEvents;
-        }
-      }
+      const rawEvents = await getEventsForHousehold(user.household_id, startDate, endDate);
+      events = await hydrateEventsWithFamilyMembers(rawEvents, user.household_id);
     }
 
     return NextResponse.json({

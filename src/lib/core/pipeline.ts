@@ -16,11 +16,13 @@ import {
   setUndoState,
   setDraftPendingState,
   setClarifyingState,
+  getUndoableEventIds,
 } from './state';
 import { parseEventWithFallback, generateResponseWithFallback } from '@/lib/ai';
 import { processInput as processBrain } from '@/lib/ai/brain';
 import { AI_DECISION_THRESHOLDS } from '@/lib/ai/constants';
 import {
+  getAdminClient,
   createEvent,
   createEventsBulk,
   confirmDraftEvent,
@@ -40,7 +42,7 @@ import {
   applyDraftBundleModifications,
   applyDraftEventModifications,
 } from '@/lib/supabase';
-import { detectLanguage, getTemplate, formatDateForLanguage } from '@/lib/ai/response-templates';
+import { detectLanguage, getTemplate, formatTemplate, formatDateForLanguage } from '@/lib/ai/response-templates';
 import { logAIInteraction } from '@/lib/ai/logging';
 import type { ChatMessage } from '@/types';
 import type { MessagingChannel, Channel } from './types';
@@ -48,6 +50,8 @@ import type { BrainResult } from '@/lib/ai/types';
 import { resolveConfirmationIntent } from '@/lib/ai/confirmation-resolver';
 import { isAmbiguousFamilyMemberName } from '@/lib/utils/family-members';
 import { log, logError } from '@/lib/utils/logger';
+import { recurrenceToRRule } from '@/lib/recurrence';
+import type { ParsedEvent } from '@/lib/ai/types';
 
 const COMMANDS = {
   dashboard: ['dashboard', 'link', 'login'],
@@ -65,29 +69,93 @@ async function createDefaultReminder(
 ): Promise<void> {
   // Don't create reminders for all-day events
   if (event.is_all_day) return;
-  
+
   // Don't create reminders if no specific time
   if (!event.event_time) return;
 
   try {
     const eventDateTime = new Date(`${event.event_date}T${event.event_time}`);
     const reminderTime = new Date(eventDateTime.getTime() - 30 * 60 * 1000); // 30 minutes before
-    
+
     // Only create reminder if it's in the future
-    if (reminderTime > new Date()) {
-      await createEventReminder(
-        userId,
-        event.id,
-        event.title,
-        reminderTime,
-        `⏰ Erinnerung: "${event.title}" in 30 Minuten`
-      );
-      log.info(`[Reminder] Created 30-min reminder for event "${event.title}"`);
+    if (reminderTime <= new Date()) {
+      return;
     }
+
+    const admin = getAdminClient();
+
+    // Guard against duplicate pending reminders for the same event/user/time.
+    // The unique partial index idx_reminders_event_user_remind_at_unique handles
+    // the race, but checking first avoids noisy conflict errors and unnecessary writes.
+    const { data: existingReminder } = await admin
+      .from('reminders')
+      .select('id')
+      .eq('event_id', event.id)
+      .eq('user_id', userId)
+      .eq('remind_at', reminderTime.toISOString())
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existingReminder) {
+      log.info(`[Reminder] Default 30-min reminder already exists for event "${event.title}"`);
+      return;
+    }
+
+    await createEventReminder(
+      userId,
+      event.id,
+      event.title,
+      reminderTime,
+      `⏰ Erinnerung: "${event.title}" in 30 Minuten`
+    );
+    log.info(`[Reminder] Created 30-min reminder for event "${event.title}"`);
   } catch (error) {
     logError('[Reminder] Failed to create default reminder:', error);
     // Non-critical error - don't block event creation
   }
+}
+
+/**
+ * Convert a ParsedEvent into the payload shape expected by createEvent/createEventsBulk,
+ * including recurrence object → RRULE string conversion.
+ */
+function toEventInput(event: ParsedEvent): {
+  title: string;
+  event_date: string;
+  event_time?: string;
+  end_time?: string;
+  is_all_day: boolean;
+  family_member?: string;
+  location?: string;
+  description?: string;
+  recurrence_rule?: string;
+} {
+  const input: ReturnType<typeof toEventInput> = {
+    title: event.title,
+    event_date: event.event_date,
+    event_time: event.event_time,
+    end_time: event.end_time,
+    is_all_day: event.is_all_day,
+    family_member: event.family_member,
+    location: event.location,
+    description: event.description,
+  };
+
+  if (event.recurrence?.is_recurring) {
+    try {
+      input.recurrence_rule = recurrenceToRRule({
+        frequency: event.recurrence.frequency,
+        interval: event.recurrence.interval ?? 1,
+        byDay: event.recurrence.by_day as import('@/lib/recurrence').Weekday[],
+      });
+    } catch (error) {
+      logError('[Pipeline] Failed to convert recurrence to RRULE:', error);
+    }
+  } else if (event.recurrence_rule) {
+    input.recurrence_rule = event.recurrence_rule;
+  }
+
+  return input;
 }
 
 /**
@@ -239,9 +307,7 @@ async function handleDraftPending(
     await clearConversationState(message.userId, message.channel);
     return {
       response: {
-        text: lang === 'de'
-          ? 'Entschuldigung, ich konnte den Entwurf nicht zuordnen. Bitte erstelle den Termin erneut.'
-          : 'Sorry, I could not map the draft. Please create the event again.',
+        text: getTemplate('draftNotMatched', lang),
         metadata: { language: lang, shouldLog: true },
       },
       eventsCreated: 0,
@@ -284,9 +350,7 @@ async function handleDraftPending(
     await clearConversationState(message.userId, message.channel);
     return {
       response: {
-        text: lang === 'de'
-          ? 'Entschuldigung, der Entwurf konnte nicht gefunden werden. Bitte erstelle den Termin erneut.'
-          : 'Sorry, the draft could not be found. Please create the event again.',
+        text: getTemplate('draftNotFound', lang),
         metadata: { language: lang, shouldLog: true },
       },
       eventsCreated: 0,
@@ -331,9 +395,7 @@ async function handleDraftPending(
     await clearConversationState(message.userId, message.channel);
     return {
       response: {
-        text: lang === 'de'
-          ? 'Der Entwurf wurde nicht mehr gefunden. Bitte erstelle den Termin erneut.'
-          : 'The draft was not found. Please create the event again.',
+        text: getTemplate('draftExpired', lang),
         metadata: { language: lang, shouldLog: true },
       },
       eventsCreated: 0,
@@ -361,7 +423,8 @@ async function handleDraftPending(
       family_member: draft.family_member,
       location: draft.location,
     },
-    chatHistory
+    chatHistory,
+    message.householdId
   );
 
   log.info(`[Pipeline] Draft confirmation intent: ${intentResult.intent}`);
@@ -391,15 +454,13 @@ async function handleDraftPending(
         const confirmationText = events.length === 1
           ? (lang === 'de'
               ? `Termin "${events[0]!.title}" wurde gespeichert!\n\n⏰ Ich erinnere dich 30 Minuten vorher.`
-              : `Event "${events[0]!.title}" saved!\n\n⏰ I'll remind you 30 minutes before.`)
-          : (lang === 'de'
-              ? `${events.length} Termine wurden gespeichert!\n\n⏰ Erinnerungen wurden für alle Termine mit Uhrzeit erstellt.`
-              : `${events.length} events were saved!\n\n⏰ Reminders were created for all timed events.`);
+              : formatTemplate('eventSavedWithReminder', lang, { title: events[0]!.title }))
+          : formatTemplate('eventsSavedWithReminders', lang, { count: events.length });
 
         return {
           response: {
             text: confirmationText,
-            urlButton: dashboardLink ? { title: 'Dashboard', url: dashboardLink } : undefined,
+            urlButton: dashboardLink ? { title: getTemplate('openDashboard', lang), url: dashboardLink } : undefined,
             metadata: { language: lang, shouldLog: true },
           },
           eventsCreated: events.length,
@@ -410,9 +471,7 @@ async function handleDraftPending(
 
       return {
         response: {
-          text: lang === 'de'
-            ? 'Entschuldigung, beim Speichern ist ein Fehler aufgetreten.'
-            : 'Sorry, an error occurred while saving.',
+          text: getTemplate('saveEventError', lang),
           metadata: { language: lang, shouldLog: true },
         },
         eventsCreated: 0,
@@ -500,8 +559,8 @@ async function handleDraftPending(
           return {
             response: {
               text: lang === 'de'
-                ? 'Ich habe mehrere Termine im Entwurf. Für welchen Tag soll ich das ändern?'
-                : 'I found multiple events in this draft. Which day should I change?',
+                ? getTemplate('multipleDraftsNeedDay', lang)
+                : getTemplate('multipleDraftsNeedDay', lang),
               metadata: { language: lang, shouldLog: true },
             },
             eventsCreated: 0,
@@ -608,28 +667,32 @@ async function handleAwaitingUndo(
   context: PipelineContext,
   content: string
 ): Promise<PipelineResult | null> {
-  const { message, conversationState, startTime } = context;
+  const { message, startTime } = context;
 
   if (COMMANDS.undo.some(c => content.includes(c))) {
-    if (conversationState.undoableEventId && message.householdId) {
-      const deleted = await deleteEvent(
-        conversationState.undoableEventId,
-        message.householdId,
-        message.userId
-      );
+    if (message.householdId) {
+      const undoableEventIds = await getUndoableEventIds(message.userId, message.channel);
 
-      await clearConversationState(message.userId, message.channel);
+      if (undoableEventIds.length > 0) {
+        const deletedCount = await Promise.all(
+          undoableEventIds.map((eventId) =>
+            deleteEvent(eventId, message.householdId!, message.userId)
+          )
+        ).then((results) => results.filter(Boolean).length);
 
-      if (deleted) {
-        return {
-          response: {
-            text: getTemplate('undoSuccess', 'de'),
-            metadata: { language: 'de', shouldLog: true },
-          },
-          eventsCreated: 0,
-          success: true,
-          latencyMs: Date.now() - startTime,
-        };
+        await clearConversationState(message.userId, message.channel);
+
+        if (deletedCount > 0) {
+          return {
+            response: {
+              text: getTemplate('undoSuccess', 'de'),
+              metadata: { language: 'de', shouldLog: true },
+            },
+            eventsCreated: 0,
+            success: true,
+            latencyMs: Date.now() - startTime,
+          };
+        }
       }
     }
   }
@@ -713,7 +776,7 @@ async function handleDashboardCommand(context: PipelineContext): Promise<Pipelin
   return {
     response: {
       text: getTemplate('dashboardLinkInstruction', 'de'),
-      urlButton: { title: 'Dashboard öffnen', url: dashboardLink },
+      urlButton: { title: getTemplate('openDashboard', 'de'), url: dashboardLink },
       metadata: { language: 'de', shouldLog: true },
     },
     eventsCreated: 0,
@@ -911,9 +974,7 @@ async function handleBrainResult(
   if (brainResult.error) {
     return {
       response: {
-        text: lang === 'de'
-          ? 'Entschuldigung, ich konnte die Datei nicht verarbeiten.'
-          : 'Sorry, I could not process the file.',
+        text: getTemplate('fileProcessingError', lang),
         metadata: { language: lang, shouldLog: true },
       },
       eventsCreated: 0,
@@ -945,6 +1006,23 @@ async function handleBrainResult(
     return handleHighConfidenceEvents(brainResult.events, context, lang);
   }
 
+  if (brainResult.action === 'already_saved' && brainResult.events.length > 0) {
+    const eventCount = brainResult.events.length;
+    const confirmationText = eventCount === 1
+      ? formatTemplate('visionEventSaved', lang, { title: brainResult.events[0]!.title })
+      : formatTemplate('visionEventsSaved', lang, { count: eventCount });
+
+    return {
+      response: {
+        text: confirmationText,
+        metadata: { language: lang, shouldLog: true },
+      },
+      eventsCreated: eventCount,
+      success: true,
+      latencyMs: Date.now() - startTime,
+    };
+  }
+
   if (brainResult.action === 'draft' && brainResult.events.length > 0) {
     return handleMediumConfidenceEvents(
       brainResult.events,
@@ -968,7 +1046,7 @@ async function handleBrainResult(
 }
 
 async function handleHighConfidenceEvents(
-  events: Array<{ title: string; event_date: string; event_time?: string; is_all_day: boolean; family_member?: string; location?: string; description?: string }>,
+  events: ParsedEvent[],
   context: PipelineContext,
   lang: 'de' | 'en'
 ): Promise<PipelineResult> {
@@ -989,7 +1067,7 @@ async function handleHighConfidenceEvents(
   const successfulEvents = events.length === 1
     ? (await Promise.all([
         createEvent(message.householdId!, message.userId, {
-          ...events[0],
+          ...toEventInput(events[0]),
           source_message_id: message.id,
         }),
       ])).filter(e => e !== null)
@@ -997,13 +1075,17 @@ async function handleHighConfidenceEvents(
         message.householdId,
         message.userId,
         events.map(eventData => ({
-          ...eventData,
+          ...toEventInput(eventData),
           source_message_id: message.id,
         }))
       );
 
   if (successfulEvents.length > 0) {
-    await setUndoState(message.userId, message.channel, successfulEvents[0]!.id);
+    await setUndoState(
+      message.userId,
+      message.channel,
+      successfulEvents.map((e) => e.id)
+    );
 
     // Create 30-minute reminders for events with specific times
     for (const event of successfulEvents) {
@@ -1025,13 +1107,15 @@ async function handleHighConfidenceEvents(
         ? (lang === 'de' ? '\n\n⏰ Ich erinnere dich 30 Minuten vorher.' : "\n\n⏰ I'll remind you 30 minutes before.")
         : '';
 
-      confirmationText = lang === 'de'
-        ? `Termin gespeichert:\n\n"${event.title}"${memberStr}\n${formattedDate}${timeStr}${reminderStr}`
-        : `Event saved:\n\n"${event.title}"${memberStr}\n${formattedDate}${timeStr}${reminderStr}`;
+      confirmationText = formatTemplate('eventSavedDetails', lang, {
+        title: event.title,
+        memberStr,
+        formattedDate,
+        timeStr,
+        reminderStr,
+      });
     } else {
-      confirmationText = lang === 'de'
-        ? `${successfulEvents.length} Termine gespeichert!`
-        : `${successfulEvents.length} events saved!`;
+      confirmationText = formatTemplate('eventsSavedCount', lang, { count: successfulEvents.length });
     }
 
     const dashboardLink = await getDashboardLink(message);
@@ -1039,7 +1123,7 @@ async function handleHighConfidenceEvents(
       response: {
         text: confirmationText,
         buttons: [{ id: 'undo', title: lang === 'de' ? 'Rückgängig' : 'Undo' }],
-        urlButton: dashboardLink ? { title: 'Dashboard', url: dashboardLink } : undefined,
+        urlButton: dashboardLink ? { title: getTemplate('openDashboard', lang), url: dashboardLink } : undefined,
         metadata: { language: lang, shouldLog: true },
       },
       eventsCreated: successfulEvents.length,
@@ -1084,7 +1168,7 @@ function buildDraftBundlePreviewText(
 }
 
 async function handleMediumConfidenceEvents(
-  events: Array<{ title: string; event_date: string; event_time?: string; is_all_day: boolean; family_member?: string; location?: string; description?: string }>,
+  events: ParsedEvent[],
   context: PipelineContext,
   lang: 'de' | 'en',
   confidence: number

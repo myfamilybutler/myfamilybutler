@@ -286,37 +286,75 @@ export async function createEventsBulk(
 }
 
 /**
- * Get events for a household with optional date filtering
+ * Get events for a household within a date window.
+ * startDate and endDate are required to prevent unbounded scans.
  */
 export async function getEventsForHousehold(
   householdId: string,
-  startDate?: string,
-  endDate?: string
+  startDate: string,
+  endDate: string
 ): Promise<Event[]> {
   const admin = getAdminClient();
-  
-  let query = admin
+
+  const { data, error } = await admin
     .from('events')
     .select('*')
     .eq('household_id', householdId)
+    .gte('event_date', startDate)
+    .lte('event_date', endDate)
     .order('event_date', { ascending: true });
-  
-  if (startDate) {
-    query = query.gte('event_date', startDate);
-  }
-  
-  if (endDate) {
-    query = query.lte('event_date', endDate);
-  }
-  
-  const { data, error } = await query;
-  
+
   if (error) {
     logError('Error fetching events:', error);
     return [];
   }
-  
+
   return (data ?? []) as Event[];
+}
+
+/**
+ * Hydrate a list of events with the display names of their linked family members.
+ * This centralizes the member-id -> name lookup used by dashboard and events APIs.
+ */
+export async function hydrateEventsWithFamilyMembers(
+  rawEvents: Event[],
+  householdId: string
+): Promise<Event[]> {
+  if (rawEvents.length === 0) {
+    return rawEvents;
+  }
+
+  const memberIds = Array.from(
+    new Set(
+      rawEvents
+        .map((event) => event.family_member_id as string | null | undefined)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    )
+  );
+
+  if (memberIds.length === 0) {
+    return rawEvents;
+  }
+
+  const admin = getAdminClient();
+  const { data: memberRows, error: membersError } = await admin
+    .from('family_members')
+    .select('id, name')
+    .eq('household_id', householdId)
+    .in('id', memberIds);
+
+  if (membersError) {
+    logError('Failed to fetch family member labels:', membersError);
+    return rawEvents;
+  }
+
+  const nameById = new Map((memberRows || []).map((member) => [member.id, member.name]));
+  return rawEvents.map((event) => ({
+    ...event,
+    family_member: event.family_member_id
+      ? nameById.get(event.family_member_id) || event.family_member
+      : event.family_member,
+  }));
 }
 
 /**
@@ -516,7 +554,10 @@ export async function deleteEvent(
 }
 
 /**
- * Create a reminder linked to an event
+ * Create a reminder linked to an event.
+ *
+ * Verifies that the event belongs to the user's household before creating the
+ * reminder, preventing cross-household reminder creation.
  */
 export async function createEventReminder(
   userId: string,
@@ -526,9 +567,24 @@ export async function createEventReminder(
   customMessage?: string
 ): Promise<Reminder | null> {
   const admin = getAdminClient();
-  
+
+  const [{ data: event }, { data: user }] = await Promise.all([
+    admin.from('events').select('household_id').eq('id', eventId).single(),
+    admin.from('users').select('household_id').eq('id', userId).single(),
+  ]);
+
+  if (!event || !user) {
+    logError('Event or user not found while creating reminder');
+    return null;
+  }
+
+  if (event.household_id !== user.household_id) {
+    logError('Event does not belong to user household');
+    return null;
+  }
+
   const message = customMessage || `📅 Reminder: ${eventTitle}`;
-  
+
   const { data, error } = await admin
     .from('reminders')
     .insert({
@@ -540,33 +596,12 @@ export async function createEventReminder(
     })
     .select()
     .single();
-  
+
   if (error) {
-    // If event_id column doesn't exist, retry without it
-    if (error.message?.includes('event_id')) {
-      const { data: fallbackData, error: fallbackError } = await admin
-        .from('reminders')
-        .insert({
-          user_id: userId,
-          message,
-          remind_at: remindAt.toISOString(),
-          status: 'pending',
-        })
-        .select()
-        .single();
-      
-      if (fallbackError) {
-        logError('Error creating event reminder (fallback):', fallbackError);
-        return null;
-      }
-      
-      return fallbackData as Reminder;
-    }
-    
     logError('Error creating event reminder:', error);
     return null;
   }
-  
+
   return data as Reminder;
 }
 
@@ -840,15 +875,66 @@ export async function confirmDraftBundle(
 
   const created = await createEventsBulk(householdId, userId, eventInputs);
 
-  if (created.length !== eventInputs.length) {
-    if (created.length > 0) {
-      await Promise.allSettled(
-        created.map((event) =>
-          admin.from('events').delete().eq('id', event.id).eq('household_id', householdId)
-        )
-      );
+  // Fast path: every input became a new event.
+  if (created.length === eventInputs.length) {
+    await admin
+      .from('draft_events')
+      .update({ status: 'confirmed' })
+      .eq('bundle_id', bundleId)
+      .eq('household_id', householdId)
+      .eq('status', 'pending');
+
+    await admin
+      .from('draft_bundles')
+      .update({ status: 'confirmed' })
+      .eq('id', bundleId)
+      .eq('household_id', householdId);
+
+    return created;
+  }
+
+  // Some inputs collided with existing events by natural key. Look up those
+  // existing events and combine them with the newly created ones instead of
+  // rolling back and discarding successful inserts.
+  const fingerprints = eventInputs.map((input) =>
+    generateEventFingerprint({
+      title: input.title,
+      event_date: input.event_date,
+      event_time: input.event_time,
+    })
+  );
+
+  const { data: existing } = await admin
+    .from('events')
+    .select('*')
+    .eq('household_id', householdId)
+    .in('event_fingerprint', fingerprints);
+
+  const existingByFingerprint = new Map<string, Event>();
+  for (const event of (existing ?? []) as Event[]) {
+    if (event.event_fingerprint) {
+      existingByFingerprint.set(event.event_fingerprint, event);
     }
-    return null;
+  }
+
+  const createdByFingerprint = new Map<string, Event>();
+  for (const event of created) {
+    if (event.event_fingerprint) {
+      createdByFingerprint.set(event.event_fingerprint, event);
+    }
+  }
+
+  const combined: Event[] = [];
+  for (let i = 0; i < eventInputs.length; i++) {
+    const event =
+      createdByFingerprint.get(fingerprints[i]) ??
+      existingByFingerprint.get(fingerprints[i]);
+    if (!event) {
+      // A real error occurred for this input; abort without deleting the
+      // events that were successfully created.
+      return null;
+    }
+    combined.push(event);
   }
 
   await admin
@@ -864,7 +950,7 @@ export async function confirmDraftBundle(
     .eq('id', bundleId)
     .eq('household_id', householdId);
 
-  return created;
+  return combined;
 }
 
 /**
@@ -1330,9 +1416,14 @@ export async function getDraftEvent(
 }
 
 /**
- * Get pending drafts for a household
+ * Get pending drafts for a household.
+ * Results are capped at 100 to avoid unbounded scans; callers needing
+ * pagination should add an offset/cursor parameter later.
  */
-export async function getDraftEvents(householdId: string): Promise<Array<{
+export async function getDraftEvents(
+  householdId: string,
+  limit: number = 100
+): Promise<Array<{
   id: string;
   title: string;
   event_date: string;
@@ -1342,20 +1433,22 @@ export async function getDraftEvents(householdId: string): Promise<Array<{
   created_at: string;
 }>> {
   const admin = getAdminClient();
-  
+  const safeLimit = Math.min(Math.max(limit, 1), 100);
+
   try {
     const { data, error } = await admin
       .from('draft_events')
       .select('*')
       .eq('household_id', householdId)
       .eq('status', 'pending')
-      .order('created_at', { ascending: false });
-    
+      .order('created_at', { ascending: false })
+      .limit(safeLimit);
+
     if (error) {
       log.info('[DraftEvent] Could not fetch drafts:', error.message);
       return [];
     }
-    
+
     return data || [];
   } catch {
     return [];

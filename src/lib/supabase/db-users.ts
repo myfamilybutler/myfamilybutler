@@ -97,6 +97,7 @@ export async function findUserById(userId: string): Promise<User | null> {
 export async function ensureUserFromAuth(authUser: {
   id: string;
   email?: string | null;
+  email_confirmed_at?: string | null;
   user_metadata?: { full_name?: string; name?: string };
 }): Promise<User | null> {
   const admin = getAdminClient();
@@ -122,7 +123,7 @@ export async function ensureUserFromAuth(authUser: {
         'User',
       subscription_status: 'free',
       onboarding_source: 'web',
-      email_verified: !!authUser.email,
+      email_verified: !!authUser.email_confirmed_at,
       onboarding_modal_shown: false,
     })
     .select()

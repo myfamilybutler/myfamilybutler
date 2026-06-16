@@ -76,7 +76,9 @@ export async function GET(request: NextRequest) {
         status: invite.status,
         householdId: invite.householdId,
         householdName: invite.householdName ?? 'Family',
-        inviterName: invite.inviterDisplayName ?? 'Family member',
+        // inviterDisplayName is already sanitized by resolveInviteByToken:
+        // it uses display_name only and falls back to a generic label.
+        inviterName: invite.inviterDisplayName ?? 'A family member',
         channel,
         isOpenInvite,
         expiresAt: invite.expiresAt ?? null,

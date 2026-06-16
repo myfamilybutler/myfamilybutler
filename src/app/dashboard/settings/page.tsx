@@ -36,13 +36,15 @@ import type { FamilyMember } from '@/stores/family-store';
 import { FamilyMembersList } from '@/components/dashboard/family-members-list';
 
 import { useDashboardData } from '@/hooks/use-dashboard-data';
-import { useFamilyData } from '@/stores/family-store';
+import { useFamilyData, useFamilyActions } from '@/stores/family-store';
 import { logError } from '@/lib/utils/logger';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { dbUser, signOut } = useAuthStore();
+  const refreshDbUser = useAuthStore((state) => state.refreshDbUser);
+  const { reset: resetFamily } = useFamilyActions();
   const { refresh: refreshDashboard } = useDashboardData();
   const { users, profileMembers, hasHousehold, isHouseholdAdmin, hasGeminiKey, loading: familyLoading, refetch: refetchFamily } = useFamilyData();
   
@@ -61,10 +63,11 @@ export default function SettingsPage() {
   // Combined update handler
   const handleDataUpdate = useCallback(async () => {
     await Promise.all([
+      refreshDbUser(),
       refreshDashboard(),
       refetchFamily()
     ]);
-  }, [refreshDashboard, refetchFamily]);
+  }, [refreshDbUser, refreshDashboard, refetchFamily]);
 
   // Handle logout
   const handleLogout = async () => {
@@ -124,6 +127,8 @@ export default function SettingsPage() {
       });
       
       if (res.ok) {
+        resetFamily();
+        await refreshDbUser();
         router.push('/onboarding');
       } else {
         toast.error(t('settings.deleteFamilyError'));
@@ -146,6 +151,8 @@ export default function SettingsPage() {
       });
       
       if (res.ok) {
+        resetFamily();
+        await refreshDbUser();
         router.push('/onboarding');
       } else {
         toast.error(t('settings.leaveFamilyError'));

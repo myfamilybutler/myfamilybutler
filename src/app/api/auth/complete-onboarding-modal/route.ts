@@ -12,7 +12,6 @@ import { log, logError } from '@/lib/utils/logger';
 interface OnboardingModalRequest {
   displayName?: string;
   familyMembers?: { name: string }[];
-  linkedEmail?: string;
   skipped?: boolean;
 }
 
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest) {
     if (body.skipped) {
       await admin
         .from('users')
-        .update({ onboarding_modal_shown: true })
+        .update({ onboarding_modal_shown: true, onboarding_completed: true })
         .eq('id', userId);
 
       return NextResponse.json({ success: true });
@@ -43,30 +42,18 @@ export async function POST(request: NextRequest) {
 
     const updates: Record<string, unknown> = {
       onboarding_modal_shown: true,
+      onboarding_completed: true,
     };
 
     if (body.displayName?.trim()) {
       updates.display_name = body.displayName.trim();
     }
 
-    if (body.linkedEmail?.trim()) {
-      const email = body.linkedEmail.toLowerCase().trim();
-
-      const { data: existingUser } = await admin
-        .from('users')
-        .select('id')
-        .eq('linked_email', email)
-        .neq('id', userId)
-        .maybeSingle();
-
-      if (existingUser) {
-        return NextResponse.json(
-          { success: false, error: 'Diese Email ist bereits mit einem anderen Konto verknuepft.' },
-          { status: 400 }
-        );
-      }
-
-      updates.linked_email = email;
+    // SECURITY: Do not persist unverified client-supplied linked_email.
+    // Only copy the email from the authenticated Supabase Auth session, which
+    // is already verified and belongs to the current user.
+    if (user.email?.trim()) {
+      updates.linked_email = user.email.toLowerCase().trim();
     }
 
     const { error: updateError } = await admin
@@ -92,19 +79,23 @@ export async function POST(request: NextRequest) {
       let householdId = user?.household_id;
 
       if (!householdId) {
-        const { data: household } = await admin
-          .from('households')
-          .insert({ name: body.displayName ? `${body.displayName}'s Family` : 'Familie' })
-          .select('id')
-          .single();
+        const { data: createdHouseholdId, error: rpcError } = await admin.rpc(
+          'create_household_for_user',
+          {
+            p_user_id: userId,
+            p_household_name: body.displayName ? `${body.displayName}'s Family` : 'Familie',
+          }
+        );
 
-        if (household) {
-          householdId = household.id;
-          await admin
-            .from('users')
-            .update({ household_id: householdId })
-            .eq('id', userId);
+        if (rpcError || !createdHouseholdId) {
+          log.error('[Onboarding Modal] Failed to create household:', rpcError);
+          return NextResponse.json(
+            { success: false, error: 'Failed to create family' },
+            { status: 500 }
+          );
         }
+
+        householdId = createdHouseholdId;
       }
 
       if (householdId) {

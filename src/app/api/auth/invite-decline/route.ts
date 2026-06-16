@@ -60,6 +60,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Open invites have no known recipient, so they cannot be declined by a
+    // random logged-in user. They can only be revoked by the inviter.
+    if (!invite.email && !invite.phoneNumber) {
+      return NextResponse.json(
+        { error: 'Open invites cannot be declined.' },
+        { status: 403 }
+      );
+    }
+
     const success = await declineInvite(invite.inviteId);
     if (!success) {
       return NextResponse.json({ error: 'Failed to decline invite' }, { status: 500 });

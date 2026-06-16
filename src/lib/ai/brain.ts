@@ -16,8 +16,8 @@ import type {
 } from './types';
 import { parseEventWithFallback } from './index';
 import { AI_DECISION_THRESHOLDS } from './constants';
-import { processVoiceMessage } from '@/actions/process-voice';
-import { processVisionMessage } from '@/actions/process-vision';
+import { processVoiceMessageInternal } from '@/lib/ai/voice-processor';
+import { processVisionMessageInternal } from '@/lib/ai/vision-processor';
 import { log, logError } from '@/lib/utils/logger';
 
 const BRAIN_CONFIG = {
@@ -53,7 +53,7 @@ export async function processInput(input: UnifiedInput): Promise<BrainResult> {
         if (!input.attachment) {
           return { action: 'none', events: [], confidence: 0, error: 'No document provided' };
         }
-        return processDocument(input.attachment);
+        return processDocument();
         
       default:
         return { action: 'none', events: [], confidence: 0, error: `Unknown type: ${input.type}` };
@@ -76,7 +76,8 @@ async function processText(text: string, input: UnifiedInput): Promise<BrainResu
   const extraction = await parseEventWithFallback(
     text,
     input.conversationHistory,
-    input.familyMembers
+    input.familyMembers,
+    input.householdId
   );
   
   const confidence = extraction.confidence ?? (extraction.events.length > 0 ? 0.75 : 0.3);
@@ -97,7 +98,7 @@ async function processText(text: string, input: UnifiedInput): Promise<BrainResu
  * Process image input - extract events directly via vision
  */
 async function processImage(attachment: { buffer: Buffer; mimeType: string }, input: UnifiedInput): Promise<BrainResult> {
-  const result = await processVisionMessage({
+  const result = await processVisionMessageInternal({
     userId: input.userId,
     householdId: input.householdId,
     imageBuffer: attachment.buffer,
@@ -120,13 +121,26 @@ async function processImage(attachment: { buffer: Buffer; mimeType: string }, in
   }));
   
   const confidence = result.eventsCreated > 0 ? 0.85 : 0.5;
+
+  // If vision already saved the events to the DB, don't ask the pipeline to save them again.
+  if (result.eventsCreated > 0) {
+    log.info(`[Brain] Image: ${events.length} events already saved by vision`);
+    return {
+      action: 'already_saved' as const,
+      events,
+      confidence,
+      documentType: result.documentType,
+      clarificationQuestion: result.clarificationQuestion,
+    };
+  }
+
   const { action, clarificationQuestion } = determineAction(
     { events, needs_clarification: result.clarificationNeeded ?? false, intent_type: 'calendar_event', confidence },
     confidence
   );
-  
+
   log.info(`[Brain] Image: ${events.length} events, confidence: ${confidence}, action: ${action}`);
-  
+
   return {
     action,
     events,
@@ -140,7 +154,7 @@ async function processImage(attachment: { buffer: Buffer; mimeType: string }, in
  * Process voice input - transcribe then extract
  */
 async function processVoice(attachment: { buffer: Buffer; mimeType: string }, input: UnifiedInput): Promise<BrainResult> {
-  const voiceResult = await processVoiceMessage({
+  const voiceResult = await processVoiceMessageInternal({
     audioBuffer: attachment.buffer,
     mimeType: attachment.mimeType,
   });
@@ -155,13 +169,9 @@ async function processVoice(attachment: { buffer: Buffer; mimeType: string }, in
 
 /**
  * Process document input (PDF, etc.)
- * For now: extract text then process as text (future: document parsing)
+ * Documents are not yet supported; ask the user to type the relevant dates.
  */
-async function processDocument(attachment: { buffer: Buffer; mimeType: string; filename?: string }): Promise<BrainResult> {
-  // TODO: Implement document text extraction for PDFs
-  // For now, return error suggesting user types the content
-  log.info(`[Brain] Document received: ${attachment.filename ?? 'unnamed'} (${attachment.mimeType})`);
-  
+async function processDocument(): Promise<BrainResult> {
   return {
     action: 'ask',
     events: [],

@@ -99,8 +99,9 @@ export async function validateMagicToken(
   const hash = crypto.createHash('sha256').update(token).digest('hex');
   const now = new Date().toISOString();
 
-  // Atomic Consume: Update only if unused and valid
-  const { data: magicToken } = await admin
+  // Atomic Consume: Update only if unused and valid. If no row is updated,
+  // the token is invalid, expired, or already used.
+  const { data: magicToken, error: consumeError } = await admin
     .from('magic_tokens')
     .update({ used_at: now })
     .eq('token_hash', hash)
@@ -109,20 +110,8 @@ export async function validateMagicToken(
     .select('user_id')
     .single();
 
-  if (!magicToken) {
-    // Grace Period: Check if token was JUST used (prefetch protection)
-    const { data: recent } = await admin
-      .from('magic_tokens')
-      .select('user_id, used_at')
-      .eq('token_hash', hash)
-      .single();
-
-    if (recent?.used_at && (Date.now() - new Date(recent.used_at).getTime() < 30000)) {
-      // Allow reuse within 30s window
-      const { data: user } = await admin.from('users').select('*').eq('id', recent.user_id).single();
-      return user ? { userId: user.id, user: user as User } : null;
-    }
-    
+  if (consumeError || !magicToken) {
+    logError('[Magic Token] Token already used, invalid, or expired:', consumeError?.message ?? 'no row updated');
     return null;
   }
 

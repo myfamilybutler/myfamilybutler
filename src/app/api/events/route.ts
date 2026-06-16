@@ -1,6 +1,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient, updateEvent, deleteEvent, createEventReminder, createEvent } from '@/lib/supabase';
+import { getEventsForHousehold, hydrateEventsWithFamilyMembers } from '@/lib/supabase/db-events';
+import { ensureAndResolveFamilyMemberIds } from '@/lib/supabase/family-member-sync';
+import { familyMemberNameKey, normalizeFamilyMemberName } from '@/lib/utils/family-members';
 import { validateSession } from '@/lib/auth/helpers';
 import { addDays, differenceInCalendarDays, format, isValid, parseISO } from 'date-fns';
 import { RECURRENCE_CANCELLED_MARKER } from '@/lib/recurrence/constants';
@@ -20,9 +23,9 @@ interface EventUpdatesPayload {
   description?: string | null;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // SECURITY: Enforce session validation. 
+    // SECURITY: Enforce session validation.
     // Do NOT accept userId/supabaseUserId from params (IDOR risk).
     let session;
     try {
@@ -53,50 +56,20 @@ export async function GET() {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    // 2. Fetch Events for Household
-    const { data: events, error: eventsError } = await supabase
-      .from('events')
-      .select('*')
-      .eq('household_id', user.household_id)
-      .order('event_date', { ascending: true })
-      .order('event_time', { ascending: true });
+    // 2. Fetch Events for Household within the requested/default date window.
+    const { searchParams } = new URL(request.url);
+    const today = new Date();
+    const defaultStart = new Date(today.getFullYear(), today.getMonth() - 3, 1)
+      .toISOString()
+      .split('T')[0];
+    const defaultEnd = new Date(today.getFullYear(), today.getMonth() + 6, 0)
+      .toISOString()
+      .split('T')[0];
+    const startDate = searchParams.get('startDate') || defaultStart;
+    const endDate = searchParams.get('endDate') || defaultEnd;
 
-    if (eventsError) {
-      logError('[API/events] Failed to fetch events:', eventsError);
-      return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
-    }
-
-    const rawEvents = events || [];
-    const memberIds = Array.from(
-      new Set(
-        rawEvents
-          .map((event) => event.family_member_id as string | null | undefined)
-          .filter((id): id is string => typeof id === 'string' && id.length > 0)
-      )
-    );
-
-    if (memberIds.length === 0) {
-      return NextResponse.json({ success: true, data: rawEvents });
-    }
-
-    const { data: memberRows, error: membersError } = await supabase
-      .from('family_members')
-      .select('id, name')
-      .eq('household_id', user.household_id)
-      .in('id', memberIds);
-
-    if (membersError) {
-      logError('[API/events] Failed to fetch family member labels:', membersError);
-      return NextResponse.json({ success: true, data: rawEvents });
-    }
-
-    const nameById = new Map((memberRows || []).map((member) => [member.id, member.name]));
-    const hydratedEvents = rawEvents.map((event) => ({
-      ...event,
-      family_member: event.family_member_id
-        ? nameById.get(event.family_member_id) || event.family_member
-        : event.family_member,
-    }));
+    const rawEvents = await getEventsForHousehold(user.household_id, startDate, endDate);
+    const hydratedEvents = await hydrateEventsWithFamilyMembers(rawEvents, user.household_id);
 
     return NextResponse.json({ success: true, data: hydratedEvents });
 
@@ -177,12 +150,34 @@ export async function PUT(request: NextRequest) {
         return format(addDays(parsedStart, parentDurationDays), 'yyyy-MM-dd');
       })();
       const exceptionEnd = updates.end_date || defaultExceptionEnd;
-      const nextFamilyMember =
+      let nextFamilyMember =
         updates.family_member !== undefined ? updates.family_member : parentEvent.family_member;
-      const nextFamilyMemberId =
-        updates.family_member !== undefined ? null : (parentEvent.family_member_id || null);
+      let nextFamilyMemberId: string | null = parentEvent.family_member_id || null;
 
-      const exceptionPayload = {
+      // When the family member name changes, resolve it to the matching
+      // family_members row so the exception keeps its id linkage.
+      if (updates.family_member !== undefined) {
+        if (updates.family_member) {
+          const normalized = normalizeFamilyMemberName(updates.family_member);
+          if (normalized) {
+            const memberIdsByKey = await ensureAndResolveFamilyMemberIds(
+              user.household_id,
+              [normalized]
+            );
+            nextFamilyMember = normalized;
+            nextFamilyMemberId =
+              memberIdsByKey.get(familyMemberNameKey(normalized)) ?? null;
+          } else {
+            nextFamilyMember = null;
+            nextFamilyMemberId = null;
+          }
+        } else {
+          nextFamilyMember = null;
+          nextFamilyMemberId = null;
+        }
+      }
+
+      const exceptionRow = {
         title: updates.title ?? parentEvent.title,
         event_date: exceptionStart,
         end_date: exceptionEnd,
@@ -198,51 +193,25 @@ export async function PUT(request: NextRequest) {
         location: updates.location !== undefined ? updates.location : parentEvent.location,
         description: updates.description !== undefined ? updates.description : parentEvent.description,
         sync_source: 'local',
+        household_id: user.household_id,
+        created_by: userId,
         updated_at: new Date().toISOString(),
       };
 
-      const { data: existingException } = await supabase
+      const { data: exception, error: upsertError } = await supabase
         .from('events')
-        .select('id')
-        .eq('household_id', user.household_id)
-        .eq('parent_event_id', eventId)
-        .eq('event_date', occurrenceDate)
-        .eq('is_exception', true)
-        .maybeSingle();
-
-      if (existingException?.id) {
-        const { data: updatedException, error: updateError } = await supabase
-          .from('events')
-          .update(exceptionPayload)
-          .eq('id', existingException.id)
-          .eq('household_id', user.household_id)
-          .select('*')
-          .single();
-
-        if (updateError || !updatedException) {
-          return NextResponse.json({ error: 'Failed to update occurrence' }, { status: 500 });
-        }
-
-        log.info(`[API/events] Recurring exception ${existingException.id} updated by user ${userId}`);
-        return NextResponse.json({ success: true, data: updatedException });
-      }
-
-      const { data: insertedException, error: insertError } = await supabase
-        .from('events')
-        .insert({
-          ...exceptionPayload,
-          household_id: user.household_id,
-          created_by: userId,
+        .upsert(exceptionRow, {
+          onConflict: 'parent_event_id,event_date,is_exception',
         })
         .select('*')
         .single();
 
-      if (insertError || !insertedException) {
-        return NextResponse.json({ error: 'Failed to create occurrence exception' }, { status: 500 });
+      if (upsertError || !exception) {
+        return NextResponse.json({ error: 'Failed to update occurrence' }, { status: 500 });
       }
 
-      log.info(`[API/events] Recurring exception created for parent ${eventId} by user ${userId}`);
-      return NextResponse.json({ success: true, data: insertedException });
+      log.info(`[API/events] Recurring exception ${exception.id} upserted for parent ${eventId} by user ${userId}`);
+      return NextResponse.json({ success: true, data: exception });
     }
 
     // Update event or whole recurring series (security check via household_id)
@@ -326,7 +295,7 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Parent event not found' }, { status: 404 });
       }
 
-      const cancellationPayload = {
+      const cancellationRow = {
         title: parentEvent.title,
         event_date: occurrenceDate,
         end_date: occurrenceDate,
@@ -342,40 +311,19 @@ export async function DELETE(request: NextRequest) {
         location: parentEvent.location,
         description: RECURRENCE_CANCELLED_MARKER,
         sync_source: 'local',
+        household_id: user.household_id,
+        created_by: userId,
         updated_at: new Date().toISOString(),
       };
 
-      const { data: existingException } = await supabase
+      const { error: upsertError } = await supabase
         .from('events')
-        .select('id')
-        .eq('household_id', user.household_id)
-        .eq('parent_event_id', eventId)
-        .eq('event_date', occurrenceDate)
-        .eq('is_exception', true)
-        .maybeSingle();
+        .upsert(cancellationRow, {
+          onConflict: 'parent_event_id,event_date,is_exception',
+        });
 
-      if (existingException?.id) {
-        const { error: updateError } = await supabase
-          .from('events')
-          .update(cancellationPayload)
-          .eq('id', existingException.id)
-          .eq('household_id', user.household_id);
-
-        if (updateError) {
-          return NextResponse.json({ error: 'Failed to cancel occurrence' }, { status: 500 });
-        }
-      } else {
-        const { error: insertError } = await supabase
-          .from('events')
-          .insert({
-            ...cancellationPayload,
-            household_id: user.household_id,
-            created_by: userId,
-          });
-
-        if (insertError) {
-          return NextResponse.json({ error: 'Failed to cancel occurrence' }, { status: 500 });
-        }
+      if (upsertError) {
+        return NextResponse.json({ error: 'Failed to cancel occurrence' }, { status: 500 });
       }
 
       log.info(`[API/events] Recurring occurrence ${occurrenceDate} cancelled for parent ${eventId}`);
@@ -504,12 +452,31 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Event not found or access denied' }, { status: 404 });
       }
 
+      const remindAtDate = new Date(remindAt);
+
+      // Guard against duplicate pending reminders for the same event/user/time.
+      // The unique partial index idx_reminders_event_user_remind_at_unique prevents
+      // races; this check returns the existing row without a conflict error.
+      const { data: existingReminder } = await supabase
+        .from('reminders')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .eq('remind_at', remindAtDate.toISOString())
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (existingReminder) {
+        log.info(`[API/events] Existing pending reminder returned for event ${eventId}`);
+        return NextResponse.json({ success: true, data: existingReminder });
+      }
+
       // Create reminder
       const reminder = await createEventReminder(
         userId,
         eventId,
         eventTitle,
-        new Date(remindAt),
+        remindAtDate,
         customMessage
       );
 

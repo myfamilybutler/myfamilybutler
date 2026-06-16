@@ -8,6 +8,16 @@
 import type { ChatMessage } from '@/types';
 
 /**
+ * Recurrence object extracted by AI before conversion to RRULE
+ */
+export interface ParsedRecurrence {
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+  interval?: number;
+  by_day?: string[];
+  is_recurring: boolean;
+}
+
+/**
  * A parsed calendar event extracted from user message
  */
 export interface ParsedEvent {
@@ -19,6 +29,12 @@ export interface ParsedEvent {
   family_member?: string;
   location?: string;
   description?: string;
+  recurrence?: ParsedRecurrence;
+  recurrence_rule?: string; // RFC 5545 RRULE
+  recurrence_end?: string; // YYYY-MM-DD
+  action_items?: ActionItem;
+  is_cancelled?: boolean;
+  requires_confirmation?: boolean;
 }
 
 /**
@@ -124,7 +140,7 @@ export interface UnifiedInput {
 /**
  * Brain action after processing input
  */
-export type BrainAction = 'save' | 'draft' | 'ask' | 'none';
+export type BrainAction = 'save' | 'draft' | 'ask' | 'already_saved' | 'none';
 
 /**
  * Result from the Brain after processing any input type

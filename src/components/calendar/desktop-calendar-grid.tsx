@@ -13,7 +13,7 @@
  * - Hover tooltip with event details
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   format,
   startOfWeek,
@@ -96,7 +96,18 @@ export function DesktopCalendarGrid({
   const weekStartsOn = useMemo(() => getWeekStartsOn(i18n.language), [i18n.language]);
   const selectedMembers = useSelectedMembers();
   const isDragging = useRef(false);
-  
+  const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending drag timeout on unmount to avoid leaking timers.
+  useEffect(() => {
+    return () => {
+      if (dragTimeoutRef.current) {
+        clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // Support controlled or uncontrolled month
   const [internalMonth, setInternalMonth] = useState(new Date());
   const currentMonth = month ?? internalMonth;
@@ -131,8 +142,19 @@ export function DesktopCalendarGrid({
     [currentMonth, weekStartsOn]
   );
   
-  // Group events by date for efficient lookup
-  const eventsByDate = useMemo(() => groupEventsByDate(filteredEvents), [filteredEvents]);
+  // Group events by date for efficient lookup, clamped to the visible range
+  const visibleRange = useMemo(() => {
+    if (weeks.length === 0) return undefined;
+    return {
+      start: weeks[0][0],
+      end: weeks[weeks.length - 1][6],
+    };
+  }, [weeks]);
+
+  const eventsByDate = useMemo(
+    () => groupEventsByDate(filteredEvents, visibleRange),
+    [filteredEvents, visibleRange]
+  );
   
   // Get events for a specific day
   const getEventsForDay = useCallback((day: Date) => {
@@ -168,15 +190,21 @@ export function DesktopCalendarGrid({
     const threshold = 50;
     const velocity = info.velocity.x;
     const offset = info.offset.x;
-    
+
     if (velocity > 200 || offset > threshold) {
       handlePrevMonth();
     } else if (velocity < -200 || offset < -threshold) {
       handleNextMonth();
     }
-    
-    setTimeout(() => {
+
+    // Reset dragging state after a brief delay to prevent click.
+    // Clear any pending timeout first so only the latest drag leaks a timer.
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current);
+    }
+    dragTimeoutRef.current = setTimeout(() => {
       isDragging.current = false;
+      dragTimeoutRef.current = null;
     }, 100);
   }, [handlePrevMonth, handleNextMonth]);
   

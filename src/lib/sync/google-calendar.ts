@@ -5,10 +5,10 @@
  */
 
 import { getValidGoogleToken, getSelectedCalendar } from '../auth/vault';
-import { getAdminClient } from '../supabase/client';
 import type { Event } from '@/types';
 import { APP_CONFIG } from '@/lib/config';
 import { log, logError } from '@/lib/utils/logger';
+import { LRUCache } from '@/lib/utils/lru';
 
 // ===========================================
 // Constants
@@ -23,7 +23,7 @@ type GoogleAuthContext = {
   calendarId: string;
 };
 
-const authContextCache = new Map<string, { expiresAt: number; value: GoogleAuthContext }>();
+const authContextCache = new LRUCache<string, { expiresAt: number; value: GoogleAuthContext }>(1000);
 
 // ===========================================
 // Types
@@ -136,25 +136,6 @@ async function getGoogleAuthContext(userId: string): Promise<GoogleAuthContext |
   return value;
 }
 
-/**
- * Store Google Calendar event ID mapping in our database
- */
-async function storeGoogleEventId(
-  eventId: string,
-  googleEventId: string
-): Promise<void> {
-  const admin = getAdminClient();
-
-  const { error } = await admin
-    .from('events')
-    .update({ google_event_id: googleEventId } as Record<string, unknown>)
-    .eq('id', eventId);
-
-  if (error) {
-    log.info('[GoogleCalendar] Could not store Google event ID (column may not exist)');
-  }
-}
-
 // ===========================================
 // Create / Update / Delete Operations
 // ===========================================
@@ -195,8 +176,6 @@ export async function syncEventToGoogle(
 
     const createdEvent = await response.json() as { id: string };
     log.info(`[GoogleCalendar] Created event: ${createdEvent.id}`);
-
-    await storeGoogleEventId(event.id, createdEvent.id);
 
     return createdEvent.id;
   } catch (error) {

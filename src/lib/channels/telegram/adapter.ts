@@ -17,6 +17,9 @@ import type {
 import type { TelegramUpdate, TelegramMessage } from '@/types';
 import { isProviderEnabled } from '@/lib/channels/providers.config';
 import { logError } from '@/lib/utils/logger';
+import { assertDownloadedMediaIsSafe } from '@/lib/utils/media';
+import { fetchWithTimeout, isAllowedMediaUrl } from '@/lib/utils/fetch';
+import crypto from 'crypto';
 import {
   sendTelegramMessage,
   sendTelegramMessageWithUrlButton,
@@ -34,10 +37,30 @@ class TelegramAdapter implements ChannelAdapter {
     return isProviderEnabled('telegram');
   }
   
-  validateSignature(): boolean {
-    // Telegram uses secret token in URL, validated at route level
-    // For now, we trust the route-level validation
-    return true;
+  validateSignature(_rawBody: string, signature: string | null): boolean {
+    // Telegram sends the secret token in the X-Telegram-Bot-Api-Secret-Token header.
+    // The route should pass that value as `signature`. We compare it to the bot token
+    // (which is also the secret configured for the webhook) as defense-in-depth.
+    const secretToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!secretToken) {
+      if (process.env.NODE_ENV === 'production') {
+        logError('[Telegram] CRITICAL: TELEGRAM_BOT_TOKEN not set');
+      }
+      return process.env.NODE_ENV !== 'production';
+    }
+    if (!signature) {
+      return false;
+    }
+    try {
+      const signatureBuf = Buffer.from(signature);
+      const tokenBuf = Buffer.from(secretToken);
+      if (signatureBuf.length !== tokenBuf.length) {
+        return false;
+      }
+      return crypto.timingSafeEqual(signatureBuf, tokenBuf);
+    } catch {
+      return false;
+    }
   }
   
   async parseIncoming(payload: unknown): Promise<Omit<StandardMessage, 'userId' | 'householdId' | 'familyMembers' | 'isNewUser' | 'wasIdentityLinked'> | null> {
@@ -179,7 +202,7 @@ class TelegramAdapter implements ChannelAdapter {
     }
     
     // Step 1: Get file path from Telegram
-    const fileResponse = await fetch(
+    const fileResponse = await fetchWithTimeout(
       `https://api.telegram.org/bot${botToken}/getFile?file_id=${mediaRef.id}`
     );
     
@@ -194,17 +217,28 @@ class TelegramAdapter implements ChannelAdapter {
     }
     
     // Step 2: Download file
-    const mediaResponse = await fetch(
-      `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`,
-      { signal: AbortSignal.timeout(30000) }
-    );
+    const fileUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
+
+    // Validate the media URL to prevent SSRF before following it.
+    if (!(await isAllowedMediaUrl(fileUrl))) {
+      throw new Error('Media URL is not from an allowed endpoint');
+    }
+
+    const mediaResponse = await fetchWithTimeout(fileUrl);
     
     if (!mediaResponse.ok) {
       throw new Error(`Failed to download media: ${mediaResponse.status}`);
     }
     
     const arrayBuffer = await mediaResponse.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+
+    const validation = assertDownloadedMediaIsSafe(buffer, mediaRef.mimeType || 'application/octet-stream');
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    return buffer;
   }
 }
 

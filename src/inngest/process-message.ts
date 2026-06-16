@@ -40,12 +40,8 @@ export const processMessage = inngest.createFunction(
     id: 'process-message',
     name: 'Process Incoming Message',
     retries: 3,
-    // Rate limit: 100 messages per minute per channel
-    rateLimit: {
-      key: 'event.data.channel',
-      limit: 100,
-      period: '1m',
-    },
+    // Per-user rate limiting is enforced inside the gateway so a single
+    // busy channel cannot starve other users.
   },
   { event: 'message/received' },
   async ({ event, step }) => {
@@ -82,13 +78,17 @@ export const processMessage = inngest.createFunction(
     } catch (error) {
       logError('[Inngest] Message processing failed:', error);
       
-      // Add to dead letter queue after all retries exhausted
+      // Add to dead letter queue after all retries exhausted.
+      // Use the deterministic idempotency key as the logical message id so
+      // retries of the same webhook delivery do not create duplicate DLQ rows.
       await addToDeadLetterQueue(
         'message_processing',
         { channel, payload: payload as Record<string, unknown>, idempotencyKey },
         error as Error,
         0,
-        3
+        3,
+        idempotencyKey,
+        channel
       );
       
       throw error; // Re-throw to trigger Inngest retry
@@ -145,6 +145,7 @@ export async function enqueueMessage(
         receivedAt: new Date().toISOString(),
         idempotencyKey,
       },
+      idempotency: idempotencyKey,
     });
     
     return { queued: true, idempotencyKey };

@@ -15,7 +15,11 @@ const MAX_COUNT = 30;
  * Check rate limit using atomic database operations
  * Uses upsert with conflict resolution to prevent race conditions
  */
-export async function checkRateLimit(key: string): Promise<boolean> {
+export async function checkRateLimit(
+  key: string,
+  windowMs: number = WINDOW_MS,
+  maxCount: number = MAX_COUNT
+): Promise<boolean> {
   const admin = getAdminClient();
   const now = new Date();
 
@@ -23,8 +27,8 @@ export async function checkRateLimit(key: string): Promise<boolean> {
     // Use a transaction to ensure atomicity
     const { data, error } = await admin.rpc('check_rate_limit', {
       p_key: key,
-      p_window_ms: WINDOW_MS,
-      p_max_count: MAX_COUNT,
+      p_window_ms: windowMs,
+      p_max_count: maxCount,
       p_now: now.toISOString(),
     });
 

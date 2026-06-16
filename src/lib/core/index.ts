@@ -41,7 +41,7 @@ export {
   setConversationState,
   clearConversationState,
   setUndoState,
-  getUndoableEventId,
+  getUndoableEventIds,
   setDraftPendingState,
   getPendingDraftId,
   setClarifyingState,
