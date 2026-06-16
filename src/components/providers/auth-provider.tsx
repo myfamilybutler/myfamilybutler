@@ -11,7 +11,7 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-async function fetchDbUser(userId: string): Promise<import('@/stores/auth-store').DbUser | null> {
+async function fetchDbUser(): Promise<import('@/stores/auth-store').DbUser | null> {
   try {
     const response = await fetch('/api/user/me', {
       method: 'POST',
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (session?.user) {
         setUser(session.user);
-        const dbUser = await fetchDbUser(session.user.id);
+        const dbUser = await fetchDbUser();
         if (isMounted) {
           setDbUser(dbUser);
           setLoading(false);
