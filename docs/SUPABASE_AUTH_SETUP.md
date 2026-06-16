@@ -21,9 +21,9 @@ This migration:
 In your Supabase dashboard:
 
 1. Go to **Authentication → URL Configuration**.
-2. Set **Site URL** to your production domain, e.g. `https://app.myfamilybutler.com`.
+2. Set **Site URL** to your production domain, e.g. `https://myfamilybutler.com`.
 3. Add `/auth/callback` to **Redirect URLs**:
-   - `https://app.myfamilybutler.com/auth/callback`
+   - `https://myfamilybutler.com/auth/callback`
    - `http://localhost:3000/auth/callback` (for local development)
 
 ## 3. Enable email/password auth
@@ -60,7 +60,7 @@ By default, Supabase Auth sends emails from a shared Supabase domain. For brande
 ### Resend SMTP setup
 
 1. In Resend, create an API key with **Sending access**.
-2. Verify and configure your sending domain (e.g. `mail.myfamilybutler.com`).
+2. Verify and configure your sending domain (e.g. `mail.myfamilybutler.com` or `myfamilybutler.com`).
 3. In your Supabase dashboard, go to **Authentication → SMTP Settings**.
 4. Enable **Custom SMTP** and enter:
 
@@ -70,7 +70,7 @@ By default, Supabase Auth sends emails from a shared Supabase domain. For brande
 | Port | `465` (SSL) or `587` (STARTTLS) |
 | Username | `resend` |
 | Password | Your Resend API key |
-| Sender email | `noreply@mail.myfamilybutler.com` |
+| Sender email | `noreply@mail.myfamilybutler.com` (or `noreply@myfamilybutler.com`) |
 | Sender name | `MyFamilyButler` |
 
 5. Save and send a test email from the Supabase dashboard.
