@@ -16,11 +16,11 @@ MyFamilyButler.
 
 ### `npm run dev` fails to start
 
-- Verify `.env.local` exists:
+- Run the automated developer setup script:
   ```bash
-  cp .env.local.example .env.local
+  npm run setup
   ```
-- Fill in at least `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- Fill in any remaining required keys in `.env.local` if not using local Supabase.
 
 ### `npm run build` fails with environment errors
 

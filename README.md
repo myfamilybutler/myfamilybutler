@@ -79,8 +79,8 @@ cd myfamilybutler
 # Install dependencies
 npm install
 
-# Copy environment variables
-cp .env.local.example .env.local
+# Copy environment variables and seed the local database
+npm run setup
 
 # Run the development server
 npm run dev
@@ -186,6 +186,24 @@ Contributions are welcome! Please read:
 
 Looking for a place to start? Check issues labeled
 [`good first issue`](https://github.com/myfamilybutler/myfamilybutler/labels/good%20first%20issue).
+
+## 👥 Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Kkkakania"><img src="https://avatars.githubusercontent.com/u/43632943?v=4?s=100" width="100px;" alt="Weizhou Chen"/><br /><sub><b>Weizhou Chen</b></sub></a><br /><a href="#code-Kkkakania" title="Code">💻</a> <a href="#test-Kkkakania" title="Tests">⚠️</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## 🆘 Getting Help
 

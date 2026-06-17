@@ -100,7 +100,7 @@ Quick version:
 git clone https://github.com/myfamilybutler/myfamilybutler.git
 cd myfamilybutler
 npm install
-cp .env.local.example .env.local
+npm run setup  # Auto-configures env and seeds the database
 npm run dev
 ```
 

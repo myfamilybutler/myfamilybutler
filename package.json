@@ -23,6 +23,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
+    "setup": "node scripts/setup-dev.js",
     "refresh-types": "echo 'Run: npx supabase gen types typescript --project-id <your-project-id> > src/types/supabase.ts'"
   },
   "dependencies": {
