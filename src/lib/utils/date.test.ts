@@ -60,5 +60,15 @@ describe('date utils', () => {
       expect(extractDate('Someday after lunch')).toBeNull();
       expect(extractDate('Class party on 31.02.2026')).toBeNull();
     });
+
+    it('handles relative date edge cases', () => {
+      expect(extractDate('heute Morgen ist Schule', referenceDate)).toBe('2026-06-17');
+      expect(extractDate('Guten Morgen zusammen', referenceDate)).toBeNull();
+      expect(extractDate('Guten Morgen, morgen schulfrei', referenceDate)).toBe('2026-06-18');
+    });
+
+    it('extracts correct date when multiple matches exist and some are invalid', () => {
+      expect(extractDate('Invalid 2026-02-31 or valid 2026-07-05')).toBe('2026-07-05');
+    });
   });
 });

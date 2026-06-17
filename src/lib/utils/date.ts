@@ -15,7 +15,7 @@ const intlLocales: Record<SupportedLanguage, string> = {
   de: 'de-DE',
 };
 
-const ISO_DATE_RE = /\b(\d{4})-(\d{2})-(\d{2})\b/;
+const ISO_DATE_RE = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
 const DOT_DATE_RE = /(?:^|[^\d])(\d{1,2})\.(\d{1,2})\.(?:(\d{2}|\d{4}))?(?=$|[^\d])/g;
 const SLASH_DATE_RE = /(?:^|[^\d])(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})(?=$|[^\d])/g;
 
@@ -89,17 +89,19 @@ export function extractDate(text: string, referenceDate = new Date()): string | 
   const dotDate = extractDotDate(trimmed, referenceDate);
   if (dotDate) return dotDate;
 
-  const slashDate = extractSlashDate(trimmed);
+  const slashDate = extractSlashDate(trimmed, referenceDate);
   if (slashDate) return slashDate;
 
   return extractRelativeDate(trimmed, referenceDate);
 }
 
 function extractIsoDate(text: string): string | null {
-  const match = text.match(ISO_DATE_RE);
-  if (!match) return null;
+  for (const match of text.matchAll(ISO_DATE_RE)) {
+    const date = toIsoDate(Number(match[1]), Number(match[2]), Number(match[3]));
+    if (date) return date;
+  }
 
-  return toIsoDate(Number(match[1]), Number(match[2]), Number(match[3]));
+  return null;
 }
 
 function extractDotDate(text: string, referenceDate: Date): string | null {
@@ -112,11 +114,11 @@ function extractDotDate(text: string, referenceDate: Date): string | null {
   return null;
 }
 
-function extractSlashDate(text: string): string | null {
+function extractSlashDate(text: string, referenceDate: Date): string | null {
   for (const match of text.matchAll(SLASH_DATE_RE)) {
     const first = Number(match[1]);
     const second = Number(match[2]);
-    const year = normalizeYear(match[3], new Date());
+    const year = normalizeYear(match[3], referenceDate);
     const month = first > 12 && second <= 12 ? second : first;
     const day = first > 12 && second <= 12 ? first : second;
     const date = toIsoDate(year, month, day);
@@ -129,16 +131,19 @@ function extractSlashDate(text: string): string | null {
 function extractRelativeDate(text: string, referenceDate: Date): string | null {
   const normalized = text.toLowerCase();
 
+  // Check 'today/heute' first so that phrases like 'heute morgen' (this morning)
+  // are parsed as today, rather than matching 'morgen' (tomorrow).
+  if (/\b(today|heute)\b/.test(normalized)) {
+    return format(referenceDate, 'yyyy-MM-dd');
+  }
+
   if (/\b(day after tomorrow|uebermorgen|\u00fcbermorgen)\b/.test(normalized)) {
     return format(addDays(referenceDate, 2), 'yyyy-MM-dd');
   }
 
-  if (/\b(tomorrow|morgen)\b/.test(normalized)) {
+  // Use negative lookbehind to avoid matching 'morgen' when part of 'guten morgen' greeting.
+  if (/(?<!guten\s+)\b(tomorrow|morgen)\b/.test(normalized)) {
     return format(addDays(referenceDate, 1), 'yyyy-MM-dd');
-  }
-
-  if (/\b(today|heute)\b/.test(normalized)) {
-    return format(referenceDate, 'yyyy-MM-dd');
   }
 
   return null;
