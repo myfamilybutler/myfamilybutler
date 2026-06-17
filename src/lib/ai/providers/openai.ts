@@ -123,10 +123,11 @@ export async function parseReminderIntent(
 export async function parseEventWithClarification(
   message: string,
   conversationHistory?: ChatMessage[],
-  familyMembers?: string[]
+  familyMembers?: string[],
+  lang: 'de' | 'en' = 'de'
 ): Promise<EventExtractionResult> {
   const openai = getOpenAI();
-  const systemPrompt = buildEventExtractorPrompt(familyMembers, message);
+  const systemPrompt = buildEventExtractorPrompt(familyMembers, message, lang);
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },

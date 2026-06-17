@@ -22,7 +22,7 @@ export async function GET() {
     // Get user data
     const { data: user, error: userError } = await admin
       .from('users')
-      .select('id, linked_email, phone_number, display_name, telegram_chat_id, created_at')
+      .select('id, linked_email, phone_number, display_name, telegram_chat_id, language, created_at')
       .eq('id', userId)
       .single();
 
@@ -35,6 +35,7 @@ export async function GET() {
       displayName: user.display_name || '',
       email: user.linked_email || null,
       phoneNumber: user.phone_number || null,
+      language: user.language || 'en',
       connections: {
         whatsapp: !!user.phone_number,
         telegram: !!user.telegram_chat_id,
@@ -67,7 +68,7 @@ export async function PUT(request: NextRequest) {
     }
     
     const { userId } = session;
-    const { displayName, phoneNumber, email } = await request.json();
+    const { displayName, phoneNumber, email, language } = await request.json();
     const admin = getAdminClient();
 
     // Get user using validated session userId
@@ -84,6 +85,14 @@ export async function PUT(request: NextRequest) {
     // Build update object
     const updateData: Record<string, unknown> = {};
     if (displayName !== undefined) updateData.display_name = displayName;
+
+    if (language !== undefined) {
+      if (language === 'de' || language === 'en') {
+        updateData.language = language;
+      } else {
+        return NextResponse.json({ error: 'Invalid language preference' }, { status: 400 });
+      }
+    }
 
     // Normalize and validate email
     if (email !== undefined) {

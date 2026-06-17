@@ -135,6 +135,8 @@ export interface UnifiedInput {
   conversationHistory?: ChatMessage[];
   /** Phone number for WhatsApp responses */
   phoneNumber?: string;
+  /** Language preference of the user */
+  language?: 'de' | 'en';
 }
 
 /**

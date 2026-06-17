@@ -29,6 +29,7 @@ export interface User {
   subscription_status: 'free' | 'trial' | 'active' | 'cancelled' | 'expired';
   stripe_customer_id?: string;
   identity_linked_at?: string;  // When additional identifiers were linked
+  language?: 'de' | 'en' | null;
   created_at: string;
   updated_at: string;
 }

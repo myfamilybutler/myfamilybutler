@@ -244,7 +244,8 @@
         "displayName": "Anzeigename",
         "email": "E-Mail",
         "phone": "Telefonnummer",
-        "telegram": "Telegram"
+        "telegram": "Telegram",
+        "language": "Bevorzugte Sprache"
       },
       "noName": "Kein Name gesetzt",
       "notSet": "Nicht gesetzt",
@@ -271,20 +272,24 @@
         "sendVerification": "Verifizierung senden",
         "changeDisplayName": "Anzeigename ändern",
         "displayNameDescription": "Wie sollen wir Sie nennen? Dieser Name ist für Ihre Familienmitglieder sichtbar.",
-        "displayNamePlaceholder": "Namen eingeben"
+        "displayNamePlaceholder": "Geben Sie Ihren Namen ein",
+        "changeLanguage": "Bevorzugte Sprache ändern",
+        "languageDescription": "Wählen Sie Ihre bevorzugte Sprache für die Webanwendung und automatisierte Chat-Antworten.",
+        "languageLabel": "Sprache"
       },
       "toast": {
         "nameUpdated": "Name erfolgreich aktualisiert",
         "nameUpdateFailed": "Name konnte nicht aktualisiert werden",
-        "verificationSent": "Verifizierungs-E-Mail gesendet. Bitte Posteingang prüfen.",
+        "verificationSent": "Verifizierungs-E-Mail gesendet. Bitte überprüfen Sie Ihren Posteingang.",
         "verificationSendFailed": "Verifizierungs-E-Mail konnte nicht gesendet werden",
-        "emailRequired": "Bitte eine E-Mail-Adresse eingeben",
-        "emailInvalid": "Bitte eine gültige E-Mail-Adresse eingeben",
+        "emailRequired": "Bitte geben Sie eine E-Mail-Adresse ein",
+        "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
         "emailUpdateFailed": "E-Mail konnte nicht aktualisiert werden",
-        "networkRetry": "Netzwerkfehler - bitte erneut versuchen",
-        "phoneRequired": "Bitte eine Telefonnummer eingeben",
+        "networkRetry": "Netzwerkfehler - Bitte versuchen Sie es erneut",
+        "phoneRequired": "Bitte geben Sie eine Telefonnummer ein",
         "phoneUpdated": "Telefonnummer aktualisiert",
-        "phoneUpdateFailed": "Telefonnummer konnte nicht aktualisiert werden"
+        "phoneUpdateFailed": "Telefonnummer konnte nicht aktualisiert werden",
+        "languageUpdated": "Bevorzugte Sprache erfolgreich aktualisiert"
       }
     },
     "aiConfiguration": {

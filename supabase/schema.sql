@@ -26,6 +26,7 @@ CREATE TABLE public.users (
   is_admin BOOLEAN DEFAULT FALSE,
   firebase_uid TEXT,
   onboarding_completed BOOLEAN DEFAULT FALSE,
+  language TEXT DEFAULT 'en' CHECK (language IN ('en', 'de')),
   subscription_status TEXT DEFAULT 'free' CHECK (subscription_status IN ('free', 'trial', 'active', 'cancelled', 'expired')),
   stripe_customer_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),

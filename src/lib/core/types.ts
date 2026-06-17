@@ -103,6 +103,9 @@ export interface StandardMessage {
   
   /** Whether identity was just linked (e.g., phone added to existing email account) */
   wasIdentityLinked: boolean;
+
+  /** Language preference of the user */
+  language?: 'de' | 'en' | null;
 }
 
 // ===========================================

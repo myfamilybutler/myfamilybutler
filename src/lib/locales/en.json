@@ -244,7 +244,8 @@
         "displayName": "Display Name",
         "email": "Email",
         "phone": "Phone Number",
-        "telegram": "Telegram"
+        "telegram": "Telegram",
+        "language": "Preferred Language"
       },
       "noName": "No name set",
       "notSet": "Not set",
@@ -271,7 +272,10 @@
         "sendVerification": "Send Verification",
         "changeDisplayName": "Change Display Name",
         "displayNameDescription": "How should we call you? This name will be visible to your family members.",
-        "displayNamePlaceholder": "Enter your name"
+        "displayNamePlaceholder": "Enter your name",
+        "changeLanguage": "Change Preferred Language",
+        "languageDescription": "Select your preferred language for the web application and automated chat responses.",
+        "languageLabel": "Language"
       },
       "toast": {
         "nameUpdated": "Name updated successfully",
@@ -284,7 +288,8 @@
         "networkRetry": "Network error - please try again",
         "phoneRequired": "Please enter a phone number",
         "phoneUpdated": "Phone number updated",
-        "phoneUpdateFailed": "Failed to update phone number"
+        "phoneUpdateFailed": "Failed to update phone number",
+        "languageUpdated": "Preferred language updated successfully"
       }
     },
     "aiConfiguration": {

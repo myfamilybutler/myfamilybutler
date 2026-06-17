@@ -29,31 +29,32 @@ const BRAIN_CONFIG = {
  * Process any input through the unified Brain
  */
 export async function processInput(input: UnifiedInput): Promise<BrainResult> {
-  log.info(`[Brain] Processing ${input.type} for user ${input.userId}`);
+  const lang = input.language || 'de';
+  log.info(`[Brain] Processing ${input.type} for user ${input.userId} in language: ${lang}`);
   
   try {
     // Route based on input type
     switch (input.type) {
       case 'text':
-        return processText(input.content || '', input);
+        return processText(input.content || '', input, lang);
         
       case 'image':
         if (!input.attachment) {
           return { action: 'none', events: [], confidence: 0, error: 'No image provided' };
         }
-        return processImage(input.attachment, input);
+        return processImage(input.attachment, input, lang);
         
       case 'voice':
         if (!input.attachment) {
           return { action: 'none', events: [], confidence: 0, error: 'No voice message provided' };
         }
-        return processVoice(input.attachment, input);
+        return processVoice(input.attachment, input, lang);
         
       case 'document':
         if (!input.attachment) {
           return { action: 'none', events: [], confidence: 0, error: 'No document provided' };
         }
-        return processDocument();
+        return processDocument(lang);
         
       default:
         return { action: 'none', events: [], confidence: 0, error: `Unknown type: ${input.type}` };
@@ -72,16 +73,17 @@ export async function processInput(input: UnifiedInput): Promise<BrainResult> {
 /**
  * Process text input
  */
-async function processText(text: string, input: UnifiedInput): Promise<BrainResult> {
+async function processText(text: string, input: UnifiedInput, lang: 'de' | 'en'): Promise<BrainResult> {
   const extraction = await parseEventWithFallback(
     text,
     input.conversationHistory,
     input.familyMembers,
-    input.householdId
+    input.householdId,
+    lang
   );
   
   const confidence = extraction.confidence ?? (extraction.events.length > 0 ? 0.75 : 0.3);
-  const { action, clarificationQuestion } = determineAction(extraction, confidence);
+  const { action, clarificationQuestion } = determineAction(extraction, confidence, lang);
   
   log.info(`[Brain] Text: ${extraction.events.length} events, confidence: ${confidence}, action: ${action}`);
   
@@ -97,7 +99,11 @@ async function processText(text: string, input: UnifiedInput): Promise<BrainResu
 /**
  * Process image input - extract events directly via vision
  */
-async function processImage(attachment: { buffer: Buffer; mimeType: string }, input: UnifiedInput): Promise<BrainResult> {
+async function processImage(
+  attachment: { buffer: Buffer; mimeType: string },
+  input: UnifiedInput,
+  lang: 'de' | 'en'
+): Promise<BrainResult> {
   const result = await processVisionMessageInternal({
     userId: input.userId,
     householdId: input.householdId,
@@ -136,7 +142,8 @@ async function processImage(attachment: { buffer: Buffer; mimeType: string }, in
 
   const { action, clarificationQuestion } = determineAction(
     { events, needs_clarification: result.clarificationNeeded ?? false, intent_type: 'calendar_event', confidence },
-    confidence
+    confidence,
+    lang
   );
 
   log.info(`[Brain] Image: ${events.length} events, confidence: ${confidence}, action: ${action}`);
@@ -153,7 +160,11 @@ async function processImage(attachment: { buffer: Buffer; mimeType: string }, in
 /**
  * Process voice input - transcribe then extract
  */
-async function processVoice(attachment: { buffer: Buffer; mimeType: string }, input: UnifiedInput): Promise<BrainResult> {
+async function processVoice(
+  attachment: { buffer: Buffer; mimeType: string },
+  input: UnifiedInput,
+  lang: 'de' | 'en'
+): Promise<BrainResult> {
   const voiceResult = await processVoiceMessageInternal({
     audioBuffer: attachment.buffer,
     mimeType: attachment.mimeType,
@@ -164,19 +175,21 @@ async function processVoice(attachment: { buffer: Buffer; mimeType: string }, in
   }
   
   // After transcription, treat as text
-  return processText(voiceResult.normalizedText, input);
+  return processText(voiceResult.normalizedText, input, lang);
 }
 
 /**
  * Process document input (PDF, etc.)
  * Documents are not yet supported; ask the user to type the relevant dates.
  */
-async function processDocument(): Promise<BrainResult> {
+async function processDocument(lang: 'de' | 'en'): Promise<BrainResult> {
   return {
     action: 'ask',
     events: [],
     confidence: 0,
-    clarificationQuestion: 'Dokumente kann ich noch nicht direkt verarbeiten. Kannst du mir die wichtigsten Termine als Text schicken?',
+    clarificationQuestion: lang === 'de'
+      ? 'Dokumente kann ich noch nicht direkt verarbeiten. Kannst du mir die wichtigsten Termine als Text schicken?'
+      : 'I cannot process documents directly yet. Can you please send the most important dates as text?',
   };
 }
 
@@ -185,11 +198,12 @@ async function processDocument(): Promise<BrainResult> {
  */
 function determineAction(
   extraction: EventExtractionResult,
-  confidence: number
+  confidence: number,
+  lang: 'de' | 'en'
 ): { action: BrainResult['action']; clarificationQuestion?: string } {
   if (extraction.events.length === 0) {
     if (extraction.needs_clarification) {
-      return { action: 'ask', clarificationQuestion: extraction.clarification_question };
+      return { action: 'ask', clarificationQuestion: extraction.clarification_question ?? undefined };
     }
     return { action: 'none' };
   }
@@ -204,7 +218,10 @@ function determineAction(
   
   return {
     action: 'ask',
-    clarificationQuestion: extraction.clarification_question ?? 
-      'Ich bin mir nicht sicher, ob ich das richtig verstanden habe. Könntest du mir mehr Details geben?',
+    clarificationQuestion: extraction.clarification_question ?? (
+      lang === 'de'
+        ? 'Ich bin mir nicht sicher, ob ich das richtig verstanden habe. Könntest du mir mehr Details geben?'
+        : 'I\'m not sure I understood that correctly. Could you please give me more details?'
+    ),
   };
 }

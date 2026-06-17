@@ -97,10 +97,12 @@ export async function processMessage(
   
   if (!identityResult.user) {
     logError(`[Gateway:${requestId}] Failed to resolve identity`);
-    // Send error response
+    const senderId = partialMessage.metadata.senderId || '';
+    const isGermanPhone = senderId.startsWith('+43') || senderId.startsWith('+49') || senderId.startsWith('+41');
+    const fallbackLang = isGermanPhone ? 'de' : 'en';
     await adapter.sendResponse(partialMessage.metadata, {
-      text: getTemplate('identityError', 'de'),
-      metadata: { language: 'de', shouldLog: false },
+      text: getTemplate('identityError', fallbackLang),
+      metadata: { language: fallbackLang, shouldLog: false },
     });
     return { processed: false, reason: 'error' };
   }
@@ -108,10 +110,11 @@ export async function processMessage(
   const user = identityResult.user;
   
   // Step 7: Rate limiting check
+  const userLang = (user.language as 'de' | 'en') || 'en';
   if (!options.skipRateLimit && !(await checkRateLimit(`gateway:${user.id}`))) {
     const rateLimitResponse: StandardResponse = {
-      text: getTemplate('rateLimitReached', 'de'),
-      metadata: { language: 'de', shouldLog: false },
+      text: getTemplate('rateLimitReached', userLang),
+      metadata: { language: userLang, shouldLog: false },
     };
     await adapter.sendResponse(partialMessage.metadata, rateLimitResponse);
     return { processed: false, reason: 'rate_limited' };
@@ -135,6 +138,7 @@ export async function processMessage(
     familyMembers,
     isNewUser: identityResult.isNewUser,
     wasIdentityLinked: identityResult.wasLinked,
+    language: user.language as 'de' | 'en' | null,
   };
   
   // Step 10: Get conversation state

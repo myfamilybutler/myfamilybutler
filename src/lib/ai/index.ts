@@ -48,7 +48,8 @@ export async function parseEventWithFallback(
   message: string,
   conversationHistory?: ChatMessage[],
   familyMembers?: string[],
-  householdId?: string | null
+  householdId?: string | null,
+  lang: 'de' | 'en' = 'de'
 ): Promise<EventExtractionResultWithMeta> {
   const startTime = performance.now();
   
@@ -58,7 +59,7 @@ export async function parseEventWithFallback(
       try {
         log.info('[AI] Parsing with Gemini (primary)');
         const result = await Promise.race([
-          parseEventWithGemini(message, conversationHistory, familyMembers, householdId),
+          parseEventWithGemini(message, conversationHistory, familyMembers, householdId, lang),
           new Promise<never>((_, reject) => 
             setTimeout(() => reject(new Error('timeout')), AI_CONFIG.timeoutMs)
           )
@@ -91,7 +92,7 @@ export async function parseEventWithFallback(
   if (AI_CONFIG.enableFallback) {
     try {
       log.info('[AI] Falling back to OpenAI GPT-4o-mini');
-      const result = await parseEventWithClarification(message, conversationHistory, familyMembers);
+      const result = await parseEventWithClarification(message, conversationHistory, familyMembers, lang);
       return {
         ...result,
         _meta: {

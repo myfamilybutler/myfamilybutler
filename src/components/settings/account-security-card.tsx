@@ -8,7 +8,8 @@ import {
   Check,
   Loader2,
   Shield,
-  User
+  User,
+  Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchWithTimeout } from '@/lib/utils/fetch';
@@ -36,7 +37,7 @@ interface AccountSecurityCardProps {
 }
 
 export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: AccountSecurityCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Get email from dbUser (linked_email) as primary source, fallback to auth user
   const { user } = useAuthStore();
   const email = dbUser?.linked_email || user?.email || null;
@@ -59,6 +60,15 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
   const [newPhone, setNewPhone] = useState('');
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [newEmail, setNewEmail] = useState('');
+  const [languageDialogOpen, setLanguageDialogOpen] = useState(false);
+  const [newLanguage, setNewLanguage] = useState<'de' | 'en'>(dbUser?.language === 'de' ? 'de' : 'en');
+
+  // Sync language with dbUser prop changes
+  useEffect(() => {
+    if (dbUser?.language) {
+      setNewLanguage(dbUser.language as 'de' | 'en');
+    }
+  }, [dbUser?.language]);
 
   // Handle display name update
   const handleSaveDisplayName = async () => {
@@ -80,8 +90,35 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
         toast.error(data.error || t('settings.accountSecurity.toast.nameUpdateFailed'));
       }
     } catch (error) {
-      logError('Update error:', error);
+      logError('Update name error:', error);
       toast.error(t('settings.accountSecurity.toast.nameUpdateFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle language update
+  const handleSaveLanguage = async () => {
+    setSaving(true);
+    try {
+      const res = await fetchWithTimeout('/api/account', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: newLanguage }),
+      });
+
+      if (res.ok) {
+        toast.success(t('settings.accountSecurity.toast.languageUpdated'));
+        setLanguageDialogOpen(false);
+        i18n.changeLanguage(newLanguage);
+        onUpdate?.();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to update language');
+      }
+    } catch (error) {
+      logError('Update language error:', error);
+      toast.error(t('settings.accountSecurity.toast.networkRetry'));
     } finally {
       setSaving(false);
     }
@@ -376,6 +413,30 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
             </div>
             <div className="hidden sm:block w-px h-8" />
           </div>
+
+          {/* Language Selection */}
+          <div 
+            onClick={() => {
+              setNewLanguage(dbUser?.language === 'de' ? 'de' : 'en');
+              setLanguageDialogOpen(true);
+            }}
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/50 rounded-lg gap-4 hover:bg-muted transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0 w-10 h-10 bg-amber-100 dark:bg-amber-950 rounded-full flex items-center justify-center group-hover:bg-amber-200 dark:group-hover:bg-amber-900 transition-colors">
+                <Globe className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="min-w-0 overflow-hidden">
+                <p className="font-medium text-foreground leading-tight">{t('settings.accountSecurity.fields.language')}</p>
+                <div className="flex items-center h-5 mt-0.5">
+                  <span className="text-sm text-muted-foreground truncate">
+                    {dbUser?.language === 'de' ? t('common.german') : t('common.english')}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="hidden sm:block w-px h-8" />
+          </div>
         </CardContent>
       </Card>
 
@@ -486,6 +547,44 @@ export function AccountSecurityCard({ dbUser, loading: propLoading, onUpdate }: 
               {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveDisplayName} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Language Dialog */}
+      <Dialog open={languageDialogOpen} onOpenChange={setLanguageDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              {t('settings.accountSecurity.dialog.changeLanguage')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('settings.accountSecurity.dialog.languageDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="language-select">{t('settings.accountSecurity.dialog.languageLabel')}</Label>
+              <select
+                id="language-select"
+                value={newLanguage}
+                onChange={(e) => setNewLanguage(e.target.value as 'de' | 'en')}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="de">{t('common.german')}</option>
+                <option value="en">{t('common.english')}</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLanguageDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleSaveLanguage} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {t('common.save')}
             </Button>

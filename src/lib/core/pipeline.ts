@@ -253,7 +253,7 @@ export async function processMessage(context: PipelineContext): Promise<Pipeline
 
 async function handleNewUser(context: PipelineContext): Promise<PipelineResult> {
   const { message, startTime } = context;
-  const lang = message.content ? detectLanguage(message.content) : 'de';
+  const lang = message.language || (message.content ? detectLanguage(message.content) : 'de');
 
   const welcomeMessage = getTemplate('welcome', lang);
 
@@ -298,7 +298,7 @@ async function handleDraftPending(
   content: string
 ): Promise<PipelineResult | null> {
   const { message, conversationState, startTime } = context;
-  const lang = detectLanguage(content);
+  const lang = message.language || detectLanguage(content);
 
   const draftBundleId = conversationState.draftBundleId;
   const legacyDraftId = conversationState.draftEventId;
@@ -804,7 +804,7 @@ async function getDashboardLink(message: StandardMessage): Promise<string | null
 
 async function processWithBrain(context: PipelineContext): Promise<PipelineResult> {
   const { message, startTime, conversationState } = context;
-  const lang = message.content ? detectLanguage(message.content) : 'de';
+  const lang = message.language || (message.content ? detectLanguage(message.content) : 'de');
 
   const history = await getMessageHistory(message.userId, 10);
   const dedupedHistory = history.filter(msg =>
@@ -844,6 +844,7 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
       conversationHistory: chatHistory,
       phoneNumber: message.metadata.senderId,
       messageId: message.id,
+      language: lang,
     });
 
     return handleBrainResult(brainResult, context, lang);
@@ -857,7 +858,8 @@ async function processWithBrain(context: PipelineContext): Promise<PipelineResul
     extractionInput,
     chatHistory,
     message.familyMembers,
-    message.householdId
+    message.householdId,
+    lang
   );
 
   const msgType = message.type as string;

@@ -106,10 +106,11 @@ export async function parseEventWithGemini(
   message: string,
   conversationHistory?: ChatMessage[],
   familyMembers?: string[],
-  householdId?: string | null
+  householdId?: string | null,
+  lang: 'de' | 'en' = 'de'
 ): Promise<EventExtractionResult> {
   const model = await getGemini(householdId);
-  const systemPrompt = buildEventExtractorPrompt(familyMembers, message);
+  const systemPrompt = buildEventExtractorPrompt(familyMembers, message, lang);
 
   // Build conversation context
   let fullPrompt = systemPrompt + '\n\n';
@@ -121,7 +122,8 @@ export async function parseEventWithGemini(
     }
   }
   
-  fullPrompt += `User: ${message}\n\nAntworte NUR mit JSON:`;
+  const replyPrompt = lang === 'de' ? 'Antworte NUR mit JSON:' : 'Reply ONLY with JSON:';
+  fullPrompt += `User: ${message}\n\n${replyPrompt}`;
 
   try {
     const result = await model.generateContent(fullPrompt);

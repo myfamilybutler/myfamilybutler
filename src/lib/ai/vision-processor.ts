@@ -14,7 +14,7 @@ import {
   type VisionExtractionResponse,
   type VisionEvent,
 } from '@/lib/ai/agents/vision-agent';
-import { createEventsBulk } from '@/lib/supabase';
+import { createEventsBulk, getAdminClient } from '@/lib/supabase';
 import { isAmbiguousFamilyMemberName } from '@/lib/utils/family-members';
 import { log, logError } from '@/lib/utils/logger';
 import { getHouseholdGeminiKey } from '@/lib/ai/providers/gemini';
@@ -117,7 +117,8 @@ async function getGeminiModel(householdId?: string | null) {
 async function extractWithGemini(
   imageBuffer: Buffer,
   mimeType: string = 'image/jpeg',
-  householdId?: string | null
+  householdId?: string | null,
+  lang: 'de' | 'en' = 'de'
 ): Promise<VisionExtractionResponse | null> {
   const model = await getGeminiModel(householdId);
 
@@ -127,11 +128,15 @@ async function extractWithGemini(
   }
 
   const base64Image = imageBuffer.toString('base64');
-  const systemPrompt = buildVisionAgentPrompt();
+  const systemPrompt = buildVisionAgentPrompt(lang);
+
+  const userPrompt = lang === 'de'
+    ? '\n\nBitte analysiere dieses Bild und extrahiere alle Kalendertermine. Antworte NUR mit JSON.'
+    : '\n\nPlease analyze this image and extract all calendar events. Respond ONLY with JSON.';
 
   try {
     const result = await model.generateContent([
-      systemPrompt + '\n\nBitte analysiere dieses Bild und extrahiere alle Kalendertermine. Antworte NUR mit JSON.',
+      systemPrompt + userPrompt,
       {
         inlineData: {
           mimeType: mimeType,
@@ -173,11 +178,16 @@ async function extractWithGemini(
 
 async function extractWithOpenAI(
   imageBuffer: Buffer,
-  mimeType: string = 'image/jpeg'
+  mimeType: string = 'image/jpeg',
+  lang: 'de' | 'en' = 'de'
 ): Promise<VisionExtractionResponse> {
   const base64Image = imageBuffer.toString('base64');
   const dataUri = `data:${mimeType};base64,${base64Image}`;
-  const systemPrompt = buildVisionAgentPrompt();
+  const systemPrompt = buildVisionAgentPrompt(lang);
+
+  const userPromptText = lang === 'de'
+    ? 'Bitte analysiere dieses Bild und extrahiere alle Kalendertermine. Antworte NUR mit JSON.'
+    : 'Please analyze this image and extract all calendar events. Respond ONLY with JSON.';
 
   const response = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
@@ -186,7 +196,7 @@ async function extractWithOpenAI(
       {
         role: 'user',
         content: [
-          { type: 'text', text: 'Bitte analysiere dieses Bild und extrahiere alle Kalendertermine. Antworte NUR mit JSON.' },
+          { type: 'text', text: userPromptText },
           { type: 'image_url', image_url: { url: dataUri, detail: 'high' } },
         ],
       },
@@ -227,17 +237,18 @@ async function extractWithOpenAI(
 async function extractEvents(
   imageBuffer: Buffer,
   mimeType: string = 'image/jpeg',
-  householdId?: string | null
+  householdId?: string | null,
+  lang: 'de' | 'en' = 'de'
 ): Promise<VisionExtractionResponse> {
   // Try Gemini first (free/cheap)
-  const geminiResult = await extractWithGemini(imageBuffer, mimeType, householdId);
+  const geminiResult = await extractWithGemini(imageBuffer, mimeType, householdId, lang);
   if (geminiResult) {
     return geminiResult;
   }
 
   // Fallback to OpenAI
   log.info('[Vision] Falling back to OpenAI');
-  return await extractWithOpenAI(imageBuffer, mimeType);
+  return await extractWithOpenAI(imageBuffer, mimeType, lang);
 }
 
 // ===========================================
@@ -260,11 +271,19 @@ export async function processVisionMessageInternal(
     };
   }
 
-  log.info(`[Vision] Processing image for user ${userId}: ${imageBuffer.length} bytes`);
+  const admin = getAdminClient();
+  const { data: userData } = await admin
+    .from('users')
+    .select('language')
+    .eq('id', userId)
+    .maybeSingle();
+  const lang = userData?.language === 'de' ? 'de' : 'en';
+
+  log.info(`[Vision] Processing image for user ${userId} (lang: ${lang}): ${imageBuffer.length} bytes`);
 
   try {
     // Extract events using AI vision
-    const extraction = await extractEvents(imageBuffer, mimeType, householdId);
+    const extraction = await extractEvents(imageBuffer, mimeType, householdId, lang);
 
     if (!extraction.success || extraction.events.length === 0) {
       return {

@@ -1,30 +1,45 @@
 /**
  * Locale Knowledge Base - Simplified
  * 
- * Static Austrian (de-AT) configuration.
- * No dynamic locale switching - single locale support.
+ * Static Austrian (de-AT) and English (en) configurations.
+ * Supports dynamic locale switching based on user language preference.
  */
 
 import { deAT } from './de-AT';
-import type { TermDefinition, InputExample } from './types';
+import { enConfig } from './en';
+import type { TermDefinition, InputExample, LocaleConfig } from './types';
 
-// Re-export the static locale configuration
+// Re-export the static locale configuration for backward compatibility
 export const localeConfig = deAT;
+
+/**
+ * Get the locale configuration based on language preference
+ */
+export function getLocaleConfig(lang?: string | null): LocaleConfig {
+  if (!lang) return deAT;
+  const cleanLang = lang.toLowerCase().trim();
+  if (cleanLang.startsWith('en')) {
+    return enConfig;
+  }
+  return deAT;
+}
 
 /**
  * Get terminology for a specific category
  */
-export function getTerminology(category: keyof typeof localeConfig.terminology): Record<string, TermDefinition> {
-  return localeConfig.terminology[category];
+export function getTerminology(category: keyof typeof deAT.terminology, lang?: string | null): Record<string, TermDefinition> {
+  const locale = getLocaleConfig(lang);
+  return locale.terminology[category];
 }
 
 /**
  * Generate terminology list for AI prompts
  */
-export function getTerminologyForPrompt(category?: keyof typeof localeConfig.terminology): string {
+export function getTerminologyForPrompt(category?: keyof typeof deAT.terminology, lang?: string | null): string {
+  const locale = getLocaleConfig(lang);
   const terms = category 
-    ? getTerminology(category) 
-    : (Object.values(localeConfig.terminology) as Record<string, TermDefinition>[])
+    ? locale.terminology[category] 
+    : (Object.values(locale.terminology) as Record<string, TermDefinition>[])
         .reduce((acc, cat) => ({ ...acc, ...cat }), {} as Record<string, TermDefinition>);
 
   return Object.entries(terms)
@@ -35,8 +50,9 @@ export function getTerminologyForPrompt(category?: keyof typeof localeConfig.ter
 /**
  * Get cultural context for AI prompts
  */
-export function getCulturalContextForPrompt(): string {
-  return localeConfig.culturalContext
+export function getCulturalContextForPrompt(lang?: string | null): string {
+  const locale = getLocaleConfig(lang);
+  return locale.culturalContext
     .map(ctx => `- ${ctx}`)
     .join('\n');
 }
@@ -45,8 +61,9 @@ export function getCulturalContextForPrompt(): string {
  * Format examples for few-shot prompting
  * Smarter version: Attempts to pick relevant examples based on input text keywords
  */
-export function getExamplesForPrompt(maxExamples: number = 3, inputText?: string): string {
-  let examples = localeConfig.examples;
+export function getExamplesForPrompt(maxExamples: number = 3, inputText?: string, lang?: string | null): string {
+  const locale = getLocaleConfig(lang);
+  let examples = locale.examples;
 
   // Simple keyword-based relevance matching
   if (inputText) {
@@ -67,6 +84,7 @@ export function getExamplesForPrompt(maxExamples: number = 3, inputText?: string
     return '';
   }
 
+  const isGerman = locale.id.startsWith('de');
   const formatted = selected.map((ex, index) => {
     const expectedOutput = {
       intent_type: 'calendar_event',
@@ -87,7 +105,8 @@ export function getExamplesForPrompt(maxExamples: number = 3, inputText?: string
       ? ex.text.substring(0, 300) + '...'
       : ex.text;
 
-    return `### Beispiel ${index + 1}: ${ex.description}
+    const prefix = isGerman ? 'Beispiel' : 'Example';
+    return `### ${prefix} ${index + 1}: ${ex.description}
 **Input:**
 \`\`\`
 ${textSnippet}
@@ -98,7 +117,8 @@ ${JSON.stringify(expectedOutput, null, 2)}
 \`\`\``;
   });
 
-  return `## Lernbeispiele (Few-Shot)\n\n${formatted.join('\n\n')}`;
+  const heading = isGerman ? 'Lernbeispiele (Few-Shot)' : 'Learning Examples (Few-Shot)';
+  return `## ${heading}\n\n${formatted.join('\n\n')}`;
 }
 
 /**

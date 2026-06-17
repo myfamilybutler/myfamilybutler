@@ -20,6 +20,7 @@ export interface DbUser {
   is_admin?: boolean;
   is_household_admin?: boolean;
   identity_linked_at?: string | null;
+  language?: 'de' | 'en' | null;
   created_at?: string;
 }
 

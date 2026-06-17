@@ -14,7 +14,7 @@ import { logError } from '@/lib/utils/logger';
  * Keep this list in sync with the UI's DbUser shape.
  */
 export const DASHBOARD_USER_COLUMNS =
-  'id, display_name, phone_number, household_id, is_household_admin, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin';
+  'id, display_name, phone_number, household_id, is_household_admin, onboarding_modal_shown, identity_linked_at, linked_email, email_verified, phone_verified, telegram_chat_id, whatsapp_verified, is_admin, language';
 
 /**
  * Result of findOrCreateUser operation
@@ -52,6 +52,7 @@ export async function findOrCreateUser(
   }
 
   // 2. Create new user with onboarding_source
+  const isGermanPhone = normalized.startsWith('+43') || normalized.startsWith('+49') || normalized.startsWith('+41');
   const { data: newUser, error } = await admin
     .from('users')
     .insert({
@@ -59,6 +60,7 @@ export async function findOrCreateUser(
       subscription_status: 'free',
       onboarding_source: channel,
       onboarding_modal_shown: false,
+      language: isGermanPhone ? 'de' : 'en',
     })
     .select()
     .single();
@@ -133,6 +135,7 @@ export async function ensureUserFromAuth(authUser: {
       onboarding_source: 'web',
       email_verified: !!authUser.email_confirmed_at,
       onboarding_modal_shown: false,
+      language: 'en',
     })
     .select()
     .single();
