@@ -35,14 +35,15 @@ creates calendar events automatically.
 
 ## 🚀 Demo
 
-- **Live app**: *(add your production URL here)*
-- **Landing page**: *(add your marketing URL here)*
+- **Live app**: [https://myfamilybutler.com](https://myfamilybutler.com)
+- **Landing page**: [https://myfamilybutler.com](https://myfamilybutler.com)
 
-<!-- Uncomment once screenshots are available
 <p align="center">
-  <img src="./docs/assets/dashboard-preview.png" alt="Dashboard preview" width="600">
+  <img src="./docs/assets/dashboard-preview.png" alt="Dashboard preview" width="800">
 </p>
--->
+<p align="center">
+  <img src="./docs/assets/demo.gif" alt="Demo showing WhatsApp integration" width="800">
+</p>
 
 ## 🛠️ Tech Stack
 
@@ -67,6 +68,8 @@ creates calendar events automatically.
 - (Optional) Messaging provider accounts for WhatsApp, Telegram, or 360dialog
 
 ## ⚡ Quick Start
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmyfamilybutler%2Fmyfamilybutler&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,SUPABASE_SERVICE_ROLE_KEY,GOOGLE_GEMINI_API_KEY)
 
 ```bash
 # Clone the repository
