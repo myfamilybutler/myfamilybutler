@@ -66,7 +66,8 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.106.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify Supabase CLI is available
         run: |
@@ -88,7 +89,8 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.106.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate required secrets
         env:
